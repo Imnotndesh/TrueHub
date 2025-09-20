@@ -19,4 +19,5 @@ object Prefs {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(SERVER_URL, null) to prefs.getBoolean(SERVER_INSECURE, false)
     }
+
 }
