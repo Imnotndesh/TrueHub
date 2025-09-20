@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">TrueHub</string>
+    <string name="title_activity_setup_screen">SetupScreen</string>
+</resources>
