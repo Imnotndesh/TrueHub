@@ -4,10 +4,14 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.truehub.data.Client
 import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.ui.LoginScreen
+import com.example.truehub.ui.MainScreen
 import com.example.truehub.ui.SetupScreen
 
 class MainActivity : ComponentActivity() {
@@ -31,7 +35,12 @@ class MainActivity : ComponentActivity() {
                     // already configured, connect directly
                     client = Client(savedUrl, savedInsecure)
                     client?.connect()
-                    LoginScreen(Auth(client!!))
+
+                    val isLoggedIn by EncryptedPrefs.isLoggedInFlow(this).collectAsState(initial = false)
+                    when (isLoggedIn){
+                        true -> MainScreen()
+                        false -> LoginScreen(Auth(client!!))
+                    }
                 }
             }
         }

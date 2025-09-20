@@ -27,7 +27,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.helpers.models.LoginMode
 import kotlinx.coroutines.launch
 
@@ -37,6 +39,7 @@ fun LoginScreen(auth: Auth) {
     var password by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     var loginMode by remember { mutableStateOf(LoginMode.PASSWORD) }
+    val navController = rememberNavController()
 
     // TODO: Add the api_key section
     val context = LocalContext.current
@@ -98,6 +101,8 @@ fun LoginScreen(auth: Auth) {
                                 if (success) "Login successful" else "Login failed",
                                 Toast.LENGTH_SHORT
                             ).show()
+                            EncryptedPrefs.saveIsLoggedIn(context,true)
+                            navController.navigate(Screen.Home)
                         } else{
                           val success = auth.loginWithApiKey(apiKey)
                           Toast.makeText(
@@ -105,6 +110,9 @@ fun LoginScreen(auth: Auth) {
                               if (success) "Login successful" else "Login failed",
                               Toast.LENGTH_SHORT
                           ).show()
+                            EncryptedPrefs.saveIsLoggedIn(context,true)
+                            EncryptedPrefs.saveApiKey(context,apiKey)
+                            navController.navigate(Screen.Home)
                         }
                     } catch (e: Exception) {
                         Toast.makeText(
