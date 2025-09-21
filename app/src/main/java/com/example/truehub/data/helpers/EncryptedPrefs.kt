@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.map
 
 private const val API_KEY_PREF = "api_key"
 private const val IS_LOGGED_IN = "is_logged_in"
+private const val USERNAME_PREF = "username"
+private const val AUTH_TOKEN_PREF = "auth_token"
+private const val LOGIN_METHOD_PREF = "login_method"
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name ="secure_preferences")
 object EncryptedPrefs {
     suspend fun saveApiKey(context: Context,apiKey : String){
@@ -40,5 +43,48 @@ object EncryptedPrefs {
         context.dataStore.edit {
             it[isLoggedInPref] = isLoggedIn
         }
+    }
+
+    suspend fun saveUsername(context: Context,username:String){
+        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+        context.dataStore.edit {
+            it[usernamePref] = username
+        }
+    }
+
+    suspend fun getUsername(context: Context) : String?{
+        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+        val preferences = context.dataStore.data.first()
+        return preferences[usernamePref]
+    }
+
+    suspend fun clear(context: Context){
+        context.dataStore.edit {
+            it.clear()
+        }
+    }
+
+    suspend fun saveAuthToken(context: Context,token:String){
+        val tokenPref = stringPreferencesKey(AUTH_TOKEN_PREF)
+        context.dataStore.edit {
+            it[tokenPref] = token
+        }
+    }
+    suspend fun getAuthToken(context: Context) : String?{
+        val tokenPref = stringPreferencesKey(AUTH_TOKEN_PREF)
+        val preferences = context.dataStore.data.first()
+        return preferences[tokenPref]
+    }
+
+    suspend fun saveLoginMethod(context: Context,method: String){
+        val loginMethodPref = stringPreferencesKey(LOGIN_METHOD_PREF)
+        context.dataStore.edit {
+            it[loginMethodPref] = method
+        }
+    }
+    suspend fun getLoginMethod(context: Context) : String?{
+        val loginMethodPref = stringPreferencesKey(LOGIN_METHOD_PREF)
+        val preferences = context.dataStore.data.first()
+        return preferences[loginMethodPref]
     }
 }

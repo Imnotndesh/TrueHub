@@ -14,13 +14,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.ui.profile.ProfileScreen
 
 @Composable
-fun MainScreen() {
+fun MainScreen(auth : Auth,rootNavController: NavController) {
     val navController = rememberNavController()
     val items = listOf(Screen.Home, Screen.Services, Screen.Profile)
 
@@ -40,7 +43,7 @@ fun MainScreen() {
                             }
                         },
                         label = { Text(screen.title) },
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) } // you can swap icons per screen
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) }
                     )
                 }
             }
@@ -53,7 +56,9 @@ fun MainScreen() {
         ) {
             composable(Screen.Home.route) { PageContent("Home Page") }
             composable(Screen.Services.route) { PageContent("Services Page") }
-            composable(Screen.Profile.route) { PageContent("Profile Page") }
+            composable(Screen.Profile.route) { ProfileScreen(auth,{
+                rootNavController.navigate(Screen.Settings.route)
+            }) }
         }
     }
 }

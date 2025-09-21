@@ -1,5 +1,6 @@
 package com.example.truehub.data
 
+// Unsafe client import
 import android.util.Log
 import com.example.truehub.helpers.models.Request
 import com.example.truehub.helpers.models.Response
@@ -10,14 +11,14 @@ import kotlinx.coroutines.CompletableDeferred
 import okhttp3.OkHttpClient
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import okhttp3.Request as wsRequest
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
-
-// Unsafe client import
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-import javax.net.ssl.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import okhttp3.Request as wsRequest
 
 class Client (private val serverUrl: String, private val insecure : Boolean = false){
     private val client : OkHttpClient=if (insecure){
@@ -42,6 +43,8 @@ class Client (private val serverUrl: String, private val insecure : Boolean = fa
         webSocket = client.newWebSocket(request,object : WebSocketListener(){
             override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
                 super.onOpen(webSocket, response)
+
+                // DEBUG: Will remove
                 Log.e(logName, "Connected")
             }
 
@@ -64,7 +67,10 @@ class Client (private val serverUrl: String, private val insecure : Boolean = fa
                 response: okhttp3.Response?
             ) {
                 super.onFailure(webSocket, t, response)
+
+                // DEBUG: Will remove
                 Log.e(logName, "Error: ${t.message}")
+
                 pendingRequests.values.forEach {
                     it.completeExceptionally(t)
                 }
@@ -105,7 +111,8 @@ class Client (private val serverUrl: String, private val insecure : Boolean = fa
         response.error?.let {
             throw RuntimeException("RPC Error: ${it.error}")
         }
-
+        // DEBUG: Will remove
+        Log.e(logName, "Received: $response")
 
         val adapter = moshi.adapter(resultClass)
         return adapter.fromJsonValue(response.result!!)!!

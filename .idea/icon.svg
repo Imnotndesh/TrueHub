@@ -1,0 +1,66 @@
+<svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="serverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ledGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect x="12" y="12" width="168" height="168" rx="36" ry="36" fill="url(#bgGradient)" filter="url(#shadow)"/>
+  
+  <!-- Server rack container -->
+  <rect x="36" y="48" width="120" height="96" rx="8" ry="8" fill="url(#serverGradient)" stroke="#cbd5e1" stroke-width="1"/>
+  
+  <!-- Server units -->
+  <rect x="44" y="58" width="104" height="14" rx="2" ry="2" fill="#64748b" opacity="0.8"/>
+  <rect x="44" y="78" width="104" height="14" rx="2" ry="2" fill="#64748b" opacity="0.8"/>
+  <rect x="44" y="98" width="104" height="14" rx="2" ry="2" fill="#64748b" opacity="0.8"/>
+  <rect x="44" y="118" width="104" height="14" rx="2" ry="2" fill="#64748b" opacity="0.8"/>
+  
+  <!-- LED indicators -->
+  <circle cx="52" cy="65" r="2" fill="url(#ledGradient)"/>
+  <circle cx="52" cy="85" r="2" fill="url(#ledGradient)"/>
+  <circle cx="52" cy="105" r="2" fill="#ef4444"/>
+  <circle cx="52" cy="125" r="2" fill="url(#ledGradient)"/>
+  
+  <!-- Ventilation grilles -->
+  <g opacity="0.4">
+    <rect x="120" y="61" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="63" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="65" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="67" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="69" width="20" height="1" fill="#475569"/>
+    
+    <rect x="120" y="81" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="83" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="85" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="87" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="89" width="20" height="1" fill="#475569"/>
+    
+    <rect x="120" y="101" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="103" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="105" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="107" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="109" width="20" height="1" fill="#475569"/>
+    
+    <rect x="120" y="121" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="123" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="125" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="127" width="20" height="1" fill="#475569"/>
+    <rect x="120" y="129" width="20" height="1" fill="#475569"/>
+  </g>
+  
+
+</svg>
