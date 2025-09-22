@@ -12,7 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.Client
-import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.api.Auth
 import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.ui.LoginScreen
@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var client: Client? = null
+    private var auth: Auth? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +39,16 @@ class MainActivity : ComponentActivity() {
                 client = Client(savedUrl, savedInsecure)
                 client?.connect()
             }
+            LaunchedEffect(Unit) {
+                while (true) {
+                    try {
+                        auth?.keepConnection()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    kotlinx.coroutines.delay(30 * 1000L)
+                }
+            }
             val isLoggedIn by EncryptedPrefs.isLoggedInFlow(this).collectAsState(initial = false)
             LaunchedEffect(isLoggedIn) {
                 if (isLoggedIn && client != null) {
@@ -45,12 +56,14 @@ class MainActivity : ComponentActivity() {
                     val token = EncryptedPrefs.getAuthToken(this@MainActivity)
                     if (token != null) {
                         try {
-                            val auth = Auth(client!!)
-                            val success = auth.loginWithToken(token)
-                            if (!success) {
-                                Toast.makeText(this@MainActivity,"Token invalid. Please login again",Toast.LENGTH_SHORT).show()
-                                EncryptedPrefs.clear(this@MainActivity)
-                                navController.navigate(Screen.Login.route) {     popUpTo(navController.graph.startDestinationId) { inclusive = true }}
+                            auth = Auth(client!!)
+                            val success = auth?.loginWithToken(token)
+                            success?.let {
+                                if (!it) {
+                                    Toast.makeText(this@MainActivity,"Token invalid. Please login again",Toast.LENGTH_SHORT).show()
+                                    EncryptedPrefs.clear(this@MainActivity)
+                                    navController.navigate(Screen.Login.route) {     popUpTo(navController.graph.startDestinationId) { inclusive = true }}
+                                }
                             }
                             SplashController.hide()
                             navController.navigate(Screen.Main.route) {     popUpTo(navController.graph.startDestinationId) { inclusive = true }}

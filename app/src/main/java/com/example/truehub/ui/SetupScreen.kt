@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.truehub.data.api_methods.AnimatedWavyGradientBackground
+import com.example.truehub.ui.background.AnimatedWavyGradientBackground
 import java.util.regex.Pattern
 
 @OptIn(ExperimentalMaterial3Api::class)

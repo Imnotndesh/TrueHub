@@ -1,4 +1,4 @@
-package com.example.truehub.data.api_methods
+package com.example.truehub.data.api
 
 object ApiMethod {
     object Auth {
@@ -9,5 +9,11 @@ object ApiMethod {
         const val AUTH_ME = "auth.me"
         const val GEN_AUTH_TOKEN = "auth.generate_token"
 
+    }
+    object Connection{
+        const val CONNECTION_KEEP_ALIVE = "core.ping"
+    }
+    object System {
+        const val SYSTEM_INFO = "system.info"
     }
 }

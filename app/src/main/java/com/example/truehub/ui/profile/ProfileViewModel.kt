@@ -3,39 +3,33 @@ package com.example.truehub.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.truehub.data.api_methods.Auth
-import com.example.truehub.helpers.models.AuthUserDetailsResponse
+import com.example.truehub.data.api.Auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class ProfileViewModel(private val auth: Auth): ViewModel() {
-    data class ProfileUiState(
-        val user : AuthUserDetailsResponse? = null,
-        val error : String? = null,
-        val isLoading : Boolean = false,
-        val isConnected: Boolean = true,
-        val isAuthenticated: Boolean = true
-    )
+class ProfileViewModel(private val auth: Auth) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState(isLoading = true))
-    val uiState: StateFlow<ProfileUiState> = _uiState
+    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
+    val uiState: StateFlow<UiState> = _uiState
 
     init {
-        refreshUser()
+        refresh()
     }
 
-    fun refreshUser() {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+    fun refresh() {
+        _uiState.value = UiState.Loading
         viewModelScope.launch {
             try {
                 val user = auth.getUserDetails()
-                _uiState.value = ProfileUiState(user = user, isLoading = false)
+                val system = auth.getSystemInfo()
+                _uiState.value = UiState.Success(user, system)
             } catch (e: Exception) {
-                _uiState.value = ProfileUiState(error = e.message, isLoading = false)
+                _uiState.value = UiState.Error(e.message ?: "Unknown error")
             }
         }
     }
+
     class ProfileViewModelFactory(
         private val auth: Auth
     ) : ViewModelProvider.Factory {

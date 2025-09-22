@@ -57,11 +57,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.truehub.data.api_methods.AnimatedWavyGradientBackground
-import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.api.Auth
 import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.helpers.models.LoginMode
+import com.example.truehub.ui.background.AnimatedWavyGradientBackground
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -282,11 +282,13 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                             EncryptedPrefs.saveUsername(context, username)
                                             EncryptedPrefs.saveLoginMethod(context, "password")
 
+                                            // Token generation
                                             val token = auth.generateToken()
                                             EncryptedPrefs.saveAuthToken(context, token = token)
 
+                                            // Success text
                                             Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
-
+                                            // Navigate to home
                                             navController.navigate(Screen.Main.route) {
                                                 popUpTo(Screen.Login.route) { inclusive = true }
                                                 launchSingleTop = true

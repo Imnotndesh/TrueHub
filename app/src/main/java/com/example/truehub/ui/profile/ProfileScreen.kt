@@ -1,5 +1,6 @@
 package com.example.truehub.ui.profile
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,8 +41,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.api.Auth
 import com.example.truehub.helpers.models.AuthUserDetailsResponse
+import com.example.truehub.helpers.models.System
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,23 +57,17 @@ fun ProfileScreen(
     val state by viewModel.uiState.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading -> {
-                LoadingScreen()
-            }
-            state.error != null -> {
-                ErrorScreen(error = state.error!!) {
-                    viewModel.refreshUser()
-                }
-            }
-            state.user != null -> {
-                ProfileContent(
-                    user = state.user!!,
-                    onRefresh = { viewModel.refreshUser() },
-                    onSettingsClick = onSettingsClick
-                )
-            }
+        when (val s = state) {
+            is UiState.Loading -> LoadingScreen()
+            is UiState.Error -> ErrorScreen(error = s.message) { viewModel.refresh() }
+            is UiState.Success -> ProfileContent(
+                user = s.user,
+                systemInfo = s.system,
+                onRefreshProfile = { viewModel.refresh() },
+                onSettingsClick = onSettingsClick
+            )
         }
+
     }
 }
 
@@ -135,8 +131,9 @@ private fun ErrorScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileContent(
-    user: AuthUserDetailsResponse, // Replace with your actual User type
-    onRefresh: () -> Unit,
+    user: AuthUserDetailsResponse,
+    systemInfo : System.SystemInfo,
+    onRefreshProfile: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     Column(
@@ -241,20 +238,10 @@ private fun ProfileContent(
                     value = user.username
                 )
 
-                Divider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                )
-
                 // Full name
                 ProfileDetailItem(
                     label = "Full Name",
                     value = user.fullName ?: "Not provided"
-                )
-
-                Divider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
 
                 // Account type
@@ -265,10 +252,6 @@ private fun ProfileContent(
 
                 // Roles section
                 if (user.accountAttributes.isNotEmpty()) {
-                    Divider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                    )
 
                     Column {
                         Text(
@@ -300,36 +283,103 @@ private fun ProfileContent(
                         }
                     }
                 }
+                Button(
+                    onClick = onRefreshProfile,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "Refresh Profile",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        // Refresh button
+        // Details Section
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Button(
-                onClick = onRefresh,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+            Column(
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = "Refresh Profile",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
+                // Title Row with Refresh
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Instance Details",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    IconButton(onClick = onRefreshProfile) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Log.e("UI-Log",systemInfo.toString())
+                        InfoRow("Hostname", systemInfo.hostname)
+                        InfoRow("Version", systemInfo.version)
+                        InfoRow("Model", systemInfo.model)
+                        InfoRow("CPU Cores", "${systemInfo.cores} (${systemInfo.physicalCores} physical)")
+                        InfoRow("Memory", "${systemInfo.physMem / (1024 * 1024)} MB")
+                        InfoRow("Uptime", systemInfo.uptime)
 
-        // Bottom spacing
-        Spacer(modifier = Modifier.height(24.dp))
+                        // License badge with background highlight
+                        systemInfo.license?.let { license ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        when {
+                                            license.contains("Enterprise", ignoreCase = true) ->
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            license.contains("Trial", ignoreCase = true) ->
+                                                MaterialTheme.colorScheme.errorContainer
+                                            else ->
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                        shape = MaterialTheme.shapes.small
+                                    )
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "License: $license",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // System Manufacturer & Product
+                        InfoRow("Manufacturer", systemInfo.systemManufacturer ?: "Unknown")
+                        InfoRow("Product", systemInfo.systemProduct ?: "Unknown")
+                    }
+            }
+                // Bottom spacing
+            Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 }
 
@@ -349,6 +399,26 @@ private fun ProfileDetailItem(
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
     }

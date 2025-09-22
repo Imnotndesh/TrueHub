@@ -1,4 +1,4 @@
-package com.example.truehub.data.api_methods
+package com.example.truehub.ui.background
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.truehub.data.api.Auth
 import kotlin.math.PI
 import kotlin.math.sin
 

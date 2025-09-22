@@ -1,7 +1,12 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>boottime</w>
+      <w>buildtime</w>
+      <w>gecos</w>
       <w>jsonrpc</w>
+      <w>loadavg</w>
+      <w>physmem</w>
       <w>truehub</w>
     </words>
   </dictionary>

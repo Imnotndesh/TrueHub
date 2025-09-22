@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.HomeRepairService
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -19,7 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.example.truehub.data.api_methods.Auth
+import com.example.truehub.data.api.Auth
 import com.example.truehub.ui.profile.ProfileScreen
 
 @Composable
@@ -43,7 +45,12 @@ fun MainScreen(auth : Auth,rootNavController: NavController) {
                             }
                         },
                         label = { Text(screen.title) },
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) }
+                        icon = { Icon(when (screen){
+                            Screen.Home -> Icons.Filled.Home
+                            Screen.Services -> Icons.Filled.HomeRepairService
+                            Screen.Profile -> Icons.Filled.Person
+                            else -> Icons.Filled.Home
+                        }, contentDescription = null) }
                     )
                 }
             }

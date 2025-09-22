@@ -20,7 +20,7 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import okhttp3.Request as wsRequest
 
-class Client (private val serverUrl: String, private val insecure : Boolean = false){
+class Client (private val serverUrl: String, insecure : Boolean = false){
     private val client : OkHttpClient=if (insecure){
         createUnsafeClient()
     }else{
@@ -28,7 +28,6 @@ class Client (private val serverUrl: String, private val insecure : Boolean = fa
     }
     private var webSocket: WebSocket? = null
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
-
     private val responseAdapter = moshi.adapter<Response<Any>>(
         Types.newParameterizedType(Response::class.java, Any::class.java)
     )
