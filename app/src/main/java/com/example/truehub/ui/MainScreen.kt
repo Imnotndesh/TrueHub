@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.api.Auth
 import com.example.truehub.ui.profile.ProfileScreen
+import com.example.truehub.ui.services.ServicesScreen
 
 @Composable
 fun MainScreen(auth : Auth,rootNavController: NavController) {
@@ -62,10 +63,11 @@ fun MainScreen(auth : Auth,rootNavController: NavController) {
             Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) { PageContent("Home Page") }
-            composable(Screen.Services.route) { PageContent("Services Page") }
-            composable(Screen.Profile.route) { ProfileScreen(auth,{
+            composable(Screen.Services.route) { ServicesScreen(auth) }
+            composable(Screen.Profile.route) { ProfileScreen(auth) {
                 rootNavController.navigate(Screen.Settings.route)
-            }) }
+            }
+            }
         }
     }
 }

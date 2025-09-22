@@ -338,7 +338,6 @@ private fun ProfileContent(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Log.e("UI-Log",systemInfo.toString())
                         InfoRow("Hostname", systemInfo.hostname)
                         InfoRow("Version", systemInfo.version)
                         InfoRow("Model", systemInfo.model)

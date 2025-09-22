@@ -16,4 +16,7 @@ object ApiMethod {
     object System {
         const val SYSTEM_INFO = "system.info"
     }
+    object Apps {
+        const val QUERY_APPS = "app.query"
+    }
 }

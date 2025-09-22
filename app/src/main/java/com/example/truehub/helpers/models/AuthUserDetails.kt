@@ -1,7 +1,7 @@
 package com.example.truehub.helpers.models
 
 import com.squareup.moshi.Json
-
+// TODO: Convert all @field:json to @SerialName and @Serializable for safer calls
 data class AuthUserDetailsResponse (
     @field:Json(name="pw_name")
     val username : String,

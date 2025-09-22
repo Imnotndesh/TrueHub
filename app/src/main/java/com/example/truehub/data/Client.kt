@@ -11,6 +11,7 @@ import kotlinx.coroutines.CompletableDeferred
 import okhttp3.OkHttpClient
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.lang.reflect.Type
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
@@ -96,9 +97,9 @@ class Client (private val serverUrl: String, insecure : Boolean = false){
             .build()
     }
 
-    suspend fun <T> call(method: String, params: List<Any?>, resultClass: Class<T>):T{
+    suspend fun <T> call(method: String, params: List<Any?>, resultType: Type): T {
         val id = idCounter.getAndAdd(1)
-        val request = Request(id=id,method=method,params=params)
+        val request = Request(id = id, method = method, params = params)
         val deferred = CompletableDeferred<Response<Any>>()
         pendingRequests[id] = deferred
 
@@ -110,10 +111,9 @@ class Client (private val serverUrl: String, insecure : Boolean = false){
         response.error?.let {
             throw RuntimeException("RPC Error: ${it.error}")
         }
-        // DEBUG: Will remove
-        Log.e(logName, "Received: $response")
+        // Log.e(logName, "Received: $response")
 
-        val adapter = moshi.adapter(resultClass)
+        val adapter = moshi.adapter<T>(resultType)
         return adapter.fromJsonValue(response.result!!)!!
     }
 
