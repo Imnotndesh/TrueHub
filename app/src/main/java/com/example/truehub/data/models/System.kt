@@ -1,66 +1,64 @@
 package com.example.truehub.data.models
 
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import com.squareup.moshi.Json
+
 
 object System {
-    @Serializable
+    @Suppress("PropertyName")
     data class SystemInfo(
-        @SerialName("version")
+        @field:Json(name = "version")
         val version: String,
-        @SerialName( "buildtime")
-        val buildTime: Long?,
 
-        @SerialName( "hostname")
+        // buildTime from JSON is like {"$date": 1753934385000}
+        // Easiest is to map to Map<String, Long> or a specific data class
+        @field:Json("buildtime")    val buildTime: Map<String, Long>?, // Or define a DateWrapper class: data class DateWrapper(@Json("\$date") val date: Long)
+
+        @field:Json("hostname")
         val hostname: String,
 
-        @SerialName( "physmem")
-        val physMem: Double,
+        @field:Json("physmem") // JSON has 7806451712 (integer) in one log, 7.806451712E9 in another. Long is safer.
+        val physMem: Long = 1, // Default is fine for testing
 
-        @SerialName( "model")
+        @field:Json("model")
         val model: String,
 
-        @SerialName( "cores")
+        @field:Json("cores")
         val cores: Double,
 
-        @SerialName( "physical_cores")
-        val physicalCores: Int,
+        @field:Json("physical_cores")
+        val physical_cores: Int? = null,
 
-        @SerialName( "loadavg")
-        val loadAvg: List<Double>,
+        @field:Json("loadavg")
+        val loadavg: List<Double>,
 
-        @SerialName( "uptime")
+        @field:Json("uptime")
         val uptime: String,
 
-        @SerialName( "uptime_seconds")
-        val uptimeSeconds: Double,
-
-        @SerialName( "system_serial")
+        @field:Json("system_serial")
         val systemSerial: String?,
 
-        @SerialName( "system_product")
+        @field:Json("system_product")
         val systemProduct: String?,
 
-        @SerialName( "system_product_version")
+        @field:Json("system_product_version")
         val systemProductVersion: String?,
 
-        @SerialName( "license")
+        @field:Json("license")
         val license: String?,
 
-        @SerialName( "boottime")
-        val bootTime: Long?,
+        @field:Json("boottime")
+        val bootTime: Map<String, Long>?,
 
-        @SerialName( "datetime")
-        val dateTime: Long?,
+        @field:Json("datetime")
+        val dateTime: Map<String, Long>?,
 
-        @SerialName( "timezone")
-        val timeZone: String,
+        @field:Json("timezone")
+        val timezone: String,
 
-        @SerialName( "system_manufacturer")
-        val systemManufacturer: String?,
+        @field:Json("system_manufacturer")
+        val system_manufacturer: String?,
 
-        @SerialName( "ecc_memory")
-        val eccMemory: Boolean
+        @field:Json("ecc_memory")
+        val ecc_memory: Boolean
     )
-
 }

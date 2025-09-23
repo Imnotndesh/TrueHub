@@ -1,56 +1,58 @@
 package com.example.truehub.data.models
 
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import com.squareup.moshi.Json
 
 object Auth {
     enum class LoginMode {
         PASSWORD,
         API_KEY
     }
-    @Serializable
-    data class AuthResponse(
-        @SerialName("pw_name")
-        val pwName: String,
 
-        @SerialName("pw_gecos")
+    @Suppress("PropertyName")
+    data class AuthResponse(
+        //@field:Json("pw_name")
+        val pw_name: String? = "missing",
+
+        @field:Json("pw_gecos")
         val pwGecos: String? = null,
 
-        @SerialName("pw_dir")
+        @field:Json("pw_dir")
         val pwDir: String? = null,
 
-        @SerialName("pw_shell")
+        @field:Json("pw_shell")
         val pwShell: String? = null,
 
-        @SerialName("pw_uid")
+        @field:Json("pw_uid")
         val pwUid: Long? = null,
 
-        @SerialName("pw_gid")
+        @field:Json("pw_gid")
         val pwGid: Long? = null,
 
-        @SerialName("grouplist")
+        @field:Json("grouplist")
         val groupList: List<String>? = null,
 
-        @SerialName("sid")
+        @field:Json("sid")
         val sid: String? = null,
 
-        @SerialName("source")
+        @field:Json("source")
         val source: String? = null,
 
-        @SerialName("local")
+        @field:Json("local")
         val local: Boolean,
 
-        @SerialName("attributes")
-        val attributes: Map<String, @Contextual Any>? = null,
+        // CHANGE HERE: Remove @Contextual
+        @field:Json("attributes")
+        val attributes: Map<String, Any>? = null,
 
-        @SerialName("two_factor_config")
-        val twoFactorConfig: Map<String, @Contextual Any>? = null,
+        // CHANGE HERE: Remove @Contextual
+        @field:Json("two_factor_config")
+        val twoFactorConfig: Map<String, Any>? = null,
 
-        @SerialName("privilege")
-        val privilege: Map<String, @Contextual Any>? = null,
+        // CHANGE HERE: Remove @Contextual
+        @field:Json("privilege")
+        val privilege: Map<String, Any>? = null,
 
-        @SerialName("account_attributes")
+        @field:Json("account_attributes")
         val accountAttributes: List<String> = emptyList()
     )
 }

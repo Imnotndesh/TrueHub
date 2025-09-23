@@ -195,7 +195,7 @@ private fun ProfileContent(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = user.pwGecos ?: user.pwName,
+                    text = user.pwGecos ?: user.pw_name ?: "missing",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -203,7 +203,7 @@ private fun ProfileContent(
 
                 if (user.pwGecos != null) {
                     Text(
-                        text = "@${user.pwName}",
+                        text = "@${user.pw_name}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -234,7 +234,7 @@ private fun ProfileContent(
                 // Username
                 ProfileDetailItem(
                     label = "Username",
-                    value = user.pwName
+                    value = user.pw_name ?: "Missing"
                 )
 
                 // Full name
@@ -340,7 +340,7 @@ private fun ProfileContent(
                         InfoRow("Hostname", systemInfo.hostname)
                         InfoRow("Version", systemInfo.version)
                         InfoRow("Model", systemInfo.model)
-                        InfoRow("CPU Cores", "${systemInfo.cores} (${systemInfo.physicalCores} physical)")
+                        InfoRow("CPU Cores", "${systemInfo.cores} (${systemInfo.physical_cores} physical)")
                         InfoRow("Memory", "${systemInfo.physMem / (1024 * 1024)} MB")
                         InfoRow("Uptime", systemInfo.uptime)
 
@@ -371,7 +371,7 @@ private fun ProfileContent(
                         }
 
                         // System Manufacturer & Product
-                        InfoRow("Manufacturer", systemInfo.systemManufacturer ?: "Unknown")
+                        InfoRow("Manufacturer", systemInfo.system_manufacturer ?: "Unknown")
                         InfoRow("Product", systemInfo.systemProduct ?: "Unknown")
                     }
             }

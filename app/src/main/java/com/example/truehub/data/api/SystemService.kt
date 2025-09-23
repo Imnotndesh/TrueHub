@@ -9,7 +9,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         return client.call(
             method = ApiMethods.System.SYSTEM_INFO,
             params = listOf(),
-            resultType = Any::class.java
+            resultType = System.SystemInfo::class.java
         )
     }
     suspend fun getSystemInfoWithResult(): ApiResult<System.SystemInfo> {
