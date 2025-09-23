@@ -2,14 +2,14 @@ package com.example.truehub.data.models
 import com.squareup.moshi.Json
 
 object Apps {
-
+    @Suppress("PropertyName")
     data class AppQueryResponse(
         val name: String,
         val id: String,
         val state: String,
-        @field:Json("upgrade_available") val upgradeAvailable: Boolean = false,
+        @field:Json("upgrade_available") val upgrade_available: Boolean = false,
         @field:Json("latest_version") val latestVersion: String? = null,
-        @field:Json("image_updates_available") val imageUpdatesAvailable: Boolean = false,
+        @field:Json("image_updates_available") val image_Updates_available: Boolean = false,
         @field:Json("custom_app") val customApp: Boolean = false,
         val migrated: Boolean = false,
         @field:Json("human_version") val humanVersion: String? = null,

@@ -79,6 +79,36 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
         loadApps()
     }
 
+    // Start sleeping app
+    fun startApp(appName:String){
+        viewModelScope.launch {
+            val result = manager.apps.startAppWithResult(appName)
+            when(result){
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = null
+                    )
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = result.message
+                    )
+                }
+                is ApiResult.Loading -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = true,
+                        isRefreshing = false,
+                        error = null
+                    )
+                }
+            }
+        }
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
     }

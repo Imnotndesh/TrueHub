@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
@@ -39,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -159,7 +157,8 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 else -> {
                     ServicesContent(
                         apps = uiState.apps,
-                        isRefreshing = uiState.isRefreshing
+                        isRefreshing = uiState.isRefreshing,
+                        onStartApp = {appName ->viewModel.startApp(appName)}
                     )
                 }
             }
@@ -217,7 +216,8 @@ private fun EmptyContent() {
 @Composable
 private fun ServicesContent(
     apps: List<Apps.AppQueryResponse>,
-    isRefreshing: Boolean
+    isRefreshing: Boolean,
+    onStartApp : (String) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -234,7 +234,7 @@ private fun ServicesContent(
         }
 
         items(apps) { app ->
-            ServiceCard(app = app)
+            ServiceCard(app = app,onStartApp = onStartApp)
         }
 
         // Bottom spacing
@@ -246,34 +246,25 @@ private fun ServicesContent(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ServiceCard(app: Apps.AppQueryResponse) {
+private fun ServiceCard(
+    app: Apps.AppQueryResponse,
+    onStartApp: (String) -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            // Status Indicator
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(getStatusColor(app.state))
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // App Info
-            Column(
-                modifier = Modifier.weight(1f)
+            // -------- Top Row --------
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = app.metadata?.title ?: app.name,
@@ -281,36 +272,50 @@ private fun ServiceCard(app: Apps.AppQueryResponse) {
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f) // pushes button to right
                 )
 
+                IconButton(
+                    onClick = { onStartApp(app.name) },
+                    enabled = !app.state.equals("running", ignoreCase = true)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Start App",
+                        tint = if (app.state.equals("running", ignoreCase = true))
+                            MaterialTheme.colorScheme.outline
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // -------- Bottom Row --------
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = "ID: ${app.id}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    StatusChip(
-                        state = app.state,
-                        icon = getStatusIcon(app.state)
-                    )
-
-                    if (app.upgradeAvailable) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        UpgradeChip()
-                    }
+                if (app.upgrade_available){
+                UpgradeChip()
                 }
+                Spacer(Modifier.width(2.dp))
+                StatusChip(state = app.state, icon = getStatusIcon(app.state))
             }
         }
     }
 }
+
 
 @Composable
 private fun StatusChip(
