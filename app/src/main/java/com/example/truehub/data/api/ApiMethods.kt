@@ -18,5 +18,6 @@ object ApiMethods {
     }
     object Apps {
         const val QUERY_APPS = "app.query"
+        const val START_APP = "app.start"
     }
 }

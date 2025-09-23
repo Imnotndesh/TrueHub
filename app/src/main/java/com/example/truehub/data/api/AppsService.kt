@@ -22,4 +22,20 @@ class AppsService(client: TrueNASClient) : BaseApiService(client) {
             ApiResult.Error("Failed to get installed apps: ${e.message}", e)
         }
     }
+    suspend fun startApp(appName : String){
+        client.call<Any?>(
+            method = ApiMethods.Apps.START_APP,
+            params = listOf(appName),
+            resultType = Any::class.java
+        )
+    }
+    suspend fun startAppWithResult(appName: String): ApiResult<Any>{
+        return try {
+            val result = startApp(appName)
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to start app: ${e.message}", e)
+        }
+    }
+
 }
