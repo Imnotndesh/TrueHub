@@ -12,11 +12,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.TrueHub" >
         <activity
-            android:name=".ui.SetupScreen"
-            android:exported="false"
-            android:label="@string/title_activity_setup_screen"
-            android:theme="@style/Theme.TrueHub" />
-        <activity
             android:name=".MainActivity"
             android:exported="true" >
             <intent-filter>

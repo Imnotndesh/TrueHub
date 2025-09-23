@@ -1,4 +1,4 @@
-package com.example.truehub.ui
+package com.example.truehub.ui.login
 
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -36,11 +36,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,25 +56,51 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.truehub.data.api.Auth
-import com.example.truehub.data.helpers.EncryptedPrefs
+import com.example.truehub.data.ApiResult
+import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
-import com.example.truehub.helpers.models.LoginMode
+import com.example.truehub.data.models.Auth.LoginMode
+import com.example.truehub.ui.Screen
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(auth: Auth, navController: NavController) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
-    var loginMode by remember { mutableStateOf(LoginMode.PASSWORD) }
-    var isPasswordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-
+fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
+    val viewModel = remember { LoginScreenViewModel(manager) }
+    val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+
+    // Handle login success navigation
+    LaunchedEffect(uiState.isLoginSuccessful) {
+        if (uiState.isLoginSuccessful) {
+            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
+            navController.navigate(Screen.Main.route) {
+                popUpTo(Screen.Login.route) { inclusive = true }
+                launchSingleTop = true
+            }
+            viewModel.handleEvent(LoginEvent.ResetLoginState)
+        }
+    }
+
+    // Handle error messages
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            viewModel.handleEvent(LoginEvent.ClearError)
+        }
+    }
+
+    // Show loading screen when appropriate
+    if (uiState.isLoading && (uiState.loginResult is ApiResult.Loading || uiState.tokenResult is ApiResult.Loading)) {
+        LoadingScreen(
+            message = when {
+                uiState.loginResult is ApiResult.Loading -> "Authenticating..."
+                uiState.tokenResult is ApiResult.Loading -> "Generating token..."
+                else -> "Please wait..."
+            }
+        )
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -134,16 +159,20 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                 ) {
                     LoginMethodTab(
                         text = "Password",
-                        isSelected = loginMode == LoginMode.PASSWORD,
-                        onClick = { loginMode = LoginMode.PASSWORD }
+                        isSelected = uiState.loginMode == LoginMode.PASSWORD,
+                        onClick = {
+                            viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.PASSWORD))
+                        }
                     )
 
                     Spacer(modifier = Modifier.width(24.dp))
 
                     LoginMethodTab(
                         text = "API Key",
-                        isSelected = loginMode == LoginMode.API_KEY,
-                        onClick = { loginMode = LoginMode.API_KEY }
+                        isSelected = uiState.loginMode == LoginMode.API_KEY,
+                        onClick = {
+                            viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.API_KEY))
+                        }
                     )
                 }
 
@@ -157,12 +186,14 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        when (loginMode) {
+                        when (uiState.loginMode) {
                             LoginMode.PASSWORD -> {
                                 // Username Field
                                 OutlinedTextField(
-                                    value = username,
-                                    onValueChange = { username = it },
+                                    value = uiState.username,
+                                    onValueChange = {
+                                        viewModel.handleEvent(LoginEvent.UpdateUsername(it))
+                                    },
                                     label = { Text("Username") },
                                     leadingIcon = {
                                         Icon(
@@ -175,13 +206,16 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    )
+                                    ),
+                                    enabled = !uiState.isLoading
                                 )
 
                                 // Password Field
                                 OutlinedTextField(
-                                    value = password,
-                                    onValueChange = { password = it },
+                                    value = uiState.password,
+                                    onValueChange = {
+                                        viewModel.handleEvent(LoginEvent.UpdatePassword(it))
+                                    },
                                     label = { Text("Password") },
                                     leadingIcon = {
                                         Icon(
@@ -191,15 +225,17 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                     },
                                     trailingIcon = {
                                         IconButton(
-                                            onClick = { isPasswordVisible = !isPasswordVisible }
+                                            onClick = {
+                                                viewModel.handleEvent(LoginEvent.TogglePasswordVisibility)
+                                            }
                                         ) {
                                             Icon(
-                                                imageVector = if (isPasswordVisible) {
+                                                imageVector = if (uiState.isPasswordVisible) {
                                                     Icons.Default.VisibilityOff
                                                 } else {
                                                     Icons.Default.Visibility
                                                 },
-                                                contentDescription = if (isPasswordVisible) {
+                                                contentDescription = if (uiState.isPasswordVisible) {
                                                     "Hide password"
                                                 } else {
                                                     "Show password"
@@ -207,7 +243,7 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                             )
                                         }
                                     },
-                                    visualTransformation = if (isPasswordVisible) {
+                                    visualTransformation = if (uiState.isPasswordVisible) {
                                         VisualTransformation.None
                                     } else {
                                         PasswordVisualTransformation()
@@ -217,15 +253,18 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    )
+                                    ),
+                                    enabled = !uiState.isLoading
                                 )
                             }
 
                             LoginMode.API_KEY -> {
                                 // API Key Field
                                 OutlinedTextField(
-                                    value = apiKey,
-                                    onValueChange = { apiKey = it },
+                                    value = uiState.apiKey,
+                                    onValueChange = {
+                                        viewModel.handleEvent(LoginEvent.UpdateApiKey(it))
+                                    },
                                     label = { Text("API Key") },
                                     leadingIcon = {
                                         Icon(
@@ -240,7 +279,8 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                     ),
                                     minLines = 3,
-                                    maxLines = 4
+                                    maxLines = 4,
+                                    enabled = !uiState.isLoading
                                 )
 
                                 Text(
@@ -259,91 +299,15 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                 // Login Button
                 Button(
                     onClick = {
-                        scope.launch {
-                            isLoading = true
-                            try {
-                                when (loginMode) {
-                                    LoginMode.PASSWORD -> {
-                                        if (username.isBlank() || password.isBlank()) {
-                                            Toast.makeText(
-                                                context,
-                                                "Please enter username and password",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            return@launch
-                                        }
-
-                                        val success = auth.loginUser(
-                                            Auth.DefaultAuth(username, password)
-                                        )
-
-                                        if (success) {
-                                            EncryptedPrefs.saveIsLoggedIn(context, true)
-                                            EncryptedPrefs.saveUsername(context, username)
-                                            EncryptedPrefs.saveLoginMethod(context, "password")
-
-                                            // Token generation
-                                            val token = auth.generateToken()
-                                            EncryptedPrefs.saveAuthToken(context, token = token)
-
-                                            // Success text
-                                            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
-                                            // Navigate to home
-                                            navController.navigate(Screen.Main.route) {
-                                                popUpTo(Screen.Login.route) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "Invalid credentials", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-
-                                    LoginMode.API_KEY -> {
-                                        if (apiKey.isBlank()) {
-                                            Toast.makeText(
-                                                context,
-                                                "Please enter your API key",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                            return@launch
-                                        }
-
-                                        val success = auth.loginWithApiKey(apiKey)
-
-                                        if (success) {
-                                            EncryptedPrefs.saveIsLoggedIn(context, true)
-                                            EncryptedPrefs.saveApiKey(context, apiKey)
-                                            EncryptedPrefs.saveLoginMethod(context, "api_key")
-
-                                            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
-
-                                            navController.navigate(Screen.Main.route) {
-                                                popUpTo(Screen.Login.route) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "Invalid API key", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "Error: ${e.message}",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        viewModel.handleEvent(LoginEvent.Login(context))
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    enabled = !isLoading
+                    enabled = !uiState.isLoading
                 ) {
-                    if (isLoading) {
+                    if (uiState.isLoading) {
                         Row(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
@@ -364,11 +328,12 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                         )
                     }
                 }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Help Text
                 Text(
-                    text = "Need help accessing your ${if (loginMode == LoginMode.PASSWORD) "account" else "API key"}?",
+                    text = "Need help accessing your ${if (uiState.loginMode == LoginMode.PASSWORD) "account" else "API key"}?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center,
@@ -382,8 +347,43 @@ fun LoginScreen(auth: Auth, navController: NavController) {
                             ).show()
                         }
                 )
+
                 Spacer(modifier = Modifier.height(30.dp))
                 ServerInfoSection()
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingScreen(message: String = "Loading...") {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.padding(32.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    strokeWidth = 4.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }
@@ -422,6 +422,7 @@ private fun LoginMethodTab(
         )
     }
 }
+
 @Composable
 private fun ServerInfoSection() {
     val context = LocalContext.current

@@ -1,12 +1,12 @@
 // ServicesScreenViewModel.kt
 package com.example.truehub.ui.services
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.truehub.data.api.Auth
-import com.example.truehub.helpers.models.Apps
+import com.example.truehub.data.ApiResult
+import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.Apps
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +19,7 @@ data class ServicesUiState(
     val isRefreshing: Boolean = false
 )
 
-class ServicesScreenViewModel(private val auth: Auth) : ViewModel() {
+class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServicesUiState(isLoading = true))
     val uiState: StateFlow<ServicesUiState> = _uiState.asStateFlow()
@@ -38,14 +38,33 @@ class ServicesScreenViewModel(private val auth: Auth) : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val apps = auth.getInstalledApps()
-                Log.e("view-model-log",apps.toString())
-                _uiState.value = ServicesUiState(
-                    isLoading = false,
-                    apps = apps,
-                    error = null,
-                    isRefreshing = false
-                )
+                val apps = manager.apps.getInstalledAppsWithResult()
+                when(apps){
+                    is ApiResult.Success -> {
+                        _uiState.value = ServicesUiState(
+                            isLoading = false,
+                            apps = apps.data,
+                            error = null,
+                            isRefreshing = false
+                        )
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = ServicesUiState(
+                            isLoading = false,
+                            apps = emptyList(),
+                            error = apps.message,
+                            isRefreshing = false
+                        )
+                    }
+                    is ApiResult.Loading -> {
+                        _uiState.value = ServicesUiState(
+                            isLoading = true,
+                            apps = emptyList(),
+                            error = null,
+                            isRefreshing = false
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -65,12 +84,12 @@ class ServicesScreenViewModel(private val auth: Auth) : ViewModel() {
     }
 
     class ServicesViewModelFactory(
-        private val auth: Auth
+        private val manager: TrueNASApiManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ServicesScreenViewModel::class.java)) {
-                return ServicesScreenViewModel(auth) as T
+                return ServicesScreenViewModel(manager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

@@ -23,7 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.truehub.data.api.Auth
+import com.example.truehub.data.api.TrueNASApiManager
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -181,7 +181,7 @@ fun DrawScope.drawWaveLayer(
 
 // Usage example - replace your current Box background
 @Composable
-fun LoginScreenWithWavyBackground(auth: Auth, navController: NavController) {
+fun LoginScreenWithWavyBackground(manager: TrueNASApiManager, navController: NavController) {
     WavyGradientBackground {
         // Your existing login content here
         Column(
@@ -191,7 +191,6 @@ fun LoginScreenWithWavyBackground(auth: Auth, navController: NavController) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.Start
         ) {
-            // Your login screen content...
         }
     }
 }

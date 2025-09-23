@@ -1,4 +1,4 @@
-package com.example.truehub.helpers.models
+package com.example.truehub.data.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

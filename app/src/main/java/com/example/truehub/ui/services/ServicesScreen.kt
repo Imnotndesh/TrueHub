@@ -48,14 +48,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.truehub.data.api.Auth
-import com.example.truehub.helpers.models.Apps
+import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.Apps
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServicesScreen(auth: Auth) {
+fun ServicesScreen(manager: TrueNASApiManager) {
     val viewModel: ServicesScreenViewModel = viewModel(
-        factory = ServicesScreenViewModel.ServicesViewModelFactory(auth)
+        factory = ServicesScreenViewModel.ServicesViewModelFactory(manager)
     )
     val uiState by viewModel.uiState.collectAsState()
 

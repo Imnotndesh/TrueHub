@@ -1,6 +1,5 @@
 package com.example.truehub.ui.profile
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,18 +40,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.truehub.data.api.Auth
-import com.example.truehub.helpers.models.AuthUserDetailsResponse
-import com.example.truehub.helpers.models.System
+import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.Auth.AuthResponse
+import com.example.truehub.data.models.System
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    auth: Auth,
+    manager: TrueNASApiManager,
     onSettingsClick: () -> Unit = {}
 ) {
     val viewModel: ProfileViewModel = viewModel(
-        factory = ProfileViewModel.ProfileViewModelFactory(auth)
+        factory = ProfileViewModel.ProfileViewModelFactory(manager)
     )
     val state by viewModel.uiState.collectAsState()
 
@@ -131,7 +130,7 @@ private fun ErrorScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileContent(
-    user: AuthUserDetailsResponse,
+    user: AuthResponse,
     systemInfo : System.SystemInfo,
     onRefreshProfile: () -> Unit,
     onSettingsClick: () -> Unit
@@ -196,15 +195,15 @@ private fun ProfileContent(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = user.fullName ?: user.username,
+                    text = user.pwGecos ?: user.pwName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
 
-                if (user.fullName != null) {
+                if (user.pwGecos != null) {
                     Text(
-                        text = "@${user.username}",
+                        text = "@${user.pwName}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -235,13 +234,13 @@ private fun ProfileContent(
                 // Username
                 ProfileDetailItem(
                     label = "Username",
-                    value = user.username
+                    value = user.pwName
                 )
 
                 // Full name
                 ProfileDetailItem(
                     label = "Full Name",
-                    value = user.fullName ?: "Not provided"
+                    value = user.pwGecos ?: "Not provided"
                 )
 
                 // Account type
