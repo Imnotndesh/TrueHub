@@ -75,6 +75,12 @@ object EncryptedPrefs {
         val preferences = context.dataStore.data.first()
         return preferences[tokenPref]
     }
+    suspend fun clearAuthToken(context: Context){
+        val tokenPref = stringPreferencesKey(AUTH_TOKEN_PREF)
+        context.dataStore.edit {
+            it.remove(tokenPref)
+        }
+    }
 
     suspend fun saveLoginMethod(context: Context,method: String){
         val loginMethodPref = stringPreferencesKey(LOGIN_METHOD_PREF)

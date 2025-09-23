@@ -1,14 +1,16 @@
 package com.example.truehub.ui.profile
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.truehub.data.api.Auth
+import com.example.truehub.data.ApiResult
+import com.example.truehub.data.api.TrueNASApiManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class ProfileViewModel(private val auth: Auth) : ViewModel() {
+class ProfileViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState
@@ -21,22 +23,29 @@ class ProfileViewModel(private val auth: Auth) : ViewModel() {
         _uiState.value = UiState.Loading
         viewModelScope.launch {
             try {
-                val user = auth.getUserDetails()
-                val system = auth.getSystemInfo()
-                _uiState.value = UiState.Success(user, system)
-            } catch (e: Exception) {
+                val user = manager.auth.getUserDetailsWithResult()
+                val system = manager.system.getSystemInfoWithResult()
+                Log.e("ProfileViewModel", "User: $user, System: $system")
+                if (user is ApiResult.Success && system is ApiResult.Success)
+                    _uiState.value = UiState.Success(user.data, system.data)
+                else if (user is ApiResult.Error || system is ApiResult.Error)
+                    _uiState.value = UiState.Error("Failed to fetch data: Api error probably")
+                else
+                    _uiState.value = UiState.Error("Failed to fetch data: Unknown error")
+            }
+            catch (e: Exception) {
                 _uiState.value = UiState.Error(e.message ?: "Unknown error")
             }
         }
     }
 
     class ProfileViewModelFactory(
-        private val auth: Auth
+        private val manager: TrueNASApiManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
-                return ProfileViewModel(auth) as T
+                return ProfileViewModel(manager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
