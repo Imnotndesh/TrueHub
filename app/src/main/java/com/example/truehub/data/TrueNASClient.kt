@@ -206,11 +206,6 @@ class TrueNASClient(private val config: ClientConfig) {
             webSocket?.send(json) ?: throw RuntimeException("WebSocket not connected")
 
             val response = deferred.await()
-            Log.e("TrueNASClient", "Received response: $response")
-            Log.d("RPC_RESPONSE_RAW", "Raw full response: $response") // Log the whole RpcResponse object
-            Log.d("RPC_RESULT_TYPE", "Attempting to parse response.result into type: ${resultType.typeName}")
-            Log.d("RPC_RESULT_CLASS", "response.result is of Java class: ${response.result?.javaClass?.name}")
-            Log.d("RPC_RESULT_VALUE", "Value of response.result: ${response.result.toString()}") // toString() might give a good hint
             response.error?.let { throw RuntimeException("RPC Error: ${it.message}") }
 
             val adapter = moshi.adapter<T>(resultType)

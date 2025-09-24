@@ -123,4 +123,12 @@ object Apps {
         val subnet: String? = null,
         val gateway: String? = null
     )
+
+    // Update options
+    @Suppress("PropertyName")
+    data class UpgradeOptions(
+        val app_version : String = "latest",
+        val values: Map<String,Any> = emptyMap(),
+        val snapshot_hostpaths : Boolean = false
+    )
 }

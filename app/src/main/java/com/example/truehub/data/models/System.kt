@@ -1,6 +1,7 @@
 package com.example.truehub.data.models
 
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
 
 object System {
@@ -60,5 +61,36 @@ object System {
 
         @field:Json("ecc_memory")
         val ecc_memory: Boolean
+    )
+
+    // Jobs Stuff
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class Job(
+        val id: Int,
+        val method: String,
+        val arguments: List<Any>,
+        val logs_path: String?,
+        val logs_excerpt: String?,
+        val progress: JobProgress?,
+        val result: Any?,
+        val error: Any?,
+        val exception: String?,
+        val exc_info: String?,
+        val state: String,
+        val time_started: Map<String, Long>?,
+        val time_finished: Any?
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class JobProgress(
+        val percent: Int,
+        val description: String?,
+        val extra: Any?
+    )
+    data class UpgradeJobState(
+        val state: String,
+        val progress: Int = 0,
+        val description: String? = null
     )
 }
