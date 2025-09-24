@@ -1,12 +1,14 @@
 // ServicesScreenViewModel.kt
 package com.example.truehub.ui.services
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
+import com.example.truehub.data.models.System
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +18,8 @@ data class ServicesUiState(
     val isLoading: Boolean = false,
     val apps: List<Apps.AppQueryResponse> = emptyList(),
     val error: String? = null,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val upgradeJobs :Map<String, System.UpgradeJobState> = emptyMap()
 )
 
 class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
@@ -136,6 +139,103 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
             }
         }
     }
+    fun upgradeApp(appName: String) {
+        viewModelScope.launch {
+            val result = manager.apps.upgradeAppWithResult(appName)
+            when (result) {
+                is ApiResult.Success -> {
+                    val jobId = result.data
+                    _uiState.value = _uiState.value.copy(
+                        upgradeJobs = _uiState.value.upgradeJobs + (
+                                appName to System.UpgradeJobState(state = "UPGRADING", progress = 0)
+                                )
+                    )
+
+                    // Fixed polling with proper error handling and termination
+                    var pollAttempts = 0
+                    val maxPollAttempts = 150 // 5 minutes max (150 * 2 seconds)
+
+                    while (pollAttempts < maxPollAttempts) {
+                        try {
+                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            when (jobResult) {
+                                is ApiResult.Success -> {
+                                    val job = jobResult.data
+                                    val state = job.state
+                                    val percent = job.progress?.percent ?: 0
+                                    val description = job.progress?.description
+
+                                    _uiState.value = _uiState.value.copy(
+                                        upgradeJobs = _uiState.value.upgradeJobs + (
+                                                appName to System.UpgradeJobState(
+                                                    state = state,
+                                                    progress = percent,
+                                                    description = description
+                                                )
+                                                )
+                                    )
+
+                                    Log.d("UpgradeJob", "App: $appName, State: $state, Progress: $percent%")
+
+                                    // Check for terminal states
+                                    if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
+                                        // Remove from upgradeJobs after a delay to show final state
+                                        kotlinx.coroutines.delay(3000)
+                                        _uiState.value = _uiState.value.copy(
+                                            upgradeJobs = _uiState.value.upgradeJobs - appName
+                                        )
+
+                                        // Refresh apps list to get updated state
+                                        if (state == "SUCCESS") {
+                                            loadApps()
+                                        }
+                                        break
+                                    }
+                                }
+                                is ApiResult.Error -> {
+                                    Log.e("UpgradeJob", "Error polling job $jobId: ${jobResult.message}")
+                                    // Remove from upgrade jobs and show error
+                                    _uiState.value = _uiState.value.copy(
+                                        upgradeJobs = _uiState.value.upgradeJobs - appName,
+                                        error = "Upgrade monitoring failed: ${jobResult.message}"
+                                    )
+                                    break
+                                }
+                                is ApiResult.Loading -> {
+                                    // Continue polling
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("UpgradeJob", "Exception while polling: ${e.message}", e)
+                            _uiState.value = _uiState.value.copy(
+                                upgradeJobs = _uiState.value.upgradeJobs - appName,
+                                error = "Upgrade monitoring error: ${e.message}"
+                            )
+                            break
+                        }
+
+                        pollAttempts++
+                        kotlinx.coroutines.delay(2000)
+                    }
+
+                    // Timeout handling
+                    if (pollAttempts >= maxPollAttempts) {
+                        _uiState.value = _uiState.value.copy(
+                            upgradeJobs = _uiState.value.upgradeJobs - appName,
+                            error = "Upgrade monitoring timeout for $appName"
+                        )
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                else -> {}
+            }
+        }
+    }
+
+
+
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)

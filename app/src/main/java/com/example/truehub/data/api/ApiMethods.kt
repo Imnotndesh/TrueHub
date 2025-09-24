@@ -15,10 +15,12 @@ object ApiMethods {
     }
     object System {
         const val SYSTEM_INFO = "system.info"
+        const val GET_JOB_STATUS = "core.get_jobs"
     }
     object Apps {
         const val QUERY_APPS = "app.query"
         const val START_APP = "app.start"
         const val STOP_APP = "app.stop"
+        const val UPGRADE_APP = "app.upgrade"
     }
 }

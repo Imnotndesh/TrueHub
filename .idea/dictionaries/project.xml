@@ -4,6 +4,8 @@
       <w>boottime</w>
       <w>buildtime</w>
       <w>gecos</w>
+      <w>hostpath</w>
+      <w>hostpaths</w>
       <w>ipam</w>
       <w>jsonrpc</w>
       <w>loadavg</w>
