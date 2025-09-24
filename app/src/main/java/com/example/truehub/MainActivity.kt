@@ -52,8 +52,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val (savedUrl, savedInsecure) = Prefs.load(this)
 
-        // TODO: Think of this idea 'https://claude.ai/chat/58d0b5c7-b84b-4e3a-8098-39386c96b9a5'
-
         setContent {
             val navController = rememberNavController()
 

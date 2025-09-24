@@ -158,7 +158,8 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     ServicesContent(
                         apps = uiState.apps,
                         isRefreshing = uiState.isRefreshing,
-                        onStartApp = {appName ->viewModel.startApp(appName)}
+                        onStartApp = {appName ->viewModel.startApp(appName)},
+                        onStopApp = {appName -> viewModel.stopApp(appName)}
                     )
                 }
             }
@@ -217,7 +218,8 @@ private fun EmptyContent() {
 private fun ServicesContent(
     apps: List<Apps.AppQueryResponse>,
     isRefreshing: Boolean,
-    onStartApp : (String) -> Unit
+    onStartApp : (String) -> Unit,
+    onStopApp : (String) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -234,7 +236,7 @@ private fun ServicesContent(
         }
 
         items(apps) { app ->
-            ServiceCard(app = app,onStartApp = onStartApp)
+            ServiceCard(app = app,onStartApp = onStartApp, onStopApp = onStopApp)
         }
 
         // Bottom spacing
@@ -248,7 +250,8 @@ private fun ServicesContent(
 @Composable
 private fun ServiceCard(
     app: Apps.AppQueryResponse,
-    onStartApp: (String) -> Unit
+    onStartApp: (String) -> Unit,
+    onStopApp: (String) -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -284,6 +287,20 @@ private fun ServiceCard(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Start App",
                         tint = if (app.state.equals("running", ignoreCase = true))
+                            MaterialTheme.colorScheme.outline
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(2.dp))
+                IconButton(
+                    onClick = { onStopApp(app.name) },
+                    enabled = app.state.equals("running", ignoreCase = true)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop App",
+                        tint = if (!app.state.equals("running", ignoreCase = true))
                             MaterialTheme.colorScheme.outline
                         else
                             MaterialTheme.colorScheme.primary

@@ -120,7 +120,6 @@ class TrueNASClient(private val config: ClientConfig) {
 
                 resp.id == null && resp.method != null -> {
                     logDebug("Notification: ${resp.method} ${resp.params}")
-                    // TODO: route notifications to listeners if needed
                 }
 
                 // Error response

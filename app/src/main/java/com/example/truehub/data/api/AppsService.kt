@@ -37,5 +37,19 @@ class AppsService(client: TrueNASClient) : BaseApiService(client) {
             ApiResult.Error("Failed to start app: ${e.message}", e)
         }
     }
-
+    suspend fun stopApp(appName : String){
+        client.call<Any?>(
+            method = ApiMethods.Apps.STOP_APP,
+            params = listOf(appName),
+            resultType = Any::class.java
+        )
+    }
+    suspend fun stopAppWithResult(appName: String): ApiResult<Any>{
+        return try {
+            val result = stopApp(appName)
+            ApiResult.Success(result)
+        } catch (e: Exception){
+            ApiResult.Error("Failed to stop selected app: ${e.message}",e)
+        }
+    }
 }
