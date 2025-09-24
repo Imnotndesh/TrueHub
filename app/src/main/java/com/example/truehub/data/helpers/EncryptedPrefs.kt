@@ -44,6 +44,11 @@ object EncryptedPrefs {
             it[isLoggedInPref] = isLoggedIn
         }
     }
+    suspend fun getIsLoggedIn(context: Context): Boolean{
+        val isLoggedInPref = booleanPreferencesKey(IS_LOGGED_IN)
+        val prefs = context.dataStore.data.first()
+        return prefs[isLoggedInPref] == true
+    }
 
     suspend fun saveUsername(context: Context,username:String){
         val usernamePref = stringPreferencesKey(USERNAME_PREF)

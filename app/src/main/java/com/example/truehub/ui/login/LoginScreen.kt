@@ -56,12 +56,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Auth.LoginMode
 import com.example.truehub.ui.Screen
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
+import com.example.truehub.ui.components.ToastManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,21 +82,27 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
         }
     }
 
-    // Handle error messages
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let { message ->
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            viewModel.handleEvent(LoginEvent.ClearError)
+    // Handle connection status messages
+    LaunchedEffect(uiState.connectionStatus) {
+        when (val status = uiState.connectionStatus) {
+            is ConnectionStatus.Error -> {
+                ToastManager.showError("Connection Error: ${status.message}")
+            }
+            is ConnectionStatus.Connected -> {
+                ToastManager.showSuccess("Connected")
+            }
+            else -> {
+                ToastManager.showWarning("Unknown Error Occurred")
+            }
         }
     }
 
     // Show loading screen when appropriate
-    if (uiState.isLoading && (uiState.loginResult is ApiResult.Loading || uiState.tokenResult is ApiResult.Loading)) {
+    if (uiState.isLoading) {
         LoadingScreen(
-            message = when {
-                uiState.loginResult is ApiResult.Loading -> "Authenticating..."
-                uiState.tokenResult is ApiResult.Loading -> "Generating token..."
-                else -> "Please wait..."
+            message = when (uiState.loginMode) {
+                LoginMode.PASSWORD -> "Authenticating with password..."
+                LoginMode.API_KEY -> "Validating API key..."
             }
         )
         return
@@ -149,6 +155,13 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
                         modifier = Modifier.padding(bottom = 32.dp)
                     )
                 }
+
+                // Connection Status Indicator
+                ConnectionStatusCard(uiState.connectionStatus) {
+                    viewModel.handleEvent(LoginEvent.CheckConnection)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Login Method Selection
                 Row(
@@ -305,7 +318,7 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    enabled = !uiState.isLoading
+                    enabled = !uiState.isLoading && uiState.connectionStatus is ConnectionStatus.Connected
                 ) {
                     if (uiState.isLoading) {
                         Row(
@@ -350,6 +363,65 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
 
                 Spacer(modifier = Modifier.height(30.dp))
                 ServerInfoSection()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionStatusCard(
+    connectionStatus: ConnectionStatus,
+    onRetryClick: () -> Unit
+) {
+    val (statusText, statusColor, showRetryButton) = when (connectionStatus) {
+        is ConnectionStatus.Connected -> Triple("Connected", MaterialTheme.colorScheme.primary, false)
+        is ConnectionStatus.Connecting -> Triple("Connecting...", MaterialTheme.colorScheme.tertiary, false)
+        is ConnectionStatus.Disconnected -> Triple("Disconnected", MaterialTheme.colorScheme.error, true)
+        is ConnectionStatus.Error -> Triple("Connection Error", MaterialTheme.colorScheme.error, true)
+        is ConnectionStatus.Unknown -> Triple("Checking connection...", MaterialTheme.colorScheme.onSurfaceVariant, false)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = statusColor.copy(alpha = 0.1f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(statusColor, shape = androidx.compose.foundation.shape.CircleShape)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (showRetryButton) {
+                Text(
+                    text = "Retry",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable { onRetryClick() }
+                )
             }
         }
     }
