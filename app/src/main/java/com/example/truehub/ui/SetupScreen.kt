@@ -1,6 +1,7 @@
 package com.example.truehub.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +22,12 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Web
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,27 +39,46 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
+import kotlinx.coroutines.launch
 import java.util.regex.Pattern
+
+sealed class ConnectivityStatus {
+    object Connected : ConnectivityStatus()
+    object Disconnected : ConnectivityStatus()
+    object Checking : ConnectivityStatus()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
+fun SetupScreen(
+    apiManager: TrueNASApiManager? = null,
+    onConfigured: (String, Boolean) -> Unit
+) {
     var serverUrl by remember { mutableStateOf("") }
     var insecure by remember { mutableStateOf(false) }
+    var connectivityStatus by remember { mutableStateOf(ConnectivityStatus.Checking) }
+    var isConfiguring by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val urlValidation = validateUrl(serverUrl)
     val isValidUrl = urlValidation.isValid
+    val hasInternet = connectivityStatus is ConnectivityStatus.Connected
 
     Box(
         modifier = Modifier
@@ -106,6 +129,8 @@ fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
                     )
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // URL Input Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -121,7 +146,7 @@ fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
                             value = serverUrl,
                             onValueChange = { serverUrl = it },
                             label = { Text("TrueNAS Server URL") },
-                            placeholder = { Text("ws://192.168.1.100/api/current") },
+                            placeholder = { Text("ws://192.168.1.100") },
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Web,
@@ -142,7 +167,8 @@ fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
                                     MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                 }
                             ),
-                            isError = serverUrl.isNotEmpty() && !isValidUrl
+                            isError = serverUrl.isNotEmpty() && !isValidUrl,
+                            enabled = !isConfiguring
                         )
 
                         // URL Format Help
@@ -217,7 +243,8 @@ fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
                                 }
                                 Switch(
                                     checked = insecure,
-                                    onCheckedChange = { insecure = it }
+                                    onCheckedChange = { insecure = it },
+                                    enabled = !isConfiguring
                                 )
                             }
                         }
@@ -233,22 +260,138 @@ fun SetupScreen(onConfigured: (String, Boolean) -> Unit) {
                 ) {
                     Button(
                         onClick = {
-                            val formattedUrl = formatUrl(serverUrl)
-                            onConfigured(formattedUrl, insecure)
+
+                            isConfiguring = true
+                            scope.launch {
+                                try {
+                                    val formattedUrl = formatUrl(serverUrl)
+
+                                    // If we have the API manager, test the connection first
+                                    if (apiManager != null) {
+                                        // Configure the API manager with new settings
+                                        apiManager.configure(context,formattedUrl, insecure)
+
+                                        // Test the connection
+                                        val isConnected = try {
+                                            apiManager.connect()
+                                            apiManager.isConnected()
+                                        } catch (e: Exception) {
+                                            false
+                                        }
+
+                                        if (isConnected) {
+                                            // Connection successful, proceed with navigation
+                                            onConfigured(formattedUrl, insecure)
+                                        } else {
+                                            // Connection failed, show error and reset state
+                                            isConfiguring = false
+                                            // You might want to show an error message here
+                                        }
+                                    } else {
+                                        // No API manager provided, just pass the configuration
+                                        onConfigured(formattedUrl, insecure)
+                                    }
+                                } catch (e: Exception) {
+                                    isConfiguring = false
+                                }
+                            }
                         },
-                        enabled = isValidUrl && serverUrl.isNotEmpty(),
+                        enabled = isValidUrl && serverUrl.isNotEmpty() && !isConfiguring,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .height(48.dp)
                             .widthIn(min = 120.dp)
                     ) {
-                        Text(
-                            "Next",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        if (isConfiguring) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Text("Connecting...")
+                            }
+                        } else {
+                            Text(
+                                "Next",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectivityStatusCard(
+    status: ConnectivityStatus,
+    onRetryClick: () -> Unit
+) {
+    val (statusText, statusColor, icon, showRetryButton) = when (status) {
+        is ConnectivityStatus.Connected ->
+            Tuple4("Connected to Internet", MaterialTheme.colorScheme.primary, Icons.Default.Wifi, false)
+        is ConnectivityStatus.Disconnected ->
+            Tuple4("No Internet Connection", MaterialTheme.colorScheme.error, Icons.Default.WifiOff, true)
+        is ConnectivityStatus.Checking ->
+            Tuple4("Checking Connection...", MaterialTheme.colorScheme.tertiary, Icons.Default.Wifi, false)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = statusColor.copy(alpha = 0.1f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (status is ConnectivityStatus.Checking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = statusColor
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            if (showRetryButton) {
+                Text(
+                    text = "Retry",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable { onRetryClick() }
+                )
             }
         }
     }
@@ -287,6 +430,9 @@ private fun ValidationMessage(
         )
     }
 }
+
+// Helper data class for destructuring
+private data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 data class UrlValidation(
     val isValid: Boolean,

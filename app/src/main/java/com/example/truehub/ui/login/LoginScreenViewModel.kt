@@ -1,7 +1,6 @@
 package com.example.truehub.ui.login
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
@@ -9,11 +8,12 @@ import com.example.truehub.data.api.AuthService
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.models.Auth.LoginMode
+import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 data class LoginUiState(
     val username: String = "",
@@ -22,11 +22,17 @@ data class LoginUiState(
     val loginMode: LoginMode = LoginMode.PASSWORD,
     val isPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,
-    val loginResult: ApiResult<Boolean>? = null,
-    val tokenResult: ApiResult<String>? = null,
-    val errorMessage: String? = null,
+    val connectionStatus: ConnectionStatus = ConnectionStatus.Unknown,
     val isLoginSuccessful: Boolean = false
 )
+
+sealed class ConnectionStatus {
+    object Unknown : ConnectionStatus()
+    object Connected : ConnectionStatus()
+    object Connecting : ConnectionStatus()
+    object Disconnected : ConnectionStatus()
+    data class Error(val message: String) : ConnectionStatus()
+}
 
 sealed class LoginEvent {
     data class UpdateUsername(val username: String) : LoginEvent()
@@ -35,14 +41,18 @@ sealed class LoginEvent {
     data class UpdateLoginMode(val mode: LoginMode) : LoginEvent()
     object TogglePasswordVisibility : LoginEvent()
     data class Login(val context: Context) : LoginEvent()
-    object ClearError : LoginEvent()
     object ResetLoginState : LoginEvent()
+    object CheckConnection : LoginEvent()
 }
 
 class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    init {
+        checkConnection()
+    }
 
     fun handleEvent(event: LoginEvent) {
         when (event) {
@@ -66,20 +76,37 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
             is LoginEvent.Login -> {
                 performLogin(event.context)
             }
-            is LoginEvent.ClearError -> {
-                _uiState.value = _uiState.value.copy(
-                    errorMessage = null,
-                    loginResult = null,
-                    tokenResult = null
-                )
-            }
             is LoginEvent.ResetLoginState -> {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    loginResult = null,
-                    tokenResult = null,
-                    errorMessage = null,
                     isLoginSuccessful = false
+                )
+            }
+            is LoginEvent.CheckConnection -> {
+                checkConnection()
+            }
+        }
+    }
+
+    private fun checkConnection() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connecting)
+
+            try {
+                withTimeout(5000L) { // 5 second timeout
+                    if (manager.isConnected()) {
+                        _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connected)
+                    } else {
+                        manager.connect()
+                        _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connected)
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    connectionStatus = ConnectionStatus.Error(e.message ?: "Connection failed")
+                )
+                ToastManager.showError(
+                    message = "Connection failed: ${e.message ?: "Unknown error"}"
                 )
             }
         }
@@ -88,27 +115,31 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
     private fun performLogin(context: Context) {
         val currentState = _uiState.value
 
+        // Check connection first
+        if (currentState.connectionStatus !is ConnectionStatus.Connected) {
+            ToastManager.showWarning(
+                "Not connected to server",
+            )
+            return
+        }
+
         // Input validation
         when (currentState.loginMode) {
             LoginMode.PASSWORD -> {
                 if (currentState.username.isBlank() || currentState.password.isBlank()) {
-                    _uiState.value = currentState.copy(
-                        errorMessage = "Please enter username and password"
-                    )
+                    ToastManager.showWarning("Please enter username and password")
                     return
                 }
             }
             LoginMode.API_KEY -> {
                 if (currentState.apiKey.isBlank()) {
-                    _uiState.value = currentState.copy(
-                        errorMessage = "Please enter your API key"
-                    )
+                    ToastManager.showWarning("Please enter your API key")
                     return
                 }
             }
         }
 
-        _uiState.value = currentState.copy(isLoading = true, errorMessage = null)
+        _uiState.value = currentState.copy(isLoading = true)
 
         viewModelScope.launch {
             when (currentState.loginMode) {
@@ -123,120 +154,121 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
     }
 
     private suspend fun performPasswordLogin(context: Context, state: LoginUiState) {
-        // Set login loading state
-        _uiState.value = state.copy(
-            isLoading = true,
-            loginResult = ApiResult.Loading
-        )
+        ToastManager.showInfo("Authenticating...")
 
-        val loginResult = manager.auth.loginUserWithResult(
-            AuthService.DefaultAuth(state.username, state.password)
-        )
+        try {
+            withTimeout(15000L) { // 15 second timeout for login
+                val loginResult = manager.auth.loginUserWithResult(
+                    AuthService.DefaultAuth(state.username, state.password)
+                )
 
-        _uiState.value = _uiState.value.copy(loginResult = loginResult)
+                when (loginResult) {
+                    is ApiResult.Success -> {
+                        if (loginResult.data) {
+                            ToastManager.showInfo("Generating secure token...")
 
-        when (loginResult) {
-            is ApiResult.Success -> {
-                if (loginResult.data) {
-                    // Login successful, generate token
-                    _uiState.value = _uiState.value.copy(tokenResult = ApiResult.Loading)
-
-                    val tokenResult = manager.auth.generateTokenWithResult()
-                    _uiState.value = _uiState.value.copy(tokenResult = tokenResult)
-
-                    when (tokenResult) {
-                        is ApiResult.Success -> {
-                            // Save credentials and complete login
-                            savePasswordLoginCredentials(context, state.username, tokenResult.data)
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                isLoginSuccessful = true,
-                                errorMessage = null
-                            )
-                        }
-                        is ApiResult.Error -> {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                errorMessage = "Failed to generate token: ${tokenResult.message}"
-                            )
-                        }
-                        is ApiResult.Loading -> {
-                            // Keep loading state
+                            val tokenResult = manager.auth.generateTokenWithResult()
+                            when (tokenResult) {
+                                is ApiResult.Success -> {
+                                    savePasswordLoginCredentials(context, state.username, tokenResult.data)
+                                    ToastManager.showSuccess("Login successful!")
+                                    _uiState.value = _uiState.value.copy(
+                                        isLoading = false,
+                                        isLoginSuccessful = true
+                                    )
+                                }
+                                is ApiResult.Error -> {
+                                    _uiState.value = _uiState.value.copy(isLoading = false)
+                                    ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
+                                }
+                                is ApiResult.Loading -> {
+                                    // This shouldn't happen in our case
+                                }
+                            }
+                        } else {
+                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            ToastManager.showError("Invalid username or password")
                         }
                     }
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Invalid credentials"
-                    )
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        ToastManager.showError("Login failed: ${loginResult.message}")
+                    }
+                    is ApiResult.Loading -> {
+                        // Continue waiting
+                    }
                 }
             }
-            is ApiResult.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Login error: ${loginResult.message}"
-                )
-            }
-            is ApiResult.Loading -> {
-                // Keep loading state
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(isLoading = false)
+            when (e) {
+                is kotlinx.coroutines.TimeoutCancellationException -> {
+                    ToastManager.showError(
+                        "Login timeout. Server may be slow or unreachable.",
+                    )
+                }
+                else -> {
+                    ToastManager.showError("Login error: ${e.message}")
+                }
             }
         }
     }
 
     private suspend fun performApiKeyLogin(context: Context, state: LoginUiState) {
-        // Set login loading state
-        _uiState.value = state.copy(
-            isLoading = true,
-            loginResult = ApiResult.Loading
-        )
+        ToastManager.showInfo("Validating API key...")
 
-        val loginResult = manager.auth.loginWithApiKeyWithResult(state.apiKey)
-        _uiState.value = _uiState.value.copy(loginResult = loginResult)
+        try {
+            withTimeout(15000L) { // 15 second timeout
+                val loginResult = manager.auth.loginWithApiKeyWithResult(state.apiKey)
 
-        when (loginResult) {
-            is ApiResult.Success -> {
-                if (loginResult.data) {
-                    // Save credentials and complete login
-                    Log.e("API KEY", state.apiKey)
-                    saveApiKeyLoginCredentials(context, state.apiKey)
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isLoginSuccessful = true,
-                        errorMessage = null
-                    )
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Invalid API key"
-                    )
+                when (loginResult) {
+                    is ApiResult.Success -> {
+                        if (loginResult.data) {
+                            saveApiKeyLoginCredentials(context, state.apiKey)
+                            ToastManager.showSuccess("API key validated successfully!")
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                isLoginSuccessful = true
+                            )
+                        } else {
+                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            ToastManager.showError("Invalid API key")
+                        }
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        ToastManager.showError("API key validation failed: ${loginResult.message}")
+                    }
+                    is ApiResult.Loading -> {
+                        // Continue waiting
+                    }
                 }
             }
-            is ApiResult.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = "API key login error: ${loginResult.message}"
-                )
-            }
-            is ApiResult.Loading -> {
-                // Keep loading state
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(isLoading = false)
+            when (e) {
+                is kotlinx.coroutines.TimeoutCancellationException -> {
+                    ToastManager.showError(
+                        "Validation timeout. Please check your connection.",
+                    )
+                }
+                else -> {
+                    ToastManager.showError("Validation error: ${e.message}")
+                }
             }
         }
     }
 
-    private fun savePasswordLoginCredentials(context: Context, username: String, token: String) {
-        runBlocking  {
-            EncryptedPrefs.saveAuthToken(context, token)
-            EncryptedPrefs.saveIsLoggedIn(context, true)
-            EncryptedPrefs.saveUsername(context, username)
-            EncryptedPrefs.saveLoginMethod(context, "password")
-        }
+    private suspend fun savePasswordLoginCredentials(context: Context, username: String, token: String) {
+        EncryptedPrefs.saveAuthToken(context, token)
+        EncryptedPrefs.saveIsLoggedIn(context, true)
+        EncryptedPrefs.saveUsername(context, username)
+        EncryptedPrefs.saveLoginMethod(context, "password")
     }
 
-    private fun saveApiKeyLoginCredentials(context: Context, apiKey: String) {
-        runBlocking {
-            EncryptedPrefs.saveIsLoggedIn(context, true)
-            EncryptedPrefs.saveApiKey(context, apiKey)
-            EncryptedPrefs.saveLoginMethod(context, "api_key")
-        }
+    private suspend fun saveApiKeyLoginCredentials(context: Context, apiKey: String) {
+        EncryptedPrefs.saveIsLoggedIn(context, true)
+        EncryptedPrefs.saveApiKey(context, apiKey)
+        EncryptedPrefs.saveLoginMethod(context, "api_key")
     }
 }
