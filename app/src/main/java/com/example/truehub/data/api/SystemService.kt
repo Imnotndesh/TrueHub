@@ -2,7 +2,10 @@ package com.example.truehub.data.api
 
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
+import com.example.truehub.data.api.ApiMethods.System.GET_GRAPH_DATA
+import com.example.truehub.data.api.ApiMethods.System.GET_POOL_DETAILS
 import com.example.truehub.data.models.System
+import com.squareup.moshi.Types
 
 class SystemService(client: TrueNASClient): BaseApiService(client) {
     suspend fun getSystemInfo(): System.SystemInfo {
@@ -20,4 +23,99 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
             ApiResult.Error("Failed to get system info: ${e.message}", e)
         }
     }
+    // Shutdown Call
+    suspend fun shutdownSystem(reason:String){
+        client.call<Any?>(
+            method = ApiMethods.System.SHUTDOWN,
+            params = listOf(reason),
+            resultType = Any::class.java
+        )
+    }
+    suspend fun shutdownSystemWithResult(reason: String): ApiResult<Any>{
+        return try {
+            val result = shutdownSystem(reason)
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to shutdown system: ${e.message}", e)
+        }
+    }
+    // Getting Disk Details
+    suspend fun getPools(): List<System.Pool> {
+        return client.call(
+            method = GET_POOL_DETAILS,
+            params = listOf(),
+            resultType = Types.newParameterizedType(List::class.java, System.Pool::class.java)
+        )
+    }
+
+    suspend fun getPoolsWithResult(): ApiResult<List<System.Pool>> {
+        return try {
+            val result = getPools()
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get pools: ${e.message}", e)
+        }
+    }
+
+    suspend fun getDisks(): List<System.DiskDetails> {
+        return client.call(
+            method = ApiMethods.System.GET_DISK_DETAILS,
+            params = listOf(),
+            resultType = Types.newParameterizedType(List::class.java, System.DiskDetails::class.java)
+        )
+    }
+
+    suspend fun getDisksWithResult(): ApiResult<List<System.DiskDetails>> {
+        return try {
+            val result = getDisks()
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get disks: ${e.message}", e)
+        }
+    }
+
+    // Get all possible results
+    suspend fun getPossibleGraphs(): System.GraphResult{
+        return client.call(
+            method = ApiMethods.System.GET_GRAPHS,
+            params = listOf(),
+            resultType = System.GraphResult::class.java
+        )
+    }
+
+    suspend fun getPossibleGraphsWithResult(): ApiResult<System.GraphResult>{
+        return try {
+            val result = getPossibleGraphs()
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get possible graphs: ${e.message}", e)
+        }
+    }
+
+    // Actual reporting data
+    suspend fun getReportingData(
+        graphs: List<System.ReportingGraphRequest>,
+        query: System.ReportingGraphQuery? = null
+    ): List<System.ReportingGraphResponse> {
+        return client.call(
+            method = GET_GRAPH_DATA,
+            params = listOf(graphs, query),
+            resultType = Types.newParameterizedType(
+                List::class.java,
+                System.ReportingGraphResponse::class.java
+            )
+        )
+    }
+    suspend fun getReportingDataWithResult(
+        graphs: List<System.ReportingGraphRequest>,
+        query: System.ReportingGraphQuery? = null): ApiResult<List<System.ReportingGraphResponse>> {
+        return try {
+            val result = getReportingData(graphs, query)
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get reporting data: ${e.message}", e)
+        }
+    }
+
+
 }

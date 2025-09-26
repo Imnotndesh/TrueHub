@@ -16,6 +16,13 @@ object ApiMethods {
     object System {
         const val SYSTEM_INFO = "system.info"
         const val GET_JOB_STATUS = "core.get_jobs"
+        const val SHUTDOWN = "system.shutdown"
+        const val GET_DISK_DETAILS = "disk.query"
+        const val GET_POOL_DETAILS = "pool.query"
+
+        // Reporting Stuff
+        const val GET_GRAPHS = "reporting.graphs"
+        const val GET_GRAPH_DATA = "reporting.get_data"
     }
     object Apps {
         const val QUERY_APPS = "app.query"

@@ -3,6 +3,7 @@ package com.example.truehub.data.api
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Auth
+import com.example.truehub.data.models.Config
 
 class AuthService(override val client: TrueNASClient): BaseApiService(client) {
     data class DefaultAuth(
@@ -10,6 +11,7 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
         val password: String,
         val otpToken: String? = null
     )
+    val defaultTokenDuration = 21600 // 6Hours
     suspend fun loginUser(details: DefaultAuth): Boolean {
         val defaultParams = listOf(details.username, details.password)
         return client.call(
@@ -54,7 +56,7 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
     suspend fun generateToken(): String {
         return client.call(
             method = ApiMethods.Auth.GEN_AUTH_TOKEN,
-            params = listOf(),
+            params = listOf(defaultTokenDuration),
             resultType = String::class.java
         )
     }

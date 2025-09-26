@@ -220,7 +220,6 @@ fun AppInfoDialog(
                             }
                         }
                     }
-                    val uriHandler = LocalUriHandler.current
                     // Notes Section
                     app.notes?.let { notes ->
                         if (notes.isNotBlank()) {
