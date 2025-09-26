@@ -8,13 +8,11 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HomeRepairService
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -22,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.ui.home.HomeScreen
 import com.example.truehub.ui.profile.ProfileScreen
 import com.example.truehub.ui.services.ServicesScreen
 
@@ -62,7 +61,7 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
             startDestination = Screen.Home.route,
             Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { PageContent("Home Page") }
+            composable(Screen.Home.route) { HomeScreen(manager) }
             composable(Screen.Services.route) { ServicesScreen(manager) }
             composable(Screen.Profile.route) { ProfileScreen(manager) {
                 rootNavController.navigate(Screen.Settings.route)
@@ -72,12 +71,12 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
     }
 }
 
-@Composable
-fun PageContent(text: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = text, style = MaterialTheme.typography.headlineMedium)
-    }
-}
+//@Composable
+//fun PageContent(text: String) {
+//    Box(
+//        modifier = Modifier.fillMaxSize(),
+//        contentAlignment = Alignment.Center
+//    ) {
+//        Text(text = text, style = MaterialTheme.typography.headlineMedium)
+//    }
+//}
