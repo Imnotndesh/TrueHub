@@ -1,7 +1,5 @@
 package com.example.truehub.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -20,7 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.api.TrueNASApiManager
-import com.example.truehub.ui.home.HomeScreen
+import com.example.truehub.ui.homepage.HomeScreen
 import com.example.truehub.ui.profile.ProfileScreen
 import com.example.truehub.ui.services.ServicesScreen
 
@@ -61,7 +59,9 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
             startDestination = Screen.Home.route,
             Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(manager) }
+            composable(Screen.Home.route) { HomeScreen(manager,
+                onNavigateToServices = {rootNavController.navigate(Screen.Services.route)},
+                onNavigateToProfile = {rootNavController.navigate(Screen.Profile.route)})}
             composable(Screen.Services.route) { ServicesScreen(manager) }
             composable(Screen.Profile.route) { ProfileScreen(manager) {
                 rootNavController.navigate(Screen.Settings.route)

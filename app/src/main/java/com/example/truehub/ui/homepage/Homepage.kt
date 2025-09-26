@@ -1,6 +1,5 @@
-package com.example.truehub.ui.home
+package com.example.truehub.ui.homepage
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,8 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.background.WavyGradientBackground
-import com.example.truehub.ui.homepage.HomeUiState
-import com.example.truehub.ui.homepage.HomeViewModel
+import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -185,6 +183,7 @@ private fun HomeContent(
     onNavigateToProfile: () -> Unit
 ) {
     var showShutdownDialog by remember { mutableStateOf(false) }
+    var showMemoryDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -264,7 +263,8 @@ private fun HomeContent(
             systemInfo = state.systemInfo,
             poolDetails = state.poolDetails.firstOrNull(),
             diskCount = state.diskDetails.size,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 16.dp),
+            onDiskClick = { showMemoryDialog = true },
         )
 
         // Storage Information - show each pool
@@ -304,6 +304,12 @@ private fun HomeContent(
                 showShutdownDialog = false
             },
             onDismiss = { showShutdownDialog = false }
+        )
+    }
+    if (showMemoryDialog) {
+        DiskInfoBottomSheet(
+            disks = state.diskDetails,
+            onDismiss = { showMemoryDialog = false },
         )
     }
 }
@@ -407,7 +413,8 @@ private fun QuickStatsGrid(
     systemInfo: System.SystemInfo,
     poolDetails: System.Pool?,
     diskCount: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDiskClick: () -> Unit,
 ) {
     Column(modifier = modifier) {
         Text(
@@ -462,7 +469,8 @@ private fun QuickStatsGrid(
                 color = poolDetails?.let { pool ->
                     if (pool.healthy) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
                 } ?: MaterialTheme.colorScheme.outline,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = onDiskClick
             )
         }
     }
@@ -475,9 +483,11 @@ private fun StatCard(
     subtitle: String,
     icon: ImageVector,
     color: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
+        onClick = { onClick?.invoke() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
@@ -489,21 +499,13 @@ private fun StatCard(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Row {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = color
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.Default.LineAxis,
-                    contentDescription = "Active graph",
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = "Active graph",
+                modifier = Modifier.size(12.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = title,
