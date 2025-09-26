@@ -1,7 +1,9 @@
 [versions]
 activityCompose = "1.11.0"
 agp = "8.13.0"
-composeBom = "2025.09.00"
+coilCompose = "2.7.0"
+composeBom = "2025.09.01"
+composeMarkdownVersion = "0.3.1"
 datastorePreferences = "1.1.7"
 kotlin = "2.2.20"
 coreKtx = "1.17.0"
@@ -13,15 +15,16 @@ lifecycleRuntimeKtx = "2.9.4"
 material = "1.13.0"
 activity = "1.11.0"
 constraintlayout = "2.2.1"
-material3 = "1.3.2"
+material3 = "1.4.0"
 moshiKotlin = "1.15.2"
-navigationCompose = "2.9.4"
+navigationCompose = "2.9.5"
 okhttp = "5.1.0"
 securityCrypto = "1.1.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
@@ -30,6 +33,8 @@ androidx-security-crypto = { module = "androidx.security:security-crypto", versi
 androidx-ui = { module = "androidx.compose.ui:ui" }
 androidx-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+jeziellago-compose-markdown = { module = "com.github.jeziellago:compose-markdown", version.ref = "composeMarkdownVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
