@@ -20,4 +20,5 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
             ApiResult.Error("Failed to get system info: ${e.message}", e)
         }
     }
+    suspend fun getGraphs()
 }

@@ -93,4 +93,45 @@ object System {
         val progress: Int = 0,
         val description: String? = null
     )
+
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class GraphResult(
+        val name :String,
+        val title :String,
+        val vertical_label : String,
+        val identifiers : List<String>?,
+    )
+    // Graph request
+    enum class TimeUnit {
+        HOUR,
+        DAY,
+        WEEK,
+        MONTH,
+        YEAR
+    }
+    @JsonClass(generateAdapter = true)
+    data class ReportingGraphQuery(
+        val unit: TimeUnit? = null,
+        val page: Int? = 1,
+        val aggregate: Boolean? = true,
+        val start: Long? = null,
+        val end: Long? = null
+    )
+    // Graph response
+    @JsonClass(generateAdapter = true)
+    data class ReportingGraphResponse(
+        val name: String,
+        val identifier: String?,
+        val aggregations: Map<String, Map<String, Double>>?,
+        val data: List<List<Double>>,
+        val meta: ReportingGraphMeta
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class ReportingGraphMeta(
+        val start: Long,
+        val end: Long,
+        val legend: List<String>
+    )
 }
