@@ -1,0 +1,152 @@
+name: Build and Release TrueHub App
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    name: Build and Release APK
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+    
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+    
+    - name: Generate debug keystore
+      run: |
+        mkdir -p $HOME/.android
+        echo "storePassword=android" > keystore.properties
+        echo "keyPassword=android" >> keystore.properties
+        echo "keyAlias=androiddebugkey" >> keystore.properties
+        echo "storeFile=$HOME/.android/debug.keystore" >> keystore.properties
+        
+        # Generate debug keystore
+        keytool -genkey -v -keystore $HOME/.android/debug.keystore \
+          -storepass android -alias androiddebugkey -keypass android \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -dname "CN=Android Debug,O=Android,C=US"
+    
+    - name: Build debug APK
+      run: ./gradlew assembleDebug
+      env:
+        SIGNING_KEY_ALIAS: androiddebugkey
+        SIGNING_KEY_PASSWORD: android
+        SIGNING_STORE_PASSWORD: android
+    
+    - name: Sign APK
+      run: |
+        # Find the unsigned APK
+        APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+        
+        # Sign the APK using apksigner
+        $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+          --ks $HOME/.android/debug.keystore \
+          --ks-key-alias androiddebugkey \
+          --ks-pass pass:android \
+          --key-pass pass:android \
+          --out app/build/outputs/apk/debug/app-debug-signed.apk \
+          $APK_PATH
+        
+        # Verify the signature
+        $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/debug/app-debug-signed.apk
+    
+    - name: Get version from tag
+      id: version
+      run: |
+        if [ "${{ github.ref_type }}" == "tag" ]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=debug-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Rename APK
+      run: |
+        mv app/build/outputs/apk/debug/app-debug-signed.apk \
+           app/build/outputs/apk/debug/app-${{ steps.version.outputs.version }}.apk
+    
+    - name: Get APK info
+      id: apk_info
+      run: |
+        APK_PATH="app/build/outputs/apk/debug/app-${{ steps.version.outputs.version }}.apk"
+        APK_SIZE=$(stat -c%s "$APK_PATH")
+        APK_SIZE_MB=$(echo "scale=2; $APK_SIZE / 1024 / 1024" | bc)
+        
+        echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+        echo "apk_size=${APK_SIZE_MB}MB" >> $GITHUB_OUTPUT
+        echo "apk_name=app-${{ steps.version.outputs.version }}.apk" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: Release ${{ steps.version.outputs.version }}
+        body: |
+          ## 📱 Android App Release ${{ steps.version.outputs.version }}
+          
+          ### 📦 Download
+          - **APK Size:** ${{ steps.apk_info.outputs.apk_size }}
+          - **Build Type:** Debug (signed with debug certificate)
+          - **Min SDK:** Check your app's build.gradle
+          - **Target SDK:** Check your app's build.gradle
+          
+          ### 📋 Installation Instructions
+          1. Download the APK from the assets below
+          2. Enable "Install from unknown sources" in your Android settings
+          3. Install the APK file
+          
+          ### ⚠️ Important Notes
+          - This is a debug build signed with a debug certificate
+          - You may need to uninstall previous versions if they were signed with different certificates
+          - The app will show as "unsigned" but it is properly signed for installation
+          
+          ### 🔧 Build Info
+          - Built on: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          - Commit: ${{ github.sha }}
+          - Workflow: ${{ github.run_number }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload APK to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.apk_info.outputs.apk_path }}
+        asset_name: ${{ steps.apk_info.outputs.apk_name }}
+        asset_content_type: application/vnd.android.package-archive
+    
+    - name: Upload APK as Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: signed-apk-${{ steps.version.outputs.version }}
+        path: ${{ steps.apk_info.outputs.apk_path }}
+        retention-days: 30
