@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -38,20 +39,26 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
-import java.util.Locale.getDefault
+import com.example.truehub.ui.services.details.AppInfoDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -272,6 +279,8 @@ private fun ServiceCard(
     onAppUpgrade: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
+    var showInfoDialog by remember { mutableStateOf(false) }
+
     Card(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -293,6 +302,19 @@ private fun ServiceCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                app.metadata?.icon.let { iconUrl ->
+                    Column {
+                        AsyncImage(
+                            model = iconUrl,
+                            contentDescription = "App icon",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(5.dp))
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -392,29 +414,49 @@ private fun ServiceCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Start Button
-                ActionButton(
-                    text = "Start",
-                    icon = Icons.Default.PlayArrow,
-                    enabled = !app.state.equals("running", ignoreCase = true),
-                    isPrimary = !app.state.equals("running", ignoreCase = true),
-                    onClick = { onStartApp(app.name) },
-                    modifier = Modifier.weight(1f)
-                )
+                if (!app.state.equals("running", ignoreCase = true)){
+                    // Stop Button
+                    ActionButton(
+                        text = "Start",
+                        icon = Icons.Default.PlayArrow,
+                        enabled = true,
+                        isPrimary = true,
+                        onClick = { onStartApp(app.name) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }else{
+                    ActionButton(
+                        text = "Stop",
+                        icon = Icons.Default.Stop,
+                        enabled = true,
+                        isPrimary = true,
+                        onClick = { onStopApp(app.name) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
-                // Stop Button
+
+                // View Info Button
                 ActionButton(
-                    text = "Stop",
-                    icon = Icons.Default.Stop,
-                    enabled = app.state.equals("running", ignoreCase = true),
+                    text = "View Info",
+                    icon = Icons.Default.Info,
+                    enabled = true,
                     isPrimary = false,
-                    onClick = { onStopApp(app.name) },
+                    onClick = { showInfoDialog = true },
                     modifier = Modifier.weight(1f)
                 )
             }
         }
+    }
+
+    // Show dialog when requested
+    if (showInfoDialog) {
+        AppInfoDialog(
+            app = app,
+            onDismiss = { showInfoDialog = false }
+        )
     }
 }
 @Composable
@@ -591,47 +633,47 @@ private fun ActionButton(
     }
 }
 
-@Composable
-private fun UpgradeChip(
-    currAppName: String,
-    onAppUpgrade: (String) -> Unit,
-    upgradeState: System.UpgradeJobState?
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (upgradeState == null) {
-                Icon(
-                    imageVector = Icons.Default.CloudUpload,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                TextButton(onClick = { onAppUpgrade(currAppName) }) {
-                    Text(
-                        text = "Update",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            } else {
-                Text(
-                    text = upgradeState.state.lowercase(getDefault()),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
+//@Composable
+//private fun UpgradeChip(
+//    currAppName: String,
+//    onAppUpgrade: (String) -> Unit,
+//    upgradeState: System.UpgradeJobState?
+//) {
+//    Surface(
+//        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+//        shape = RoundedCornerShape(20.dp)
+//    ) {
+//        Row(
+//            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            if (upgradeState == null) {
+//                Icon(
+//                    imageVector = Icons.Default.CloudUpload,
+//                    contentDescription = null,
+//                    modifier = Modifier.size(16.dp),
+//                    tint = MaterialTheme.colorScheme.primary
+//                )
+//                Spacer(modifier = Modifier.width(4.dp))
+//                TextButton(onClick = { onAppUpgrade(currAppName) }) {
+//                    Text(
+//                        text = "Update",
+//                        style = MaterialTheme.typography.labelSmall,
+//                        color = MaterialTheme.colorScheme.primary,
+//                        fontWeight = FontWeight.Medium
+//                    )
+//                }
+//            } else {
+//                Text(
+//                    text = upgradeState.state.lowercase(getDefault()),
+//                    style = MaterialTheme.typography.labelSmall,
+//                    color = MaterialTheme.colorScheme.primary,
+//                    fontWeight = FontWeight.Medium
+//                )
+//            }
+//        }
+//    }
+//}
 
 
 @Composable

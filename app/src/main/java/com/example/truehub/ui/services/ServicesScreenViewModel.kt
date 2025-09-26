@@ -9,6 +9,7 @@ import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,6 +94,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = null
                     )
+                    ToastManager.showSuccess("Started Container")
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(
@@ -100,6 +102,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = result.message
                     )
+                    ToastManager.showError("Failed to start container")
                 }
                 is ApiResult.Loading -> {
                     _uiState.value = _uiState.value.copy(
@@ -107,6 +110,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = null
                     )
+                    ToastManager.showInfo("Starting Container")
                 }
             }
         }
@@ -121,6 +125,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = null
                     )
+                    ToastManager.showSuccess("Stopped Container")
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(
@@ -128,6 +133,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = result.message
                     )
+                    ToastManager.showError("Failed to stop container")
                 }
                 is ApiResult.Loading -> {
                     _uiState.value = _uiState.value.copy(
@@ -135,6 +141,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         isRefreshing = false,
                         error = null
                     )
+                    ToastManager.showInfo("Stopping Container")
                 }
             }
         }
