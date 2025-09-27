@@ -17,6 +17,7 @@ activity = "1.11.0"
 constraintlayout = "2.2.1"
 material3 = "1.4.0"
 moshiKotlin = "1.15.2"
+mpandroidchart = "v3.1.0"
 navigationCompose = "2.9.5"
 okhttp = "5.1.0"
 securityCrypto = "1.1.0"
@@ -45,6 +46,7 @@ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "const
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 material3 = { module = "androidx.compose.material3:material3" }
 moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "moshiKotlin" }
+mpandroidchart = { module = "com.github.PhilJay:MPAndroidChart", version.ref = "mpandroidchart" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }

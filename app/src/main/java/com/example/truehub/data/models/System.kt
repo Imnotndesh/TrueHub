@@ -125,13 +125,8 @@ object System {
         val identifier: String?,
         val aggregations: Map<String, Map<String, Double>>?,
         val data: List<List<Double>>,
-        val meta: ReportingGraphMeta
-    )
-
-    @JsonClass(generateAdapter = true)
-    data class ReportingGraphMeta(
-        val start: Long,
-        val end: Long,
+        val start: Int,
+        val end: Int,
         val legend: List<String>
     )
 
