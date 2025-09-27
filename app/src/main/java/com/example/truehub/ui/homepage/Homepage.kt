@@ -1,5 +1,6 @@
 package com.example.truehub.ui.homepage
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,6 +28,8 @@ import com.example.truehub.ui.background.WavyGradientBackground
 import com.example.truehub.ui.homepage.HomeUiState
 import com.example.truehub.ui.homepage.HomeViewModel
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
+import com.example.truehub.ui.homepage.details.MetricType
+import com.example.truehub.ui.homepage.details.PerformanceBottomSheet
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,7 +69,8 @@ fun HomeScreen(
                 onRefresh = { viewModel.refresh() },
                 onShutdown = { reason -> viewModel.shutdownSystem(reason) },
                 onNavigateToServices = onNavigateToServices,
-                onNavigateToProfile = onNavigateToProfile
+                onNavigateToProfile = onNavigateToProfile,
+                onRefreshGraph = {viewModel.loadPerformanceData()}
             )
         }
     }
@@ -180,12 +184,15 @@ private fun ErrorScreen(
 private fun HomeContent(
     state: HomeUiState.Success,
     onRefresh: () -> Unit,
+    onRefreshGraph: () -> Unit,
     onShutdown: (String) -> Unit,
     onNavigateToServices: () -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
     var showShutdownDialog by remember { mutableStateOf(false) }
     var showMemoryDialog by remember { mutableStateOf(false) }
+    var showPerformanceDialog by remember { mutableStateOf(false) }
+    var currentMetricType by remember { mutableStateOf(MetricType.ALL) }
 
     Column(
         modifier = Modifier
@@ -267,6 +274,18 @@ private fun HomeContent(
             diskCount = state.diskDetails.size,
             modifier = Modifier.padding(bottom = 16.dp),
             onDiskClick = { showMemoryDialog = true },
+            onCpuClick = {
+                currentMetricType = MetricType.CPU
+                showPerformanceDialog = true
+            },
+            onMemoryClick = {
+                currentMetricType = MetricType.MEMORY
+                showPerformanceDialog = true
+            },
+            onLoadClick = {
+                currentMetricType = MetricType.ALL
+                showPerformanceDialog = true
+            }
         )
 
         // Storage Information - show each pool
@@ -312,6 +331,20 @@ private fun HomeContent(
         DiskInfoBottomSheet(
             disks = state.diskDetails,
             onDismiss = { showMemoryDialog = false },
+        )
+    }
+    if (showPerformanceDialog) {
+        PerformanceBottomSheet(
+            cpuData = state.cpuData,
+            memoryData = state.memoryData,
+            temperatureData = state.temperatureData,
+            metricType = currentMetricType,
+            isLoading = state.isRefreshing,
+            onDismiss = {
+                showPerformanceDialog = false
+                currentMetricType = MetricType.ALL
+            },
+            onRefresh = onRefresh
         )
     }
 }
@@ -417,6 +450,9 @@ private fun QuickStatsGrid(
     diskCount: Int,
     modifier: Modifier = Modifier,
     onDiskClick: () -> Unit,
+    onCpuClick: () -> Unit,
+    onMemoryClick: () -> Unit,
+    onLoadClick: () -> Unit
 ) {
     Column(modifier = modifier) {
         Text(
@@ -437,7 +473,8 @@ private fun QuickStatsGrid(
                 subtitle = "${systemInfo.physical_cores ?: 0} physical",
                 icon = Icons.Default.Memory,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = onCpuClick
             )
             StatCard(
                 title = "Memory",
@@ -445,7 +482,8 @@ private fun QuickStatsGrid(
                 subtitle = if (systemInfo.ecc_memory) "ECC" else "Non-ECC",
                 icon = Icons.Default.Storage,
                 color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = onMemoryClick
             )
         }
 
@@ -461,7 +499,8 @@ private fun QuickStatsGrid(
                 subtitle = "1 minute",
                 icon = Icons.Default.Timeline,
                 color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = onLoadClick
             )
             StatCard(
                 title = "Disks",

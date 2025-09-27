@@ -1,5 +1,6 @@
 package com.example.truehub.ui.homepage
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -21,6 +22,7 @@ sealed class HomeUiState {
         val diskDetails: List<System.DiskDetails>,
         val cpuData: List<System.ReportingGraphResponse>?,
         val memoryData: List<System.ReportingGraphResponse>?,
+        val temperatureData: List<System.ReportingGraphResponse>? = null,
         val isRefreshing: Boolean = false
     ) : HomeUiState()
 
@@ -36,6 +38,9 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var _performanceDataLoading = MutableStateFlow(false)
+    val performanceDataLoading: StateFlow<Boolean> = _performanceDataLoading.asStateFlow()
+
 
     init {
         loadDashboardData()
@@ -88,6 +93,18 @@ class HomeViewModel(
                     )
                     apiManager.system.getReportingDataWithResult(cpuGraphRequest, query)
                 }
+                val tempDataDeferred = async {
+                    val cpuGraphRequest = listOf(
+                        System.ReportingGraphRequest(
+                            name = System.ReportingGraphName.CPUTEMP
+                        )
+                    )
+                    val query = System.ReportingGraphQuery(
+                        unit = System.ReportingUnit.HOUR,
+                        aggregate = true
+                    )
+                    apiManager.system.getReportingDataWithResult(cpuGraphRequest, query)
+                }
                 val memoryDataDeferred = async {
                     val memoryGraphRequest = listOf(
                         System.ReportingGraphRequest(
@@ -106,6 +123,7 @@ class HomeViewModel(
                 val diskResult = diskDeferred.await()
                 val cpuDataResult = cpuDataDeferred.await()
                 val memoryDataResult = memoryDataDeferred.await()
+                val tempDataResult = tempDataDeferred.await()
 
                 val pools = if (poolResult is ApiResult.Success) poolResult.data else emptyList()
                 val disks = if (diskResult is ApiResult.Success) diskResult.data else emptyList()
@@ -116,9 +134,11 @@ class HomeViewModel(
                     diskDetails = disks,
                     cpuData = if (cpuDataResult is ApiResult.Success) cpuDataResult.data else null,
                     memoryData = if (memoryDataResult is ApiResult.Success) memoryDataResult.data else null,
+                    temperatureData = if (tempDataResult is ApiResult.Success) tempDataResult.data else null,
                     isRefreshing = false
                 )
                 ToastManager.showSuccess("Dashboard updated successfully")
+                Log.e("Home-Check", cpuDataResult.toString())
 
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Error(
@@ -158,6 +178,54 @@ class HomeViewModel(
             _uiState.value = HomeUiState.Loading
             loadDashboardData()
         }
+    }
+    fun loadPerformanceData(): Triple<List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?> {
+        var cpuData: List<System.ReportingGraphResponse>? = null
+        var memoryData: List<System.ReportingGraphResponse>? = null
+        var temperatureData: List<System.ReportingGraphResponse>? = null
+
+        viewModelScope.launch {
+            _performanceDataLoading.value = true
+
+            try {
+                // Fetch CPU data
+                val cpuDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.CPU))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                // Fetch Memory data
+                val memoryDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.MEMORY))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                // Fetch CPU Temperature data
+                val tempDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.CPUTEMP))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                // Await results
+                val cpuResult = cpuDeferred.await()
+                val memoryResult = memoryDeferred.await()
+                val tempResult = tempDeferred.await()
+
+                cpuData = if (cpuResult is ApiResult.Success) cpuResult.data else null
+                memoryData = if (memoryResult is ApiResult.Success) memoryResult.data else null
+                temperatureData = if (tempResult is ApiResult.Success) tempResult.data else null
+
+            } catch (e: Exception) {
+                ToastManager.showError("Failed to load performance data: ${e.message}")
+            } finally {
+                _performanceDataLoading.value = false
+            }
+        }
+
+        return Triple(cpuData, memoryData, temperatureData)
     }
 
     class HomeViewModelFactory(
