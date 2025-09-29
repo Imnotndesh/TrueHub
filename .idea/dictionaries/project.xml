@@ -13,7 +13,10 @@
       <w>loadavg</w>
       <w>physmem</w>
       <w>rawvalue</w>
+      <w>secureboot</w>
       <w>truehub</w>
+      <w>virt</w>
+      <w>virtio</w>
     </words>
   </dictionary>
 </component>

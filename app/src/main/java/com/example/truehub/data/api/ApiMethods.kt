@@ -30,4 +30,19 @@ object ApiMethods {
         const val STOP_APP = "app.stop"
         const val UPGRADE_APP = "app.upgrade"
     }
+    object Virt{
+        const val GET_ALL_INSTANCES = "virt.instance.query"
+        const val START_INSTANCE = "virt.instance.start"
+        const val STOP_INSTANCE = "virt.instance.stop"
+        const val RESTART_INSTANCE = "virt.instance.restart"
+        const val DELETE_INSTANCE = "virt.instance.delete"
+        const val UPDATE_INSTANCE = "virt.instance.update"
+        const val DELETE_INSTANCE_DEVICE = "virt.instance.device_delete"
+    }
+    // TODO: Map these calls from API to here
+    object Vm{
+        const val GET_ALL_VM_INSTANCES = "vm.query"
+        const val START_VM_INSTANCE = "vm.instance.start"
+        const val STOP_INSTANCE = "vm.instance.stop"
+    }
 }
