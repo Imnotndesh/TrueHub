@@ -39,10 +39,22 @@ object ApiMethods {
         const val UPDATE_INSTANCE = "virt.instance.update"
         const val DELETE_INSTANCE_DEVICE = "virt.instance.device_delete"
     }
-    // TODO: Map these calls from API to here
     object Vm{
         const val GET_ALL_VM_INSTANCES = "vm.query"
         const val START_VM_INSTANCE = "vm.instance.start"
-        const val STOP_INSTANCE = "vm.instance.stop"
+        const val STOP_INSTANCE = "vm.stop"
+        const val RESTART_INSTANCE = "vm.restart"
+        const val DELETE_INSTANCE = "vm.instance.delete"
+        const val SUSPEND_VM = "vm.suspend"
+        const val RESUME_VM = "vm.resume"
+        const val POWER_OFF_VM = "vm.poweroff"
+        const val CLONE_VM = "vm.clone"
+        const val GET_VM_MEMORY_USAGE = "vm.get_memory_usage"
+        const val GET_INSTANCE = "vm.get_instance"
+        const val GET_VM_STATUS = "vm.status"
+        const val GET_DISPLAY_URL = "vm.get_display_web_uri"
+    }
+    object Shares{
+        const val GET_SMB_SHARES = "vm.sharing.smb.query"
     }
 }
