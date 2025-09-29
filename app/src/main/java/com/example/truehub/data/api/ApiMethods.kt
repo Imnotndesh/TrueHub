@@ -10,6 +10,11 @@ object ApiMethods {
         const val GEN_AUTH_TOKEN = "auth.generate_token"
 
     }
+    object User{
+        const val CHANGE_PASSWORD = "user.set_password"
+        const val USER_UPDATE = "user.update"
+        const val GET_USER_OBJ = "user.get_obj"
+    }
     object Connection{
         const val CONNECTION_KEEP_ALIVE = "core.ping"
     }
