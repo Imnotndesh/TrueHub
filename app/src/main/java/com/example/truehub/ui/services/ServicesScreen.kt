@@ -34,11 +34,16 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -58,6 +63,7 @@ import coil.compose.AsyncImage
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.services.containers.ContainerScreen
 import com.example.truehub.ui.services.details.AppInfoDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,7 +73,8 @@ fun ServicesScreen(manager: TrueNASApiManager) {
         factory = ServicesScreenViewModel.ServicesViewModelFactory(manager)
     )
     val uiState by viewModel.uiState.collectAsState()
-
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Apps", "Containers", "VMs")
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -89,7 +96,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp),
+                    .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -101,7 +108,12 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${uiState.apps.size} containers",
+                        text = when (selectedTabIndex) {
+                            0 -> "${uiState.apps.size} containers"
+                            1 -> "0 containers"
+                            2 -> "0 virtual machines"
+                            else -> ""
+                        },
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -117,6 +129,41 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                         contentDescription = "Refresh",
                         tint = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+
+            // Tab Row
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                        height = 3.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                },
+                divider = {},
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    ) {
+                        Text(
+                            text = title,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (selectedTabIndex == index)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
@@ -157,22 +204,42 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 }
             }
 
-            // Content
-            when {
-                uiState.isLoading -> {
-                    LoadingContent()
+            // Content based on selected tab
+            when (selectedTabIndex) {
+                0 -> {
+                    // Apps Tab
+                    when {
+                        uiState.isLoading -> {
+                            LoadingContent()
+                        }
+                        uiState.apps.isEmpty() && !uiState.isLoading -> {
+                            EmptyContent()
+                        }
+                        else -> {
+                            ServicesContent(
+                                apps = uiState.apps,
+                                isRefreshing = uiState.isRefreshing,
+                                onStartApp = {appName ->viewModel.startApp(appName)},
+                                onStopApp = {appName -> viewModel.stopApp(appName)},
+                                onAppUpgrade = {appName -> viewModel.upgradeApp(appName)},
+                                upgradeJobs = uiState.upgradeJobs
+                            )
+                        }
+                    }
                 }
-                uiState.apps.isEmpty() && !uiState.isLoading -> {
-                    EmptyContent()
+                1 -> {
+                    // Containers Tab - Empty for now
+//                    EmptyTabContent(
+//                        title = "No containers found",
+//                        description = "Container management coming soon"
+//                    )
+                    ContainerScreen(manager)
                 }
-                else -> {
-                    ServicesContent(
-                        apps = uiState.apps,
-                        isRefreshing = uiState.isRefreshing,
-                        onStartApp = {appName ->viewModel.startApp(appName)},
-                        onStopApp = {appName -> viewModel.stopApp(appName)},
-                        onAppUpgrade = {appName -> viewModel.upgradeApp(appName)},
-                        upgradeJobs = uiState.upgradeJobs
+                2 -> {
+                    // VMs Tab - Empty for now
+                    EmptyTabContent(
+                        title = "No virtual machines found",
+                        description = "VM management coming soon"
                     )
                 }
             }
@@ -180,6 +247,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
     }
 }
 
+@ExperimentalMaterial3Api
 @Composable
 private fun LoadingContent() {
     Column(
@@ -228,6 +296,36 @@ private fun EmptyContent() {
 }
 
 @Composable
+private fun EmptyTabContent(
+    title: String,
+    description: String
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Info,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun ServicesContent(
     apps: List<Apps.AppQueryResponse>,
     isRefreshing: Boolean,
@@ -237,9 +335,9 @@ private fun ServicesContent(
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp), // Increased spacing
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp) // Add content padding
+        contentPadding = PaddingValues(vertical = 8.dp)
     ) {
         if (isRefreshing) {
             item {
@@ -263,7 +361,6 @@ private fun ServicesContent(
             )
         }
 
-        // Bottom spacing
         item {
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -296,7 +393,6 @@ private fun ServiceCard(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // Header Row with App Name and Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -341,7 +437,6 @@ private fun ServiceCard(
                 StatusChip(state = app.state, icon = getStatusIcon(app.state))
             }
 
-            // Version and Upgrade Section
             if (app.upgrade_available || upgradeJobs[app.name] != null) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -367,7 +462,6 @@ private fun ServiceCard(
                     }
                 }
 
-                // Progress Bar for Active Upgrades
                 upgradeJobs[app.name]?.let { jobState ->
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -409,7 +503,6 @@ private fun ServiceCard(
                 }
             }
 
-            // Action Buttons Section
             Spacer(modifier = Modifier.height(20.dp))
 
             Row(
@@ -417,7 +510,6 @@ private fun ServiceCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (!app.state.equals("running", ignoreCase = true)){
-                    // Stop Button
                     ActionButton(
                         text = "Start",
                         icon = Icons.Default.PlayArrow,
@@ -437,8 +529,6 @@ private fun ServiceCard(
                     )
                 }
 
-
-                // View Info Button
                 ActionButton(
                     text = "View Info",
                     icon = Icons.Default.Info,
@@ -451,7 +541,6 @@ private fun ServiceCard(
         }
     }
 
-    // Show dialog when requested
     if (showInfoDialog) {
         AppInfoDialog(
             app = app,
@@ -459,6 +548,7 @@ private fun ServiceCard(
         )
     }
 }
+
 @Composable
 private fun UpgradeButton(
     onAppUpgrade: () -> Unit
@@ -488,6 +578,7 @@ private fun UpgradeButton(
         }
     }
 }
+
 @Composable
 private fun UpgradeStatusChip(
     upgradeState: System.UpgradeJobState
@@ -552,7 +643,6 @@ private fun UpgradeStatusChip(
     }
 }
 
-
 @Composable
 private fun StatusChip(
     state: String,
@@ -583,6 +673,7 @@ private fun StatusChip(
         }
     }
 }
+
 @Composable
 private fun ActionButton(
     text: String,
@@ -633,56 +724,13 @@ private fun ActionButton(
     }
 }
 
-//@Composable
-//private fun UpgradeChip(
-//    currAppName: String,
-//    onAppUpgrade: (String) -> Unit,
-//    upgradeState: System.UpgradeJobState?
-//) {
-//    Surface(
-//        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-//        shape = RoundedCornerShape(20.dp)
-//    ) {
-//        Row(
-//            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-//            verticalAlignment = Alignment.CenterVertically
-//        ) {
-//            if (upgradeState == null) {
-//                Icon(
-//                    imageVector = Icons.Default.CloudUpload,
-//                    contentDescription = null,
-//                    modifier = Modifier.size(16.dp),
-//                    tint = MaterialTheme.colorScheme.primary
-//                )
-//                Spacer(modifier = Modifier.width(4.dp))
-//                TextButton(onClick = { onAppUpgrade(currAppName) }) {
-//                    Text(
-//                        text = "Update",
-//                        style = MaterialTheme.typography.labelSmall,
-//                        color = MaterialTheme.colorScheme.primary,
-//                        fontWeight = FontWeight.Medium
-//                    )
-//                }
-//            } else {
-//                Text(
-//                    text = upgradeState.state.lowercase(getDefault()),
-//                    style = MaterialTheme.typography.labelSmall,
-//                    color = MaterialTheme.colorScheme.primary,
-//                    fontWeight = FontWeight.Medium
-//                )
-//            }
-//        }
-//    }
-//}
-
-
 @Composable
 private fun getStatusColor(state: String): Color {
     return when (state.lowercase()) {
-        "running", "active" -> Color(0xFF2E7D32) // Success Green
-        "stopped", "inactive" -> Color(0xFF757575) // Neutral Gray
+        "running", "active" -> Color(0xFF2E7D32)
+        "stopped", "inactive" -> Color(0xFF757575)
         "error", "failed" -> MaterialTheme.colorScheme.error
-        "paused" -> Color(0xFFF57C00) // Warning Orange
+        "paused" -> Color(0xFFF57C00)
         else -> MaterialTheme.colorScheme.outline
     }
 }
