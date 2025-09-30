@@ -55,4 +55,10 @@ object Auth {
         @field:Json("account_attributes")
         val accountAttributes: List<String> = emptyList()
     )
+    data class TokenRequest(
+        val ttl: Int = 600,
+        val attrs: Map<String, Any> = emptyMap(),
+        val matchOrigin: Boolean = true,
+        val singleUse: Boolean = false
+    )
 }

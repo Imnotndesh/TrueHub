@@ -1,5 +1,6 @@
 package com.example.truehub.data.api
 
+import android.util.Log
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.ApiMethods.System.GET_GRAPH_DATA
@@ -116,6 +117,26 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
             ApiResult.Error("Failed to get reporting data: ${e.message}", e)
         }
     }
+    suspend fun getJobInfo(jobId: Int): System.Job {
+        val filters = listOf(
+            listOf("id", "=", jobId)
+        )
+        val jobs = client.call<Array<System.Job>>(
+            method = ApiMethods.System.GET_JOB_STATUS,
+            params = listOf(filters),
+            resultType = Array<System.Job>::class.java
+        )
+        return jobs.first()
+    }
 
+    suspend fun getJobInfoJobWithResult(jobId: Int): ApiResult<System.Job> {
+        return try {
+            val result = getJobInfo(jobId)
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            Log.e("TrueNAS-API", "Cannot fetch Job Info: ${e.message}", e)
+            ApiResult.Error("Cannot fetch Job Info: ${e.message}", e)
+        }
+    }
 
 }

@@ -5,6 +5,7 @@ import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.data.models.Virt
 import com.squareup.moshi.Types
 
 class AppsService(client: TrueNASClient) : BaseApiService(client) {

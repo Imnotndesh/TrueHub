@@ -10,6 +10,11 @@ object ApiMethods {
         const val GEN_AUTH_TOKEN = "auth.generate_token"
 
     }
+    object User{
+        const val CHANGE_PASSWORD = "user.set_password"
+        const val USER_UPDATE = "user.update"
+        const val GET_USER_OBJ = "user.get_obj"
+    }
     object Connection{
         const val CONNECTION_KEEP_ALIVE = "core.ping"
     }
@@ -29,5 +34,32 @@ object ApiMethods {
         const val START_APP = "app.start"
         const val STOP_APP = "app.stop"
         const val UPGRADE_APP = "app.upgrade"
+    }
+    object Virt{
+        const val GET_ALL_INSTANCES = "virt.instance.query"
+        const val START_INSTANCE = "virt.instance.start"
+        const val STOP_INSTANCE = "virt.instance.stop"
+        const val RESTART_INSTANCE = "virt.instance.restart"
+        const val DELETE_INSTANCE = "virt.instance.delete"
+        const val UPDATE_INSTANCE = "virt.instance.update"
+        const val DELETE_INSTANCE_DEVICE = "virt.instance.device_delete"
+    }
+    object Vm{
+        const val GET_ALL_VM_INSTANCES = "vm.query"
+        const val START_VM_INSTANCE = "vm.instance.start"
+        const val STOP_INSTANCE = "vm.stop"
+        const val RESTART_INSTANCE = "vm.restart"
+        const val DELETE_INSTANCE = "vm.instance.delete"
+        const val SUSPEND_VM = "vm.suspend"
+        const val RESUME_VM = "vm.resume"
+        const val POWER_OFF_VM = "vm.poweroff"
+        const val CLONE_VM = "vm.clone"
+        const val GET_VM_MEMORY_USAGE = "vm.get_memory_usage"
+        const val GET_INSTANCE = "vm.get_instance"
+        const val GET_VM_STATUS = "vm.status"
+        const val GET_DISPLAY_URL = "vm.get_display_web_uri"
+    }
+    object Shares{
+        const val GET_SMB_SHARES = "vm.sharing.smb.query"
     }
 }
