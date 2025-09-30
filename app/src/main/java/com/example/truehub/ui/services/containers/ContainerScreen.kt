@@ -25,12 +25,16 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Virt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,7 +82,8 @@ fun ContainerScreen(
                 onStartContainer = { id -> viewModel.startContainer(id) },
                 onStopContainer = { id -> viewModel.stopContainer(id) },
                 onRestartContainer = { id -> viewModel.restartContainer(id) },
-                onDeleteContainer = { id -> viewModel.deleteContainer(id) }
+                onDeleteContainer = { id -> viewModel.deleteContainer(id) },
+                operationJobs = uiState.operationJobs
             )
         }
     }
@@ -90,7 +96,7 @@ private fun LoadingContent() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        androidx.compose.material3.CircularProgressIndicator(
+        CircularProgressIndicator(
             modifier = Modifier.size(48.dp),
             strokeWidth = 4.dp
         )
@@ -137,7 +143,8 @@ private fun ContainersContent(
     onStartContainer: (String) -> Unit,
     onStopContainer: (String) -> Unit,
     onRestartContainer: (String) -> Unit,
-    onDeleteContainer: (String) -> Unit
+    onDeleteContainer: (String) -> Unit,
+    operationJobs: Map<String, System.Job>
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -162,7 +169,8 @@ private fun ContainersContent(
                 onStartContainer = { onStartContainer(container.id) },
                 onStopContainer = { onStopContainer(container.id) },
                 onRestartContainer = { onRestartContainer(container.id) },
-                onDeleteContainer = { onDeleteContainer(container.id) }
+                onDeleteContainer = { onDeleteContainer(container.id) },
+                operationJob = operationJobs[container.id]
             )
         }
 
@@ -179,7 +187,8 @@ private fun ContainerCard(
     onStartContainer: () -> Unit,
     onStopContainer: () -> Unit,
     onRestartContainer: () -> Unit,
-    onDeleteContainer: () -> Unit
+    onDeleteContainer: () -> Unit,
+    operationJob: System.Job? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -271,7 +280,7 @@ private fun ContainerCard(
                 )
                 DetailItem(
                     label = "Memory",
-                    value = container.memory?.let { "${it} MB" } ?: "N/A"
+                    value = container.memory?.let { "$it MB" } ?: "N/A"
                 )
                 DetailItem(
                     label = "Autostart",
@@ -294,6 +303,45 @@ private fun ContainerCard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+            operationJob?.let { job ->
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = job.progress?.description ?: getOperationText(job.state),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "${job.progress?.percent ?: 0}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = { (job.progress?.percent?.coerceIn(0, 100)?.toFloat() ?: 0f) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    )
+                }
+            }
 
             // Action Buttons
             Row(
@@ -523,7 +571,7 @@ private fun DeleteConfirmationDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(text = "Delete Container")
@@ -534,7 +582,7 @@ private fun DeleteConfirmationDialog(
         confirmButton = {
             TextButton(
                 onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
@@ -554,7 +602,7 @@ private fun ContainerInfoDialog(
     container: Virt.ContainerResponse,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(text = container.name)
@@ -629,5 +677,13 @@ private fun InfoRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+private fun getOperationText(state: String): String {
+    return when (state) {
+        "RUNNING" -> "Processing..."
+        "SUCCESS" -> "Completed"
+        "FAILED" -> "Failed"
+        else -> state.lowercase().replaceFirstChar { it.uppercase() }
     }
 }

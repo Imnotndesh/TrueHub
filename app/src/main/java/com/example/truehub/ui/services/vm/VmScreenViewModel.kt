@@ -31,7 +31,7 @@ class VmScreenViewModel(
         loadVms()
     }
 
-    private fun loadVms() {
+    fun loadVms() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 

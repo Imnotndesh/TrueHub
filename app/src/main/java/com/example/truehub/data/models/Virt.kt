@@ -87,7 +87,7 @@ object Virt {
         val memory: Int? = null,
         val autostart : Boolean,
         val environment: Map<String,String>,
-        val aliases : Aliases,
+        val aliases : List<Aliases>,
         val image : Image,
         val userns_idmap: UsernsIdmap? = null,
         val raw : Map<Any,Any>? = null,
@@ -214,4 +214,11 @@ object Virt {
         val address: String,
     ): Device
     sealed interface Device
+    @JsonClass(generateAdapter = true)
+    data class stopArgs(
+        @field:Json("timeout")
+        val timeout: Int? = -1,
+        @field:Json("force")
+        val force: Boolean? = false
+    )
 }

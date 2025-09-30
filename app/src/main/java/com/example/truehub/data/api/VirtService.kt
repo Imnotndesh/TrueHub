@@ -3,6 +3,8 @@ package com.example.truehub.data.api
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Virt
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Types
 
 class VirtService(client: TrueNASClient) : BaseApiService(client) {
@@ -41,15 +43,14 @@ class VirtService(client: TrueNASClient) : BaseApiService(client) {
         }
     }
     // Start Instance
-    suspend fun startVirtInstance(id : String): Boolean{
-        val result = client.call<Boolean>(
+    suspend fun startVirtInstance(id : String): Double{
+        return client.call(
             method = ApiMethods.Virt.START_INSTANCE,
             params = listOf(id),
-            resultType = Boolean::class.java
+            resultType = Double::class.java
         )
-        return result
     }
-    suspend fun startVirtInstanceWithResult(id : String): ApiResult<Boolean>{
+    suspend fun startVirtInstanceWithResult(id : String): ApiResult<Double>{
         return try {
             val result = startVirtInstance(id)
             ApiResult.Success(result)
@@ -58,18 +59,14 @@ class VirtService(client: TrueNASClient) : BaseApiService(client) {
         }
     }
     // Stop Instance
-    suspend fun stopVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Boolean{
-        data class stopArgs(
-            val timeout: Int? = -1,
-            val force: Boolean? = false
-        )
+    suspend fun stopVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Double{
         return client.call(
             method = ApiMethods.Virt.STOP_INSTANCE,
-            params = listOf(id,stopArgs(timeout,force)),
-            resultType = Boolean::class.java
+            params = listOf(id, Virt.stopArgs(timeout, force)),
+            resultType = Double::class.java
         )
     }
-    suspend fun stopVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Boolean>{
+    suspend fun stopVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
         return try {
             val result = stopVirtInstance(id,timeout,force)
             ApiResult.Success(result)
@@ -78,18 +75,14 @@ class VirtService(client: TrueNASClient) : BaseApiService(client) {
         }
     }
     // Restart Instance
-    suspend fun restartVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Boolean {
-        data class stopArgs(
-            val timeout: Int? = -1,
-            val force: Boolean? = false
-        )
+    suspend fun restartVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Double {
         return client.call(
             method = ApiMethods.Virt.RESTART_INSTANCE,
-            params = listOf(id,stopArgs(timeout,force)),
-            resultType = Boolean::class.java
+            params = listOf(id, Virt.stopArgs(timeout, force)),
+            resultType = Int::class.java
         )
     }
-    suspend fun restartVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Boolean>{
+    suspend fun restartVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
         return try {
             val result = restartVirtInstance(id,timeout,force)
             ApiResult.Success(result)
@@ -98,14 +91,14 @@ class VirtService(client: TrueNASClient) : BaseApiService(client) {
         }
     }
     // Delete virt instance
-    suspend fun deleteVirtInstance(id : String): Boolean {
+    suspend fun deleteVirtInstance(id : String): Int {
         return client.call(
             method = ApiMethods.Virt.DELETE_INSTANCE,
             params = listOf(id),
-            resultType = Boolean::class.java
+            resultType = Int::class.java
         )
     }
-    suspend fun deleteVirtInstanceWithResult(id : String): ApiResult<Boolean>{
+    suspend fun deleteVirtInstanceWithResult(id : String): ApiResult<Int>{
         return try {
             val result = deleteVirtInstance(id)
             ApiResult.Success(result)

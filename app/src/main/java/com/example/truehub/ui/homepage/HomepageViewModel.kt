@@ -1,6 +1,5 @@
 package com.example.truehub.ui.homepage
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -138,7 +137,7 @@ class HomeViewModel(
                     isRefreshing = false
                 )
                 ToastManager.showSuccess("Dashboard updated successfully")
-                Log.e("Home-Check", cpuDataResult.toString())
+
 
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Error(

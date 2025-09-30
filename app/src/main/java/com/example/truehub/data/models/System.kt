@@ -70,20 +70,40 @@ object System {
         val arguments: List<Any>,
         val logs_path: String?,
         val logs_excerpt: String?,
+        val result_encoding_error: String?,
         val progress: JobProgress?,
         val result: Any?,
         val error: Any?,
         val exception: String?,
-        val exc_info: String?,
+        val exc_info: ExcInfo?,
         val state: String,
         val time_started: Map<String, Long>?,
-        val time_finished: Any?
+        val time_finished: Any?,
+        val credentials: Credentials?
     )
 
     @JsonClass(generateAdapter = true)
     data class JobProgress(
         val percent: Int,
         val description: String?,
+        val extra: Any?
+    )
+    @JsonClass(generateAdapter = true)
+    data class Credentials(
+        val type: String?,
+        val data: CredentialsData?
+    )
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class CredentialsData(
+        val username: String?,
+        val login_at: Map<String, Long>?
+    )
+    @JsonClass(generateAdapter = true)
+    data class ExcInfo(
+        val repr: String?,
+        val type: String?,
+        val errno: Double?,
         val extra: Any?
     )
     data class UpgradeJobState(

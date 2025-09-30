@@ -41,6 +41,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -64,18 +65,33 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.services.containers.ContainerScreen
+import com.example.truehub.ui.services.containers.ContainerScreenViewModel
 import com.example.truehub.ui.services.details.AppInfoDialog
 import com.example.truehub.ui.services.vm.VmScreen
+import com.example.truehub.ui.services.vm.VmScreenViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServicesScreen(manager: TrueNASApiManager) {
-    val viewModel: ServicesScreenViewModel = viewModel(
+    val servicesViewModel: ServicesScreenViewModel = viewModel(
         factory = ServicesScreenViewModel.ServicesViewModelFactory(manager)
     )
-    val uiState by viewModel.uiState.collectAsState()
+    val containerViewModel: ContainerScreenViewModel = viewModel(
+        factory = ContainerScreenViewModel.ContainerViewModelFactory(manager)
+    )
+    val vmViewModel: VmScreenViewModel = viewModel(
+        factory = VmScreenViewModel.VmViewModelFactory(manager)
+    )
+    val uiState by servicesViewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Apps", "Containers", "VMs")
+    LaunchedEffect(selectedTabIndex) {
+        when (selectedTabIndex) {
+            0 -> servicesViewModel.refresh()
+            1 -> containerViewModel.loadContainers()
+            2 -> vmViewModel.loadVms()
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -122,7 +138,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
 
                 // Refresh Button
                 IconButton(
-                    onClick = { viewModel.refresh() },
+                    onClick = { servicesViewModel.refresh() },
                     enabled = !uiState.isLoading && !uiState.isRefreshing
                 ) {
                     Icon(
@@ -197,7 +213,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(
-                            onClick = { viewModel.clearError() }
+                            onClick = { servicesViewModel.clearError() }
                         ) {
                             Text("Dismiss")
                         }
@@ -220,9 +236,9 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                             ServicesContent(
                                 apps = uiState.apps,
                                 isRefreshing = uiState.isRefreshing,
-                                onStartApp = {appName ->viewModel.startApp(appName)},
-                                onStopApp = {appName -> viewModel.stopApp(appName)},
-                                onAppUpgrade = {appName -> viewModel.upgradeApp(appName)},
+                                onStartApp = {appName ->servicesViewModel.startApp(appName)},
+                                onStopApp = {appName -> servicesViewModel.stopApp(appName)},
+                                onAppUpgrade = {appName -> servicesViewModel.upgradeApp(appName)},
                                 upgradeJobs = uiState.upgradeJobs
                             )
                         }

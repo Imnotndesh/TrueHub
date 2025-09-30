@@ -1,10 +1,12 @@
 package com.example.truehub.ui.services.containers
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Virt
 import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +19,8 @@ data class ContainerScreenUiState(
     val containers: List<Virt.ContainerResponse> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val operationJobs: Map<String, System.Job> = emptyMap()
 )
 
 class ContainerScreenViewModel(
@@ -31,7 +34,7 @@ class ContainerScreenViewModel(
         loadContainers()
     }
 
-    private fun loadContainers() {
+    fun loadContainers() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
@@ -56,11 +59,13 @@ class ContainerScreenViewModel(
                     }
                 }
 
-                ApiResult.Loading -> _uiState.update {
-                    it.copy(
-                        isLoading = true,
-                        error = null
-                    )
+                ApiResult.Loading ->{
+                        _uiState.update {
+                        it.copy(
+                            isLoading = true,
+                            error = null
+                        )
+                    }
                 }
             }
         }
@@ -104,20 +109,17 @@ class ContainerScreenViewModel(
         viewModelScope.launch {
             when (val result = manager.virtService.startVirtInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Started container: $id")
-                    refresh()
+                    val jobId = result.data // Assuming this returns job ID
+                    trackContainerOperation(id, jobId.toInt(), "STARTING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Start containers: ${result.message}")
+                    ToastManager.showError("Failed to Start container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to start container: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> _uiState.update {
-                    it.copy(
-                        isLoading = true,
-                        error = null
-                    )
+                    it.copy(isLoading = true, error = null)
                 }
             }
         }
@@ -125,45 +127,91 @@ class ContainerScreenViewModel(
 
     fun stopContainer(id: String) {
         viewModelScope.launch {
-            when (val result = manager.virtService.stopVirtInstanceWithResult(id)) {
+            when (val result = manager.virtService.stopVirtInstanceWithResult(id, 2)) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Stopped container: $id")
-                    refresh()
+                    val jobId = result.data // Assuming this returns job ID
+                    trackContainerOperation(id, jobId.toInt(), "STOPPING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Stop containers: ${result.message}")
+                    ToastManager.showError("Failed to Stop container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to stop container: ${result.message}")
                     }
+                    Log.e("View-Model-Debug", result.message)
                 }
                 ApiResult.Loading -> _uiState.update {
-                    it.copy(
-                        isLoading = true,
-                        error = null
-                    )
+                    it.copy(isLoading = true, error = null)
                 }
             }
         }
     }
-
     fun restartContainer(id: String) {
         viewModelScope.launch {
-            when (val result = manager.virtService.restartVirtInstanceWithResult(id)) {
+            when (val result = manager.virtService.restartVirtInstanceWithResult(id,2)) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Restarted container: $id")
-                    refresh()
+                    val jobId = result.data // Assuming this returns job ID
+                    trackContainerOperation(id, jobId.toInt(), "RESTARTING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Restart containers: ${result.message}")
+                    ToastManager.showError("Failed to Restart container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to restart container: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> _uiState.update {
-                    it.copy(
-                        isLoading = true,
-                        error = null
-                    )
+                    it.copy(isLoading = true, error = null)
+                }
+            }
+        }
+    }
+    private fun trackContainerOperation(containerId: String, jobId: Int, operation: String) {
+        viewModelScope.launch {
+            var pollAttempts = 0
+            val maxPollAttempts = 150 // 5 minutes max
+
+            while (pollAttempts < maxPollAttempts) {
+                try {
+                    val jobResult = manager.system.getJobInfoJobWithResult(jobId)
+                    when (jobResult) {
+                        is ApiResult.Success -> {
+                            val job = jobResult.data
+
+                            // Update job state
+                            _uiState.update { state ->
+                                state.copy(
+                                    operationJobs = state.operationJobs + (containerId to job)
+                                )
+                            }
+
+                            // Check for terminal states
+                            if (job.state in listOf("SUCCESS", "FAILED", "ABORTED")) {
+                                kotlinx.coroutines.delay(2000)
+                                _uiState.update { state ->
+                                    state.copy(
+                                        operationJobs = state.operationJobs - containerId
+                                    )
+                                }
+                                refresh()
+                                break
+                            }
+                        }
+                        is ApiResult.Error -> {
+                            break
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    break
+                }
+
+                pollAttempts++
+                kotlinx.coroutines.delay(2000)
+            }
+
+            // Timeout cleanup
+            if (pollAttempts >= maxPollAttempts) {
+                _uiState.update { state ->
+                    state.copy(operationJobs = state.operationJobs - containerId)
                 }
             }
         }
@@ -173,7 +221,8 @@ class ContainerScreenViewModel(
         viewModelScope.launch {
             when (val result = manager.virtService.deleteVirtInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Deleted container: $id")
+                    val jobId = result.data
+                    trackContainerOperation(id,jobId,"DELETING")
                     refresh()
                 }
                 is ApiResult.Error -> {
