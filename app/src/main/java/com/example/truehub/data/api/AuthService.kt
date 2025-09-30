@@ -53,10 +53,16 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
             ApiResult.Error("Login failed: ${e.message}", e)
         }
     }
-    suspend fun generateToken(): String {
+
+    suspend fun generateToken(tokenRequest: Auth.TokenRequest = Auth.TokenRequest()): String {
         return client.call(
             method = ApiMethods.Auth.GEN_AUTH_TOKEN,
-            params = listOf(defaultTokenDuration),
+            params = listOf(
+                tokenRequest.ttl,
+                tokenRequest.attrs,
+                tokenRequest.matchOrigin,
+                tokenRequest.singleUse
+            ),
             resultType = String::class.java
         )
     }

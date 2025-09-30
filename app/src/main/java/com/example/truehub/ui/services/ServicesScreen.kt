@@ -65,6 +65,7 @@ import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.services.containers.ContainerScreen
 import com.example.truehub.ui.services.details.AppInfoDialog
+import com.example.truehub.ui.services.vm.VmScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -237,10 +238,11 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 }
                 2 -> {
                     // VMs Tab - Empty for now
-                    EmptyTabContent(
-                        title = "No virtual machines found",
-                        description = "VM management coming soon"
-                    )
+//                    EmptyTabContent(
+//                        title = "No virtual machines found",
+//                        description = "VM management coming soon"
+//                    )
+                    VmScreen(manager)
                 }
             }
         }

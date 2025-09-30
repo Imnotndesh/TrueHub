@@ -10,6 +10,7 @@ class TrueNASApiManager(private val client: TrueNASClient) {
     val apps: AppsService by lazy { AppsService(client) }
     val connection: ConnectionService by lazy { ConnectionService(client) }
     val virtService: VirtService by lazy { VirtService(client) }
+    val vmService: VmService by lazy { VmService(client) }
 
     // Convenience methods for connection management
     suspend fun connect(): Boolean = client.connect()
