@@ -39,7 +39,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,25 +57,81 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
+import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Auth.LoginMode
+import com.example.truehub.data.models.Config
 import com.example.truehub.ui.Screen
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
 import com.example.truehub.ui.components.ToastManager
+import com.example.truehub.ui.setup.ServerConfigBottomSheet
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
-    val viewModel = remember { LoginScreenViewModel(manager) }
-    val uiState by viewModel.uiState.collectAsState()
+fun LoginScreen(
+    existingManager: TrueNASApiManager?,
+    navController: NavController,
+    onManagerInitialized: (TrueNASApiManager) -> Unit
+) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val (savedUrl, savedInsecure) = remember { Prefs.load(context) }
 
-    // Handle login success navigation
+    // Local state for manager - use existing or create new
+    var localManager by remember(existingManager) {
+        mutableStateOf(existingManager)
+    }
+    var showSetupSheet by remember { mutableStateOf(localManager == null || savedUrl == null) }
+
+    val viewModel = remember(localManager) {
+        LoginScreenViewModel(localManager)
+    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Handle manager initialization when URL is configured but manager is null
+    LaunchedEffect(savedUrl, savedInsecure, localManager) {
+        if (localManager == null && savedUrl != null) {
+            // Initialize manager with saved configuration
+            lifecycleOwner.lifecycleScope.launch {
+                try {
+                    ToastManager.showInfo("Connecting to server...")
+
+                    val config = Config.ClientConfig(
+                        serverUrl = savedUrl,
+                        insecure = savedInsecure ?: false,
+                        connectionTimeoutMs = 15000,
+                        enablePing = false,
+                        enableDebugLogging = true
+                    )
+
+                    val client = TrueNASClient(config)
+                    val newManager = TrueNASApiManager(client)
+                    newManager.connect()
+
+                    localManager = newManager
+                    onManagerInitialized(newManager)
+                    viewModel.updateManager(newManager)
+
+                    ToastManager.showSuccess("Connected to server!")
+
+                } catch (e: Exception) {
+                    // Connection failed, show setup sheet
+                    ToastManager.showError("Connection failed: ${e.message}")
+                    showSetupSheet = true
+                }
+            }
+        }
+    }
+
+    // Handle login success
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
             navController.navigate(Screen.Main.route) {
                 popUpTo(Screen.Login.route) { inclusive = true }
                 launchSingleTop = true
@@ -82,31 +140,117 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
         }
     }
 
-    // Handle connection status messages
-    LaunchedEffect(uiState.connectionStatus) {
-        when (val status = uiState.connectionStatus) {
-            is ConnectionStatus.Error -> {
-                ToastManager.showError("Connection Error: ${status.message}")
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Main login UI or connection setup
+        when {
+            localManager != null -> {
+                // We have a manager - show normal login UI
+                LoginContent(
+                    manager = localManager!!,
+                    viewModel = viewModel,
+                    uiState = uiState,
+                    onChangeServerConfig = { showSetupSheet = true }
+                )
             }
-            is ConnectionStatus.Connected -> {
-                ToastManager.showSuccess("Connected")
+            savedUrl != null -> {
+                // We have a saved URL but manager is not initialized - show loading
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Connecting to server...")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { showSetupSheet = true }) {
+                        Text("Configure Server")
+                    }
+                }
             }
             else -> {
-                ToastManager.showWarning("Unknown Error Occurred")
+                // No URL configured at all
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "Server Configuration Required",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    Text(
+                        "Please configure your TrueNAS server to continue",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    Button(onClick = { showSetupSheet = true }) {
+                        Text("Configure Server")
+                    }
+                }
             }
         }
-    }
 
-    // Show loading screen when appropriate
-    if (uiState.isLoading) {
-        LoadingScreen(
-            message = when (uiState.loginMode) {
-                LoginMode.PASSWORD -> "Authenticating with password..."
-                LoginMode.API_KEY -> "Validating API key..."
-            }
-        )
-        return
+        // Setup Bottom Sheet
+        if (showSetupSheet) {
+            ServerConfigBottomSheet(
+                onDismiss = {
+                    // Only allow dismiss if we have a working manager
+                    if (localManager != null && savedUrl != null) {
+                        showSetupSheet = false
+                    }
+                },
+                onConfigured = { url, insecure ->
+                    lifecycleOwner.lifecycleScope.launch {
+                        try {
+                            ToastManager.showInfo("Connecting to server...")
+
+                            val config = Config.ClientConfig(
+                                serverUrl = url,
+                                insecure = insecure,
+                                connectionTimeoutMs = 15000,
+                                enablePing = false,
+                                enableDebugLogging = true
+                            )
+
+                            val client = TrueNASClient(config)
+                            val newManager = TrueNASApiManager(client)
+                            newManager.connect()
+
+                            // Save configuration
+                            Prefs.save(context, url, insecure)
+
+                            // Update managers
+                            localManager = newManager
+                            onManagerInitialized(newManager)
+                            viewModel.updateManager(newManager)
+
+                            showSetupSheet = false
+                            ToastManager.showSuccess("Connected successfully!")
+
+                        } catch (e: Exception) {
+                            ToastManager.showError("Failed to connect: ${e.message}")
+                        }
+                    }
+                },
+                initialUrl = savedUrl,
+                initialInsecure = savedInsecure ?: false,
+                showChangeUrlOption = savedUrl != null
+            )
+        }
     }
+}
+
+@Composable
+private fun LoginContent(
+    manager: TrueNASApiManager,
+    viewModel: LoginScreenViewModel,
+    uiState: LoginUiState,
+    onChangeServerConfig: () -> Unit
+) {
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -353,20 +497,19 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            Toast.makeText(
-                                context,
-                                "Contact your administrator for assistance",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            ToastManager.showInfo("Contact your administrator for assistance")
                         }
                 )
 
                 Spacer(modifier = Modifier.height(30.dp))
-                ServerInfoSection()
+                ServerInfoSection(
+                    onChangeServerClick = onChangeServerConfig
+                )
             }
         }
     }
 }
+
 
 @Composable
 private fun ConnectionStatusCard(
@@ -496,7 +639,7 @@ private fun LoginMethodTab(
 }
 
 @Composable
-private fun ServerInfoSection() {
+private fun ServerInfoSection(onChangeServerClick: () -> Unit) {
     val context = LocalContext.current
     val (serverUrl, _) = remember { Prefs.load(context) }
 

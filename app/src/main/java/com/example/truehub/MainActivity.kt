@@ -42,7 +42,6 @@ import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Config.ClientConfig
 import com.example.truehub.ui.MainScreen
 import com.example.truehub.ui.Screen
-import com.example.truehub.ui.SetupScreen
 import com.example.truehub.ui.components.ModernToastHost
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
@@ -70,23 +69,25 @@ class MainActivity : ComponentActivity() {
             var appState by remember { mutableStateOf<AppState>(AppState.Initializing) }
             val navController = rememberNavController()
 
-            // Initialize app state
             LaunchedEffect(Unit) {
-                initializeApp { state ->
-                    appState = state
-                }
+                initializeApp { state -> appState = state }
             }
 
-            // Keep connection alive
+            // Keep connection alive - ONLY if authenticated
             LaunchedEffect(manager) {
                 manager?.let { mgr ->
                     while (true) {
                         try {
-                            if (mgr.isConnected()) {
+                            // Only ping if we're logged in AND have valid credentials
+                            val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
+                            val hasToken = EncryptedPrefs.getAuthToken(this@MainActivity) != null
+                            val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
+
+                            if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
                                 mgr.connection.pingConnection()
                             }
                         } catch (e: Exception) {
-                            // Connection lost - could show toast or handle gracefully
+                            // Connection lost - this is normal if not authenticated
                         }
                         delay(30000L)
                     }
@@ -95,20 +96,18 @@ class MainActivity : ComponentActivity() {
 
             Box(modifier = Modifier.fillMaxSize()) {
                 when (appState) {
-                    is AppState.Initializing -> {
-                        LoadingScreen("Initializing...")
-                    }
-                    is AppState.CheckingConnection -> {
-                        LoadingScreen("Connecting to server...")
-                    }
-                    is AppState.ValidatingToken -> {
-                        LoadingScreen("Validating credentials...")
-                    }
+                    is AppState.Initializing -> LoadingScreen("Initializing...")
+                    is AppState.CheckingConnection -> LoadingScreen("Connecting to server...")
+                    is AppState.ValidatingToken -> LoadingScreen("Validating credentials...")
                     is AppState.Ready -> {
                         AppNavigation(
                             startRoute = (appState as AppState.Ready).startRoute,
                             navController = navController,
-                            manager = manager
+                            manager = manager,
+                            onManagerUpdate = { newManager ->
+                                manager = newManager
+                                trueNASClient = newManager.getClient()
+                            }
                         )
                     }
                     is AppState.Error -> {
@@ -118,12 +117,15 @@ class MainActivity : ComponentActivity() {
                         AppNavigation(
                             startRoute = (appState as AppState.Error).fallbackRoute,
                             navController = navController,
-                            manager = manager
+                            manager = manager,
+                            onManagerUpdate = { newManager ->
+                                manager = newManager
+                                trueNASClient = newManager.getClient()
+                            }
                         )
                     }
                 }
 
-                // Toast host at top level
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -142,38 +144,38 @@ class MainActivity : ComponentActivity() {
 
                 val (savedUrl, savedInsecure) = Prefs.load(this@MainActivity)
 
-                // No saved URL - go to setup
+                // No saved URL - go to login (will handle setup)
                 if (savedUrl == null) {
-                    onStateChange(AppState.Ready(Screen.Setup.route))
+                    onStateChange(AppState.Ready(Screen.Login.route))
                     return@launch
                 }
 
+                // Has saved URL - try to initialize connection
                 onStateChange(AppState.CheckingConnection)
 
-                // Check internet connectivity first
                 if (!isNetworkAvailable()) {
+                    // No network - go to login, let user see the error
                     onStateChange(
                         AppState.Error(
-                            "No internet connection. Please check your network.",
+                            "No internet connection.",
                             Screen.Login.route
                         )
                     )
                     return@launch
                 }
 
-                // Initialize client and manager
+                // Initialize connection
                 val config = ClientConfig(
                     serverUrl = savedUrl,
                     insecure = savedInsecure,
-                    connectionTimeoutMs = 15000, // Reduced timeout
-                    enablePing = true,
+                    connectionTimeoutMs = 15000,
+                    enablePing = false, // Disable auto-ping until authenticated
                     enableDebugLogging = true
                 )
 
                 trueNASClient = TrueNASClient(config)
                 manager = TrueNASApiManager(trueNASClient!!)
 
-                // Attempt connection with timeout
                 val connectionResult = try {
                     manager!!.connect()
                     true
@@ -182,47 +184,39 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (!connectionResult) {
+                    // Connection failed - go to login with option to reconfigure
                     onStateChange(
                         AppState.Error(
-                            "Unable to connect to TrueNAS server. Please check server status.",
+                            "Unable to connect to server.",
                             Screen.Login.route
                         )
                     )
                     return@launch
                 }
 
-                // Check if user should be logged in
+                // Check if logged in
                 val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
                 if (!isLoggedIn) {
                     onStateChange(AppState.Ready(Screen.Login.route))
                     return@launch
                 }
 
+                // Validate credentials
                 onStateChange(AppState.ValidatingToken)
 
-                // Validate existing credentials
                 val token = EncryptedPrefs.getAuthToken(this@MainActivity)
                 val apiKey = EncryptedPrefs.getApiKey(this@MainActivity)
                 val loginMethod = EncryptedPrefs.getLoginMethod(this@MainActivity)
 
                 val isValid = when (loginMethod) {
-                    "api_key" -> {
-                        if (apiKey != null) {
-                            validateApiKey(apiKey)
-                        } else false
-                    }
-                    "password" -> {
-                        if (token != null) {
-                            validateToken(token)
-                        } else false
-                    }
+                    "api_key" -> apiKey?.let { validateApiKey(it) } ?: false
+                    "password" -> token?.let { validateToken(it) } ?: false
                     else -> false
                 }
 
                 if (isValid) {
                     onStateChange(AppState.Ready(Screen.Main.route))
                 } else {
-                    // Clear invalid credentials
                     EncryptedPrefs.clear(this@MainActivity)
                     onStateChange(
                         AppState.Error(
@@ -236,8 +230,69 @@ class MainActivity : ComponentActivity() {
                 onStateChange(
                     AppState.Error(
                         "Initialization failed: ${e.message}",
-                        Screen.Setup.route
+                        Screen.Login.route
                     )
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun AppNavigation(
+        startRoute: String,
+        navController: androidx.navigation.NavHostController,
+        manager: TrueNASApiManager?,
+        onManagerUpdate: (TrueNASApiManager) -> Unit
+    ) {
+        NavHost(
+            navController = navController,
+            startDestination = startRoute
+        ) {
+            composable(Screen.Login.route) {
+                LoginScreen(
+                    existingManager = manager, // Can be null if no URL configured or connection failed
+                    navController = navController,
+                    onManagerInitialized = { newManager ->
+                        onManagerUpdate(newManager)
+                    }
+                )
+            }
+
+            composable(Screen.Main.route) {
+                // Main screen requires a valid manager
+                manager?.let {
+                    MainScreen(it, navController)
+                } ?: run {
+                    // Fallback if manager is null (shouldn't happen normally)
+                    LaunchedEffect(Unit) {
+                        ToastManager.showError("Session invalid. Please log in again.")
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Main.route) { inclusive = true }
+                        }
+                    }
+                    LoadingScreen("Redirecting to login...")
+                }
+            }
+
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onDummyAction = {settingAction ->
+                        ToastManager.showInfo(settingAction)
+                    },
+                    onNavigateBack = { navController.popBackStack() },
+//                    onLogout = {
+//                        lifecycleScope.launch {
+//                            EncryptedPrefs.clear(this@MainActivity)
+//                            manager?.disconnect()
+//                            trueNASClient = null
+//                            ToastManager.showInfo("Logged out successfully")
+//                            navController.navigate(Screen.Login.route) {
+//                                popUpTo(navController.graph.startDestinationId) {
+//                                    inclusive = true
+//                                }
+//                            }
+//                        }
+//                    }
                 )
             }
         }
@@ -273,101 +328,6 @@ class MainActivity : ComponentActivity() {
                     networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
         } catch (e: Exception) {
             false
-        }
-    }
-
-    @Composable
-    private fun AppNavigation(
-        startRoute: String,
-        navController: androidx.navigation.NavHostController,
-        manager: TrueNASApiManager?
-    ) {
-        NavHost(
-            navController = navController,
-            startDestination = startRoute
-        ) {
-            composable(Screen.Setup.route) {
-                SetupScreen { url, insecure ->
-                    Prefs.save(this@MainActivity, url, insecure)
-
-                    // Reinitialize with new settings
-                    lifecycleScope.launch {
-                        val config = ClientConfig(
-                            serverUrl = url,
-                            insecure = insecure,
-                            connectionTimeoutMs = 15000,
-                            enablePing = true,
-                            enableDebugLogging = true
-                        )
-
-                        trueNASClient = TrueNASClient(config)
-                        this@MainActivity.manager = TrueNASApiManager(trueNASClient!!)
-
-                        try {
-                            this@MainActivity.manager!!.connect()
-                            ToastManager.showSuccess("Connected to server successfully!")
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(Screen.Setup.route) { inclusive = true }
-                                launchSingleTop = true
-                            }
-                        } catch (e: Exception) {
-                            ToastManager.showError("Failed to connect: ${e.message}")
-                        }
-                    }
-                }
-            }
-
-            composable(Screen.Login.route) {
-                manager?.let {
-                    LoginScreen(it, navController)
-                } ?: run {
-                    // Manager not ready - show error and go back to setup
-                    LaunchedEffect(Unit) {
-                        ToastManager.showError("Connection not ready. Please reconfigure.")
-                        navController.navigate(Screen.Setup.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    }
-                }
-            }
-
-            composable(Screen.Main.route) {
-                manager?.let {
-                    MainScreen(it, navController)
-                } ?: run {
-                    LaunchedEffect(Unit) {
-                        ToastManager.showError("Session invalid. Please log in again.")
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(Screen.Main.route) { inclusive = true }
-                        }
-                    }
-                }
-            }
-
-            composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onDummyAction = { action ->
-                        when (action) {
-                            "Logout" -> {
-                                lifecycleScope.launch {
-                                    EncryptedPrefs.clear(this@MainActivity)
-                                    manager?.disconnect()
-                                    trueNASClient = null
-                                    this@MainActivity.manager = null
-                                    ToastManager.showInfo("Logged out successfully")
-                                    navController.navigate(Screen.Login.route) {
-                                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                    }
-                                }
-                            }
-                            else -> {
-                                ToastManager.showInfo("Action: $action")
-                            }
-                        }
-                    }
-                )
-            }
         }
     }
 

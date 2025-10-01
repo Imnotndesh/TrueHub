@@ -23,4 +23,6 @@ class TrueNASApiManager(private val client: TrueNASClient) {
     // State access
     val connectionState = client.connectionState
     val isLoading = client.isLoading
+
+    fun getClient(): TrueNASClient = client
 }
