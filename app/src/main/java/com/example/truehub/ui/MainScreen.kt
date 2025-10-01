@@ -60,23 +60,13 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
             Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) { HomeScreen(manager,
-                onNavigateToServices = {rootNavController.navigate(Screen.Services.route)},
-                onNavigateToProfile = {rootNavController.navigate(Screen.Profile.route)})}
+                onNavigateToServices = {navController.navigate(Screen.Services.route)},
+                onNavigateToProfile = {navController.navigate(Screen.Profile.route)})}
             composable(Screen.Services.route) { ServicesScreen(manager) }
             composable(Screen.Profile.route) { ProfileScreen(manager) {
-                rootNavController.navigate(Screen.Settings.route)
+                navController.navigate(Screen.Settings.route)
             }
             }
         }
     }
 }
-
-//@Composable
-//fun PageContent(text: String) {
-//    Box(
-//        modifier = Modifier.fillMaxSize(),
-//        contentAlignment = Alignment.Center
-//    ) {
-//        Text(text = text, style = MaterialTheme.typography.headlineMedium)
-//    }
-//}
