@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.background.WavyGradientBackground
+import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.homepage.HomeUiState
 import com.example.truehub.ui.homepage.HomeViewModel
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
@@ -57,7 +58,7 @@ fun HomeScreen(
             )
     ) {
         when (val state = uiState) {
-            is HomeUiState.Loading -> LoadingScreen()
+            is HomeUiState.Loading -> LoadingScreen("Loading your homescreen")
             is HomeUiState.Error -> ErrorScreen(
                 error = state.message,
                 canRetry = state.canRetry,
@@ -73,33 +74,6 @@ fun HomeScreen(
                 onRefreshGraph = {viewModel.loadPerformanceData()}
             )
         }
-    }
-}
-
-@Composable
-private fun LoadingScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(64.dp),
-            strokeWidth = 6.dp,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Loading Dashboard...",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = "Fetching system information",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

@@ -1,15 +1,6 @@
 package com.example.truehub.ui.login
 
-import android.widget.Toast
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,26 +34,25 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.TrueNASApiManager
@@ -99,6 +91,7 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val application = context.applicationContext as Application
     val (savedUrl, savedInsecure) = remember { Prefs.load(context) }
 
     // Local state for manager - use existing or create new
@@ -107,9 +100,9 @@ fun LoginScreen(
     }
     var showSetupSheet by remember { mutableStateOf(localManager == null || savedUrl == null) }
 
-    val viewModel = remember(localManager) {
-        LoginScreenViewModel(localManager)
-    }
+    val viewModel: LoginScreenViewModel = viewModel(
+        factory = LoginViewModelFactory(existingManager, application)
+    )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Handle manager initialization when URL is configured but manager is null
@@ -122,7 +115,7 @@ fun LoginScreen(
 
                     val config = Config.ClientConfig(
                         serverUrl = savedUrl,
-                        insecure = savedInsecure ?: false,
+                        insecure = savedInsecure,
                         connectionTimeoutMs = 15000,
                         enablePing = false,
                         enableDebugLogging = true
@@ -167,7 +160,14 @@ fun LoginScreen(
                     manager = localManager!!,
                     viewModel = viewModel,
                     uiState = uiState,
-                    onChangeServerConfig = { showSetupSheet = true }
+                    onChangeServerConfig = { showSetupSheet = true },
+                    apiKey = uiState.apiKey,
+                    onApiKeyChange = { newApikey -> viewModel.handleEvent(LoginEvent.UpdateApiKey(newApikey)) },
+                    isApiKeyVisible = uiState.isApiKeyVisible,
+                    onToggleVisibilityClick = { viewModel.handleEvent(LoginEvent.ToggleApiKeyVisibility) },
+                    saveForAutoLogin = uiState.saveApiKeyForAutoLogin,
+                    onSaveForAutoLoginChange = {change -> viewModel.handleEvent(LoginEvent.UpdateSaveApiKey(change,application)) },
+                    isLoading = uiState.isLoading,
                 )
             }
             savedUrl != null -> {
@@ -233,7 +233,7 @@ fun LoginScreen(
                     }
                 },
                 initialUrl = savedUrl,
-                initialInsecure = savedInsecure ?: false,
+                initialInsecure = savedInsecure,
                 showChangeUrlOption = savedUrl != null
             )
         }
@@ -245,7 +245,14 @@ private fun LoginContent(
     manager: TrueNASApiManager,
     viewModel: LoginScreenViewModel,
     uiState: LoginUiState,
-    onChangeServerConfig: () -> Unit
+    onChangeServerConfig: () -> Unit,
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
+    isApiKeyVisible: Boolean,
+    onToggleVisibilityClick: () -> Unit,
+    saveForAutoLogin: Boolean,
+    onSaveForAutoLoginChange: (Boolean) -> Unit,
+    isLoading: Boolean
 ) {
     val context = LocalContext.current
 
@@ -415,17 +422,24 @@ private fun LoginContent(
                             LoginMode.API_KEY -> {
                                 // API Key Field
                                 OutlinedTextField(
-                                    value = uiState.apiKey,
-                                    onValueChange = {
-                                        viewModel.handleEvent(LoginEvent.UpdateApiKey(it))
-                                    },
-                                    label = { Text("API Key") },
+                                    value = apiKey,
+                                    onValueChange = onApiKeyChange, // Use the callback
+                                    label = { Text("Paste your TrueNAS API key here") },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Key,
                                             contentDescription = "API Key"
                                         )
                                     },
+                                    trailingIcon = {
+                                        IconButton(onClick = onToggleVisibilityClick) { // Use the callback
+                                            Icon(
+                                                imageVector = if (isApiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                                contentDescription = if (isApiKeyVisible) "Hide API Key" else "Show API Key"
+                                            )
+                                        }
+                                    },
+                                    visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
@@ -434,15 +448,29 @@ private fun LoginContent(
                                     ),
                                     minLines = 3,
                                     maxLines = 4,
-                                    enabled = !uiState.isLoading
+                                    enabled = !isLoading
                                 )
 
-                                Text(
-                                    text = "Paste your TrueNAS API key here",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 4.dp)
-                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                // Switch for auto-login
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Save key for autologin?",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Switch(
+                                        checked = saveForAutoLogin,
+                                        onCheckedChange = onSaveForAutoLoginChange,
+                                        enabled = !isLoading
+                                    )
+                                }
                             }
                         }
                     }
@@ -541,7 +569,7 @@ private fun ConnectionStatusCard(
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .background(statusColor, shape = androidx.compose.foundation.shape.CircleShape)
+                        .background(statusColor, shape = CircleShape)
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -561,40 +589,6 @@ private fun ConnectionStatusCard(
                     color = statusColor,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.clickable { onRetryClick() }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun LoadingScreen(message: String = "Loading...") {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier.padding(32.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    strokeWidth = 4.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -641,6 +635,7 @@ private fun ServerInfoSection(onChangeServerClick: () -> Unit) {
     val (serverUrl, _) = remember { Prefs.load(context) }
 
     Card(
+        onClick = {onChangeServerClick},
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -762,8 +757,8 @@ private fun ServerConfigurationPrompt(
                         description = "Enter your TrueNAS server address"
                     )
 
-                    Divider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    HorizontalDivider(
+                        Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     SetupInfoItem(
@@ -772,8 +767,8 @@ private fun ServerConfigurationPrompt(
                         description = "Configure SSL/TLS settings"
                     )
 
-                    Divider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    HorizontalDivider(
+                        Modifier, DividerDefaults.Thickness, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
 
                     SetupInfoItem(

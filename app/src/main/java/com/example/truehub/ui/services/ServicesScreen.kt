@@ -64,6 +64,7 @@ import coil.compose.AsyncImage
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.services.containers.ContainerScreen
 import com.example.truehub.ui.services.containers.ContainerScreenViewModel
 import com.example.truehub.ui.services.details.AppInfoDialog
@@ -227,7 +228,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     // Apps Tab
                     when {
                         uiState.isLoading -> {
-                            LoadingContent()
+                            LoadingScreen("Loading Apps")
                         }
                         uiState.apps.isEmpty() && !uiState.isLoading -> {
                             EmptyContent()
@@ -262,27 +263,6 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 }
             }
         }
-    }
-}
-
-@ExperimentalMaterial3Api
-@Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            strokeWidth = 4.dp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Loading services...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 

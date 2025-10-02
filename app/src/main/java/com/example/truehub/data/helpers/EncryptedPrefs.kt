@@ -16,6 +16,7 @@ private const val IS_LOGGED_IN = "is_logged_in"
 private const val USERNAME_PREF = "username"
 private const val AUTH_TOKEN_PREF = "auth_token"
 private const val LOGIN_METHOD_PREF = "login_method"
+private const val AUTO_LOGIN_PREF = "auto_login"
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name ="secure_preferences")
 object EncryptedPrefs {
     suspend fun saveApiKey(context: Context,apiKey : String){
@@ -29,6 +30,12 @@ object EncryptedPrefs {
         val apiKeyPref = stringPreferencesKey(API_KEY_PREF)
         val preferences = context.dataStore.data.first()
         return preferences[apiKeyPref]
+    }
+    suspend fun clearApiKey(context: Context){
+        val apiKeyPref = stringPreferencesKey(API_KEY_PREF)
+        context.dataStore.edit {
+            it.remove(apiKeyPref)
+        }
     }
 
     fun isLoggedInFlow(context: Context): Flow<Boolean> {
@@ -49,18 +56,11 @@ object EncryptedPrefs {
         val prefs = context.dataStore.data.first()
         return prefs[isLoggedInPref] == true
     }
-
-    suspend fun saveUsername(context: Context,username:String){
-        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+    suspend fun clearIsLoggedIn(context: Context){
+        val isLoggedInPref = booleanPreferencesKey(IS_LOGGED_IN)
         context.dataStore.edit {
-            it[usernamePref] = username
+            it.remove(isLoggedInPref)
         }
-    }
-
-    suspend fun getUsername(context: Context) : String?{
-        val usernamePref = stringPreferencesKey(USERNAME_PREF)
-        val preferences = context.dataStore.data.first()
-        return preferences[usernamePref]
     }
 
     suspend fun clear(context: Context){
@@ -97,5 +97,22 @@ object EncryptedPrefs {
         val loginMethodPref = stringPreferencesKey(LOGIN_METHOD_PREF)
         val preferences = context.dataStore.data.first()
         return preferences[loginMethodPref]
+    }
+    suspend fun getUseAutoLogin(context: Context): Boolean{
+        val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
+        val prefs =  context.dataStore.data.first()
+        return prefs[autoLoginPref] == true
+    }
+    suspend fun saveUseAutoLogin(context: Context){
+        val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
+        context.dataStore.edit {
+            it[autoLoginPref] = true
+        }
+    }
+    suspend fun revokeUseAutoLogin(context: Context){
+        val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
+        context.dataStore.edit {
+            it[autoLoginPref] = true
+        }
     }
 }

@@ -42,6 +42,7 @@ import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Config.ClientConfig
 import com.example.truehub.ui.MainScreen
 import com.example.truehub.ui.Screen
+import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.components.ModernToastHost
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
@@ -54,6 +55,7 @@ sealed class AppState {
     object Initializing : AppState()
     object CheckingConnection : AppState()
     object ValidatingToken : AppState()
+    object AttemptingAutoLogin : AppState()
     data class Ready(val startRoute: String) : AppState()
     data class Error(val message: String, val fallbackRoute: String) : AppState()
 }
@@ -99,6 +101,7 @@ class MainActivity : ComponentActivity() {
                     is AppState.Initializing -> LoadingScreen("Initializing...")
                     is AppState.CheckingConnection -> LoadingScreen("Connecting to server...")
                     is AppState.ValidatingToken -> LoadingScreen("Validating credentials...")
+                    is AppState.AttemptingAutoLogin -> LoadingScreen("Attempting auto sign-in...")
                     is AppState.Ready -> {
                         AppNavigation(
                             startRoute = (appState as AppState.Ready).startRoute,
@@ -216,14 +219,30 @@ class MainActivity : ComponentActivity() {
 
                 if (isValid) {
                     onStateChange(AppState.Ready(Screen.Main.route))
-                } else {
-                    EncryptedPrefs.clear(this@MainActivity)
-                    onStateChange(
-                        AppState.Error(
-                            "Session expired. Please log in again.",
-                            Screen.Login.route
+                } else if (loginMethod == "api_key" ) {
+                    EncryptedPrefs.clearAuthToken(this@MainActivity)
+                    EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
+                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)
+                    var autoLoginSuccessful = false
+
+                    if (autoLoginEnabled) {
+                        onStateChange(AppState.AttemptingAutoLogin)
+                        autoLoginSuccessful = attemptAutoLogin()
+                    }
+
+                    if (autoLoginSuccessful) {
+                        onStateChange(AppState.Ready(Screen.Main.route))
+                    } else {
+                        EncryptedPrefs.clearAuthToken(this@MainActivity)
+                        EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
+                        EncryptedPrefs.clearApiKey(this@MainActivity)
+                        onStateChange(
+                            AppState.Error(
+                                "Auto Login Failed: Check API Key",
+                                Screen.Login.route
+                            )
                         )
-                    )
+                    }
                 }
 
             } catch (e: Exception) {
@@ -234,6 +253,21 @@ class MainActivity : ComponentActivity() {
                     )
                 )
             }
+        }
+    }
+    private suspend fun attemptAutoLogin(): Boolean {
+        return try {
+            val tokenResult = manager?.auth?.generateTokenWithResult()
+            if (tokenResult is ApiResult.Success && tokenResult.data.isNotBlank()) {
+                val newToken = tokenResult.data
+                EncryptedPrefs.saveAuthToken(this, newToken)
+                EncryptedPrefs.saveIsLoggedIn(this, true)
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -331,39 +365,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun LoadingScreen(message: String = "Loading...") {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier.padding(32.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        strokeWidth = 4.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
+//    @Composable
+//    private fun LoadingScreen(message: String = "Loading...") {
+//        Box(
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .background(MaterialTheme.colorScheme.surface),
+//            contentAlignment = Alignment.Center
+//        ) {
+//            Card(
+//                modifier = Modifier.padding(32.dp),
+//                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+//                shape = RoundedCornerShape(16.dp)
+//            ) {
+//                Column(
+//                    modifier = Modifier.padding(32.dp),
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                    verticalArrangement = Arrangement.spacedBy(16.dp)
+//                ) {
+//                    CircularProgressIndicator(
+//                        modifier = Modifier.size(48.dp),
+//                        strokeWidth = 4.dp,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                    Text(
+//                        text = message,
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        color = MaterialTheme.colorScheme.onSurface,
+//                        fontWeight = FontWeight.Medium
+//                    )
+//                }
+//            }
+//        }
+//    }
 
     override fun onDestroy() {
         super.onDestroy()

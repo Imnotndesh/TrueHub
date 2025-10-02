@@ -56,6 +56,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Virt
+import com.example.truehub.ui.components.LoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,7 +71,7 @@ fun ContainerScreen(
     // Content based on state
     when {
         uiState.isLoading -> {
-            LoadingContent()
+            LoadingScreen("Loading Containers")
         }
         uiState.containers.isEmpty() && !uiState.isLoading -> {
             EmptyContainerContent()
@@ -86,26 +87,6 @@ fun ContainerScreen(
                 operationJobs = uiState.operationJobs
             )
         }
-    }
-}
-
-@Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            strokeWidth = 4.dp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Loading containers...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
