@@ -54,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Auth.AuthResponse
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.components.LoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +81,7 @@ fun ProfileScreen(
             )
     ) {
         when (val s = state) {
-            is UiState.Loading -> LoadingScreen()
+            is UiState.Loading -> LoadingScreen("Loading Your Profile")
             is UiState.Error -> ErrorScreen(error = s.message) { viewModel.refresh() }
             is UiState.Success -> ProfileContent(
                 user = s.user,
@@ -89,26 +90,6 @@ fun ProfileScreen(
                 onSettingsClick = onSettingsClick
             )
         }
-    }
-}
-
-@Composable
-private fun LoadingScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            strokeWidth = 4.dp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Loading profile...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
