@@ -54,6 +54,7 @@ sealed class AppState {
     object Initializing : AppState()
     object CheckingConnection : AppState()
     object ValidatingToken : AppState()
+    object AttemptingAutoLogin : AppState()
     data class Ready(val startRoute: String) : AppState()
     data class Error(val message: String, val fallbackRoute: String) : AppState()
 }
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
                     is AppState.Initializing -> LoadingScreen("Initializing...")
                     is AppState.CheckingConnection -> LoadingScreen("Connecting to server...")
                     is AppState.ValidatingToken -> LoadingScreen("Validating credentials...")
+                    is AppState.AttemptingAutoLogin -> LoadingScreen("Attempting auto sign-in...")
                     is AppState.Ready -> {
                         AppNavigation(
                             startRoute = (appState as AppState.Ready).startRoute,
@@ -216,14 +218,30 @@ class MainActivity : ComponentActivity() {
 
                 if (isValid) {
                     onStateChange(AppState.Ready(Screen.Main.route))
-                } else {
-                    EncryptedPrefs.clear(this@MainActivity)
-                    onStateChange(
-                        AppState.Error(
-                            "Session expired. Please log in again.",
-                            Screen.Login.route
+                } else if (loginMethod == "api_key" ) {
+                    EncryptedPrefs.clearAuthToken(this@MainActivity)
+                    EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
+                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)
+                    var autoLoginSuccessful = false
+
+                    if (autoLoginEnabled) {
+                        onStateChange(AppState.AttemptingAutoLogin)
+                        autoLoginSuccessful = attemptAutoLogin()
+                    }
+
+                    if (autoLoginSuccessful) {
+                        onStateChange(AppState.Ready(Screen.Main.route))
+                    } else {
+                        EncryptedPrefs.clearAuthToken(this@MainActivity)
+                        EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
+                        EncryptedPrefs.clearApiKey(this@MainActivity)
+                        onStateChange(
+                            AppState.Error(
+                                "Auto Login Failed: Check API Key",
+                                Screen.Login.route
+                            )
                         )
-                    )
+                    }
                 }
 
             } catch (e: Exception) {
@@ -234,6 +252,21 @@ class MainActivity : ComponentActivity() {
                     )
                 )
             }
+        }
+    }
+    private suspend fun attemptAutoLogin(): Boolean {
+        return try {
+            val tokenResult = manager?.auth?.generateTokenWithResult()
+            if (tokenResult is ApiResult.Success && tokenResult.data.isNotBlank()) {
+                val newToken = tokenResult.data
+                EncryptedPrefs.saveAuthToken(this, newToken)
+                EncryptedPrefs.saveIsLoggedIn(this, true)
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 
