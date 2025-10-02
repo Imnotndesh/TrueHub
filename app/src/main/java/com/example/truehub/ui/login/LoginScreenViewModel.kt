@@ -12,6 +12,7 @@ import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
@@ -45,7 +46,9 @@ sealed class LoginEvent {
     object CheckConnection : LoginEvent()
 }
 
-class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+class LoginScreenViewModel(
+    private var manager: TrueNASApiManager?
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -54,33 +57,37 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
         checkConnection()
     }
 
+    fun updateManager(newManager: TrueNASApiManager) {
+        manager = newManager
+        // Reset connection status when manager changes
+        checkConnection()
+    }
+
     fun handleEvent(event: LoginEvent) {
         when (event) {
             is LoginEvent.UpdateUsername -> {
-                _uiState.value = _uiState.value.copy(username = event.username)
+                _uiState.update { it.copy(username = event.username) }
             }
             is LoginEvent.UpdatePassword -> {
-                _uiState.value = _uiState.value.copy(password = event.password)
+                _uiState.update { it.copy(password = event.password) }
             }
             is LoginEvent.UpdateApiKey -> {
-                _uiState.value = _uiState.value.copy(apiKey = event.apiKey)
+                _uiState.update { it.copy(apiKey = event.apiKey) }
             }
             is LoginEvent.UpdateLoginMode -> {
-                _uiState.value = _uiState.value.copy(loginMode = event.mode)
+                _uiState.update { it.copy(loginMode = event.mode) }
             }
             is LoginEvent.TogglePasswordVisibility -> {
-                _uiState.value = _uiState.value.copy(
-                    isPasswordVisible = !_uiState.value.isPasswordVisible
-                )
+                _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
             }
             is LoginEvent.Login -> {
                 performLogin(event.context)
             }
             is LoginEvent.ResetLoginState -> {
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     isLoading = false,
                     isLoginSuccessful = false
-                )
+                ) }
             }
             is LoginEvent.CheckConnection -> {
                 checkConnection()
@@ -90,24 +97,22 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
 
     private fun checkConnection() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connecting)
+            _uiState.update { it.copy(connectionStatus = ConnectionStatus.Connecting) }
 
             try {
-                withTimeout(5000L) { // 5 second timeout
-                    if (manager.isConnected()) {
-                        _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connected)
+                withTimeout(5000L) {
+                    if (manager?.isConnected() == true) {
+                        _uiState.update { it.copy(connectionStatus = ConnectionStatus.Connected) }
                     } else {
-                        manager.connect()
-                        _uiState.value = _uiState.value.copy(connectionStatus = ConnectionStatus.Connected)
+                        manager?.connect()
+                        _uiState.update { it.copy(connectionStatus = ConnectionStatus.Connected) }
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     connectionStatus = ConnectionStatus.Error(e.message ?: "Connection failed")
-                )
-                ToastManager.showError(
-                    message = "Connection failed: ${e.message ?: "Unknown error"}"
-                )
+                ) }
+                ToastManager.showError("Connection failed: ${e.message ?: "Unknown error"}")
             }
         }
     }
@@ -115,11 +120,15 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
     private fun performLogin(context: Context) {
         val currentState = _uiState.value
 
+        // Check if manager is available
+        if (manager == null) {
+            ToastManager.showError("Connection not ready. Please check server configuration.")
+            return
+        }
+
         // Check connection first
         if (currentState.connectionStatus !is ConnectionStatus.Connected) {
-            ToastManager.showWarning(
-                "Not connected to server",
-            )
+            ToastManager.showWarning("Not connected to server")
             return
         }
 
@@ -139,7 +148,7 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
             }
         }
 
-        _uiState.value = currentState.copy(isLoading = true)
+        _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
             when (currentState.loginMode) {
@@ -157,8 +166,8 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
         ToastManager.showInfo("Authenticating...")
 
         try {
-            withTimeout(15000L) { // 15 second timeout for login
-                val loginResult = manager.auth.loginUserWithResult(
+            withTimeout(15000L) {
+                val loginResult = manager!!.auth.loginUserWithResult(
                     AuthService.DefaultAuth(state.username, state.password)
                 )
 
@@ -167,31 +176,31 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
                         if (loginResult.data) {
                             ToastManager.showInfo("Generating secure token...")
 
-                            val tokenResult = manager.auth.generateTokenWithResult()
+                            val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
                                     savePasswordLoginCredentials(context, state.username, tokenResult.data)
                                     ToastManager.showSuccess("Login successful!")
-                                    _uiState.value = _uiState.value.copy(
+                                    _uiState.update { it.copy(
                                         isLoading = false,
                                         isLoginSuccessful = true
-                                    )
+                                    ) }
                                 }
                                 is ApiResult.Error -> {
-                                    _uiState.value = _uiState.value.copy(isLoading = false)
+                                    _uiState.update { it.copy(isLoading = false) }
                                     ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
                                 }
                                 is ApiResult.Loading -> {
-                                    // This shouldn't happen in our case
+                                    // Continue waiting
                                 }
                             }
                         } else {
-                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            _uiState.update { it.copy(isLoading = false) }
                             ToastManager.showError("Invalid username or password")
                         }
                     }
                     is ApiResult.Error -> {
-                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiState.update { it.copy(isLoading = false) }
                         ToastManager.showError("Login failed: ${loginResult.message}")
                     }
                     is ApiResult.Loading -> {
@@ -200,12 +209,10 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
                 }
             }
         } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            _uiState.update { it.copy(isLoading = false) }
             when (e) {
                 is kotlinx.coroutines.TimeoutCancellationException -> {
-                    ToastManager.showError(
-                        "Login timeout. Server may be slow or unreachable.",
-                    )
+                    ToastManager.showError("Login timeout. Server may be slow or unreachable.")
                 }
                 else -> {
                     ToastManager.showError("Login error: ${e.message}")
@@ -218,25 +225,25 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
         ToastManager.showInfo("Validating API key...")
 
         try {
-            withTimeout(15000L) { // 15 second timeout
-                val loginResult = manager.auth.loginWithApiKeyWithResult(state.apiKey)
+            withTimeout(15000L) {
+                val loginResult = manager!!.auth.loginWithApiKeyWithResult(state.apiKey)
 
                 when (loginResult) {
                     is ApiResult.Success -> {
                         if (loginResult.data) {
                             saveApiKeyLoginCredentials(context, state.apiKey)
                             ToastManager.showSuccess("API key validated successfully!")
-                            _uiState.value = _uiState.value.copy(
+                            _uiState.update { it.copy(
                                 isLoading = false,
                                 isLoginSuccessful = true
-                            )
+                            ) }
                         } else {
-                            _uiState.value = _uiState.value.copy(isLoading = false)
+                            _uiState.update { it.copy(isLoading = false) }
                             ToastManager.showError("Invalid API key")
                         }
                     }
                     is ApiResult.Error -> {
-                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiState.update { it.copy(isLoading = false) }
                         ToastManager.showError("API key validation failed: ${loginResult.message}")
                     }
                     is ApiResult.Loading -> {
@@ -245,12 +252,10 @@ class LoginScreenViewModel(private val manager: TrueNASApiManager) : ViewModel()
                 }
             }
         } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(isLoading = false)
+            _uiState.update { it.copy(isLoading = false) }
             when (e) {
                 is kotlinx.coroutines.TimeoutCancellationException -> {
-                    ToastManager.showError(
-                        "Validation timeout. Please check your connection.",
-                    )
+                    ToastManager.showError("Validation timeout. Please check your connection.")
                 }
                 else -> {
                     ToastManager.showError("Validation error: ${e.message}")

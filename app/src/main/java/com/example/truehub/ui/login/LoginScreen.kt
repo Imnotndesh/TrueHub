@@ -1,6 +1,15 @@
 package com.example.truehub.ui.login
 
 import android.widget.Toast
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,16 +27,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,12 +54,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -55,25 +75,81 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
+import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Auth.LoginMode
+import com.example.truehub.data.models.Config
 import com.example.truehub.ui.Screen
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
 import com.example.truehub.ui.components.ToastManager
+import com.example.truehub.ui.setup.ServerConfigBottomSheet
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
-    val viewModel = remember { LoginScreenViewModel(manager) }
-    val uiState by viewModel.uiState.collectAsState()
+fun LoginScreen(
+    existingManager: TrueNASApiManager?,
+    navController: NavController,
+    onManagerInitialized: (TrueNASApiManager) -> Unit
+) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val (savedUrl, savedInsecure) = remember { Prefs.load(context) }
 
-    // Handle login success navigation
+    // Local state for manager - use existing or create new
+    var localManager by remember(existingManager) {
+        mutableStateOf(existingManager)
+    }
+    var showSetupSheet by remember { mutableStateOf(localManager == null || savedUrl == null) }
+
+    val viewModel = remember(localManager) {
+        LoginScreenViewModel(localManager)
+    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Handle manager initialization when URL is configured but manager is null
+    LaunchedEffect(savedUrl, savedInsecure, localManager) {
+        if (localManager == null && savedUrl != null) {
+            // Initialize manager with saved configuration
+            lifecycleOwner.lifecycleScope.launch {
+                try {
+                    ToastManager.showInfo("Connecting to server...")
+
+                    val config = Config.ClientConfig(
+                        serverUrl = savedUrl,
+                        insecure = savedInsecure ?: false,
+                        connectionTimeoutMs = 15000,
+                        enablePing = false,
+                        enableDebugLogging = true
+                    )
+
+                    val client = TrueNASClient(config)
+                    val newManager = TrueNASApiManager(client)
+                    newManager.connect()
+
+                    localManager = newManager
+                    onManagerInitialized(newManager)
+                    viewModel.updateManager(newManager)
+
+                    ToastManager.showSuccess("Connected to server!")
+
+                } catch (e: Exception) {
+                    // Connection failed, show setup sheet
+                    ToastManager.showError("Connection failed: ${e.message}")
+                    showSetupSheet = true
+                }
+            }
+        }
+    }
+
+    // Handle login success
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
             navController.navigate(Screen.Main.route) {
                 popUpTo(Screen.Login.route) { inclusive = true }
                 launchSingleTop = true
@@ -82,31 +158,96 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
         }
     }
 
-    // Handle connection status messages
-    LaunchedEffect(uiState.connectionStatus) {
-        when (val status = uiState.connectionStatus) {
-            is ConnectionStatus.Error -> {
-                ToastManager.showError("Connection Error: ${status.message}")
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Main login UI or connection setup
+        when {
+            localManager != null -> {
+                // We have a manager - show normal login UI
+                LoginContent(
+                    manager = localManager!!,
+                    viewModel = viewModel,
+                    uiState = uiState,
+                    onChangeServerConfig = { showSetupSheet = true }
+                )
             }
-            is ConnectionStatus.Connected -> {
-                ToastManager.showSuccess("Connected")
+            savedUrl != null -> {
+                // We have a saved URL but manager is not initialized - show loading
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Connecting to server...")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { showSetupSheet = true }) {
+                        Text("Configure Server")
+                    }
+                }
             }
             else -> {
-                ToastManager.showWarning("Unknown Error Occurred")
+                ServerConfigurationPrompt(
+                    onConfigureClick = { showSetupSheet = true }
+                )
             }
         }
     }
+        // Setup Bottom Sheet
+        if (showSetupSheet) {
+            ServerConfigBottomSheet(
+                onDismiss = {
+                    showSetupSheet = false
+                },
+                onConfigured = { url, insecure ->
+                    lifecycleOwner.lifecycleScope.launch {
+                        try {
+                            ToastManager.showInfo("Connecting to server...")
 
-    // Show loading screen when appropriate
-    if (uiState.isLoading) {
-        LoadingScreen(
-            message = when (uiState.loginMode) {
-                LoginMode.PASSWORD -> "Authenticating with password..."
-                LoginMode.API_KEY -> "Validating API key..."
-            }
-        )
-        return
+                            val config = Config.ClientConfig(
+                                serverUrl = url,
+                                insecure = insecure,
+                                connectionTimeoutMs = 15000,
+                                enablePing = false,
+                                enableDebugLogging = true
+                            )
+
+                            val client = TrueNASClient(config)
+                            val newManager = TrueNASApiManager(client)
+                            newManager.connect()
+
+                            // Save configuration
+                            Prefs.save(context, url, insecure)
+
+                            // Update managers
+                            localManager = newManager
+                            onManagerInitialized(newManager)
+                            viewModel.updateManager(newManager)
+
+                            showSetupSheet = false
+                            ToastManager.showSuccess("Connected successfully!")
+
+                        } catch (e: Exception) {
+                            ToastManager.showError("Failed to connect: ${e.message}")
+                        }
+                    }
+                },
+                initialUrl = savedUrl,
+                initialInsecure = savedInsecure ?: false,
+                showChangeUrlOption = savedUrl != null
+            )
+        }
     }
+
+
+@Composable
+private fun LoginContent(
+    manager: TrueNASApiManager,
+    viewModel: LoginScreenViewModel,
+    uiState: LoginUiState,
+    onChangeServerConfig: () -> Unit
+) {
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
@@ -353,20 +494,19 @@ fun LoginScreen(manager: TrueNASApiManager, navController: NavController) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
-                            Toast.makeText(
-                                context,
-                                "Contact your administrator for assistance",
-                                Toast.LENGTH_LONG
-                            ).show()
+                            ToastManager.showInfo("Contact your administrator for assistance")
                         }
                 )
 
                 Spacer(modifier = Modifier.height(30.dp))
-                ServerInfoSection()
+                ServerInfoSection(
+                    onChangeServerClick = onChangeServerConfig
+                )
             }
         }
     }
 }
+
 
 @Composable
 private fun ConnectionStatusCard(
@@ -496,7 +636,7 @@ private fun LoginMethodTab(
 }
 
 @Composable
-private fun ServerInfoSection() {
+private fun ServerInfoSection(onChangeServerClick: () -> Unit) {
     val context = LocalContext.current
     val (serverUrl, _) = remember { Prefs.load(context) }
 
@@ -535,6 +675,210 @@ private fun ServerInfoSection() {
                     fontWeight = FontWeight.Medium
                 )
             }
+        }
+    }
+}
+@Composable
+private fun ServerConfigurationPrompt(
+    onConfigureClick: () -> Unit
+) {
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceContainer
+                    )
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(28.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(50.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Title with gradient effect
+            Text(
+                text = "Server Setup Required",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Connect to your TrueNAS server to get started",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Info Cards
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SetupInfoItem(
+                        icon = Icons.Default.Web,
+                        title = "Server URL",
+                        description = "Enter your TrueNAS server address"
+                    )
+
+                    Divider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    SetupInfoItem(
+                        icon = Icons.Default.Security,
+                        title = "Secure Connection",
+                        description = "Configure SSL/TLS settings"
+                    )
+
+                    Divider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    SetupInfoItem(
+                        icon = Icons.Default.Check,
+                        title = "Quick Setup",
+                        description = "Connect in just a few steps"
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Configure Button with gradient background
+            Button(
+                onClick = onConfigureClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 4.dp,
+                    pressedElevation = 8.dp
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        "Configure Server",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Help text
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "First time? We'll guide you through",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupInfoItem(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

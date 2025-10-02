@@ -70,7 +70,6 @@ fun SetupScreen(
 ) {
     var serverUrl by remember { mutableStateOf("") }
     var insecure by remember { mutableStateOf(false) }
-    var connectivityStatus by remember { mutableStateOf(ConnectivityStatus.Checking) }
     var isConfiguring by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -78,7 +77,6 @@ fun SetupScreen(
 
     val urlValidation = validateUrl(serverUrl)
     val isValidUrl = urlValidation.isValid
-    val hasInternet = connectivityStatus is ConnectivityStatus.Connected
 
     Box(
         modifier = Modifier
