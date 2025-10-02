@@ -70,3 +70,4 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
         }
     }
 }
+
