@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Rack Frame -->
+    <path
+        android:pathData="M12,8 h24 v32 h-24 z"
+        android:strokeWidth="1"
+        android:strokeColor="#000000"
+        android:fillColor="#00000000"
+        android:strokeLineJoin="round"/>
+
+    <!-- Server 1 -->
+    <path
+        android:pathData="M14,10 h20 v6 h-20 z"
+        android:fillColor="#000000"
+        android:fillAlpha="0.3"/>
+    <!-- LED 1 (circle at 31,13 r=1) -->
+    <path
+        android:pathData="M31,12 a1,1 0 1,0 0,2 a1,1 0 1,0 0,-2"
+        android:fillColor="#000000"
+        android:fillAlpha="0.6"/>
+    <!-- LED 2 (circle at 28,13 r=0.8) -->
+    <path
+        android:pathData="M28,12.2 a0.8,0.8 0 1,0 0,1.6 a0.8,0.8 0 1,0 0,-1.6"
+        android:fillColor="#000000"
+        android:fillAlpha="0.5"/>
+
+    <!-- Server 2 -->
+    <path
+        android:pathData="M14,18 h20 v6 h-20 z"
+        android:fillColor="#000000"
+        android:fillAlpha="0.5"/>
+    <!-- LED 3 (circle at 31,21 r=1) -->
+    <path
+        android:pathData="M31,20 a1,1 0 1,0 0,2 a1,1 0 1,0 0,-2"
+        android:fillColor="#000000"
+        android:fillAlpha="0.7"/>
+    <!-- LED 4 (circle at 28,21 r=0.8) -->
+    <path
+        android:pathData="M28,20.2 a0.8,0.8 0 1,0 0,1.6 a0.8,0.8 0 1,0 0,-1.6"
+        android:fillColor="#000000"
+        android:fillAlpha="0.6"/>
+
+    <!-- Server 3 -->
+    <path
+        android:pathData="M14,26 h20 v6 h-20 z"
+        android:fillColor="#000000"
+        android:fillAlpha="0.7"/>
+    <!-- LED 5 (circle at 31,29 r=1) -->
+    <path
+        android:pathData="M31,28 a1,1 0 1,0 0,2 a1,1 0 1,0 0,-2"
+        android:fillColor="#000000"
+        android:fillAlpha="0.8"/>
+    <!-- LED 6 (circle at 28,29 r=0.8) -->
+    <path
+        android:pathData="M28,28.2 a0.8,0.8 0 1,0 0,1.6 a0.8,0.8 0 1,0 0,-1.6"
+        android:fillColor="#000000"
+        android:fillAlpha="0.7"/>
+</vector>
