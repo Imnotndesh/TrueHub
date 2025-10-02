@@ -7,7 +7,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +26,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,15 +36,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.truehub.TrueHubAppTheme
+import com.example.truehub.ui.background.WavyGradientBackground
 import kotlinx.coroutines.launch
 
 @Composable
@@ -86,76 +85,41 @@ private fun ModernToast(
     LaunchedEffect(toast) {
         isVisible = true
     }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = getToastColor(toast.type).copy(alpha = 0.25f)
-            ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Box(
+    TrueHubAppTheme {
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            getToastColor(toast.type).copy(alpha = 0.1f),
-                            getToastColor(toast.type).copy(alpha = 0.05f),
-                            Color.Transparent
-                        ),
-                        startX = 0f,
-                        endX = 400f
-                    )
-                )
-        ) {
-            // Accent bar on the left
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .matchParentSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                getToastColor(toast.type),
-                                getToastColor(toast.type).copy(alpha = 0.7f)
-                            )
-                        )
-                    )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
             )
-
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.1f)
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(1000f, 1000f)
+                        )
+                    )
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Icon
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = getToastColor(toast.type).copy(alpha = 0.15f),
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = getToastIcon(toast.type),
-                            contentDescription = null,
-                            tint = getToastColor(toast.type),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = getToastIcon(toast.type),
+                    contentDescription = null,
+                    tint = getToastColor(toast.type),
+                    modifier = Modifier.size(24.dp)
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
@@ -167,16 +131,13 @@ private fun ModernToast(
                         text = getToastTitle(toast.type),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 14.sp
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
                         text = toast.message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     // Action button if provided
