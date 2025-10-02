@@ -267,7 +267,6 @@ class LoginScreenViewModel(
     private suspend fun savePasswordLoginCredentials(context: Context, username: String, token: String) {
         EncryptedPrefs.saveAuthToken(context, token)
         EncryptedPrefs.saveIsLoggedIn(context, true)
-        EncryptedPrefs.saveUsername(context, username)
         EncryptedPrefs.saveLoginMethod(context, "password")
     }
 
