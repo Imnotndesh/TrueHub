@@ -42,6 +42,7 @@ import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Config.ClientConfig
 import com.example.truehub.ui.MainScreen
 import com.example.truehub.ui.Screen
+import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.components.ModernToastHost
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
@@ -364,39 +365,39 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    private fun LoadingScreen(message: String = "Loading...") {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier.padding(32.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        strokeWidth = 4.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-        }
-    }
+//    @Composable
+//    private fun LoadingScreen(message: String = "Loading...") {
+//        Box(
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .background(MaterialTheme.colorScheme.surface),
+//            contentAlignment = Alignment.Center
+//        ) {
+//            Card(
+//                modifier = Modifier.padding(32.dp),
+//                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+//                shape = RoundedCornerShape(16.dp)
+//            ) {
+//                Column(
+//                    modifier = Modifier.padding(32.dp),
+//                    horizontalAlignment = Alignment.CenterHorizontally,
+//                    verticalArrangement = Arrangement.spacedBy(16.dp)
+//                ) {
+//                    CircularProgressIndicator(
+//                        modifier = Modifier.size(48.dp),
+//                        strokeWidth = 4.dp,
+//                        color = MaterialTheme.colorScheme.primary
+//                    )
+//                    Text(
+//                        text = message,
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        color = MaterialTheme.colorScheme.onSurface,
+//                        fontWeight = FontWeight.Medium
+//                    )
+//                }
+//            }
+//        }
+//    }
 
     override fun onDestroy() {
         super.onDestroy()
