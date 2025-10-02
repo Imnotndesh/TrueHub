@@ -109,4 +109,10 @@ object EncryptedPrefs {
             it[autoLoginPref] = true
         }
     }
+    suspend fun revokeUseAutoLogin(context: Context){
+        val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
+        context.dataStore.edit {
+            it[autoLoginPref] = true
+        }
+    }
 }

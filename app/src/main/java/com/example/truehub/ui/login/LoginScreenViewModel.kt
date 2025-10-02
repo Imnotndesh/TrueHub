@@ -1,7 +1,9 @@
 package com.example.truehub.ui.login
 
+import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.AuthService
@@ -24,7 +26,9 @@ data class LoginUiState(
     val isPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.Unknown,
-    val isLoginSuccessful: Boolean = false
+    val isLoginSuccessful: Boolean = false,
+    val isApiKeyVisible: Boolean = false,
+    val saveApiKeyForAutoLogin: Boolean = false
 )
 
 sealed class ConnectionStatus {
@@ -44,10 +48,13 @@ sealed class LoginEvent {
     data class Login(val context: Context) : LoginEvent()
     object ResetLoginState : LoginEvent()
     object CheckConnection : LoginEvent()
+    object ToggleApiKeyVisibility : LoginEvent()
+    data class UpdateSaveApiKey(val enabled: Boolean, val context: Context) : LoginEvent()
 }
 
 class LoginScreenViewModel(
-    private var manager: TrueNASApiManager?
+    private var manager: TrueNASApiManager?,
+    private val application: Application
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -62,6 +69,7 @@ class LoginScreenViewModel(
         // Reset connection status when manager changes
         checkConnection()
     }
+
 
     fun handleEvent(event: LoginEvent) {
         when (event) {
@@ -92,6 +100,20 @@ class LoginScreenViewModel(
             is LoginEvent.CheckConnection -> {
                 checkConnection()
             }
+            is LoginEvent.ToggleApiKeyVisibility -> {
+                _uiState.update { it.copy(isApiKeyVisible = !it.isApiKeyVisible) }
+            }
+            is LoginEvent.UpdateSaveApiKey -> {
+                _uiState.update { it.copy(saveApiKeyForAutoLogin = event.enabled) }
+            }
+        }
+    }
+    private fun loadInitialAutoLoginState() {
+        viewModelScope.launch {
+            // Get the saved preference
+            val isAutoLoginEnabled = EncryptedPrefs.getUseAutoLogin(application)
+            // Update the UI state to reflect it
+            _uiState.update { it.copy(saveApiKeyForAutoLogin = isAutoLoginEnabled) }
         }
     }
 
@@ -274,5 +296,18 @@ class LoginScreenViewModel(
         EncryptedPrefs.saveIsLoggedIn(context, true)
         EncryptedPrefs.saveApiKey(context, apiKey)
         EncryptedPrefs.saveLoginMethod(context, "api_key")
+    }
+}
+class LoginViewModelFactory(
+    private val manager: TrueNASApiManager?,
+    private val application: Application
+) : ViewModelProvider.Factory {
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LoginScreenViewModel::class.java)) {
+            return LoginScreenViewModel(manager, application) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
