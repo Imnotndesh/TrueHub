@@ -64,7 +64,7 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
                 onNavigateToProfile = {navController.navigate(Screen.Profile.route)})}
             composable(Screen.Services.route) { ServicesScreen(manager) }
             composable(Screen.Profile.route) { ProfileScreen(manager) {
-                navController.navigate(Screen.Settings.route)
+                rootNavController.navigate(Screen.Settings.route)
             }
             }
         }
