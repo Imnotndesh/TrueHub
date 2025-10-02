@@ -5,30 +5,27 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresPermission
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
@@ -49,8 +46,8 @@ import com.example.truehub.ui.login.LoginScreen
 import com.example.truehub.ui.settings.SettingsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Typography as M3Typography
 
-// App initialization states
 sealed class AppState {
     object Initializing : AppState()
     object CheckingConnection : AppState()
@@ -66,6 +63,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         setContent {
             var appState by remember { mutableStateOf<AppState>(AppState.Initializing) }
@@ -283,19 +281,23 @@ class MainActivity : ComponentActivity() {
             startDestination = startRoute
         ) {
             composable(Screen.Login.route) {
-                LoginScreen(
-                    existingManager = manager, // Can be null if no URL configured or connection failed
-                    navController = navController,
-                    onManagerInitialized = { newManager ->
-                        onManagerUpdate(newManager)
-                    }
-                )
+                TrueHubAppTheme {
+                    LoginScreen(
+                        existingManager = manager,
+                        navController = navController,
+                        onManagerInitialized = { newManager ->
+                            onManagerUpdate(newManager)
+                        }
+                    )
+                }
             }
 
             composable(Screen.Main.route) {
                 // Main screen requires a valid manager
                 manager?.let {
-                    MainScreen(it, navController)
+                    TrueHubAppTheme {
+                        MainScreen(it, navController)
+                    }
                 } ?: run {
                     // Fallback if manager is null (shouldn't happen normally)
                     LaunchedEffect(Unit) {
@@ -309,25 +311,14 @@ class MainActivity : ComponentActivity() {
             }
 
             composable(Screen.Settings.route) {
-                SettingsScreen(
-                    onDummyAction = {settingAction ->
-                        ToastManager.showInfo(settingAction)
-                    },
-                    onNavigateBack = { navController.popBackStack() },
-//                    onLogout = {
-//                        lifecycleScope.launch {
-//                            EncryptedPrefs.clear(this@MainActivity)
-//                            manager?.disconnect()
-//                            trueNASClient = null
-//                            ToastManager.showInfo("Logged out successfully")
-//                            navController.navigate(Screen.Login.route) {
-//                                popUpTo(navController.graph.startDestinationId) {
-//                                    inclusive = true
-//                                }
-//                            }
-//                        }
-//                    }
-                )
+                TrueHubAppTheme {
+                    SettingsScreen(
+                        onDummyAction = { settingAction ->
+                            ToastManager.showInfo(settingAction)
+                        },
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                }
             }
         }
     }
@@ -365,44 +356,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-//    @Composable
-//    private fun LoadingScreen(message: String = "Loading...") {
-//        Box(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .background(MaterialTheme.colorScheme.surface),
-//            contentAlignment = Alignment.Center
-//        ) {
-//            Card(
-//                modifier = Modifier.padding(32.dp),
-//                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-//                shape = RoundedCornerShape(16.dp)
-//            ) {
-//                Column(
-//                    modifier = Modifier.padding(32.dp),
-//                    horizontalAlignment = Alignment.CenterHorizontally,
-//                    verticalArrangement = Arrangement.spacedBy(16.dp)
-//                ) {
-//                    CircularProgressIndicator(
-//                        modifier = Modifier.size(48.dp),
-//                        strokeWidth = 4.dp,
-//                        color = MaterialTheme.colorScheme.primary
-//                    )
-//                    Text(
-//                        text = message,
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        color = MaterialTheme.colorScheme.onSurface,
-//                        fontWeight = FontWeight.Medium
-//                    )
-//                }
-//            }
-//        }
-//    }
-
     override fun onDestroy() {
         super.onDestroy()
         manager?.disconnect()
         trueNASClient = null
         manager = null
     }
+}
+@Composable
+fun TrueHubAppTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context)
+            else dynamicLightColorScheme(context)
+        }
+        darkTheme -> darkColorScheme()
+        else -> lightColorScheme()
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = M3Typography(),
+        content = content
+    )
 }
