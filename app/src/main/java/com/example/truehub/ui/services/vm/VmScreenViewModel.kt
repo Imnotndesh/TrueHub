@@ -24,9 +24,8 @@ data class VmScreenUiState(
     val operationJobs : Map<Int, System.Job> = emptyMap(),
     val error: String? = null
 )
-fun LogError(message: String) {
-    Log.e("VM-Check", message)
-}
+
+// TODO: In future maybe add the get memory usage api in the info sheet
 class VmScreenViewModel(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
@@ -267,13 +266,11 @@ class VmScreenViewModel(
         }
     }
 
-    fun deleteVm(id: Int) {
+    fun deleteVm(id: Int,deleteZvols : Boolean ?= false, forceDelete : Boolean? = false) {
         viewModelScope.launch {
-            when (val result = manager.vmService.deleteVmInstanceWithResult(id)) {
+            when (val result = manager.vmService.deleteVmInstanceWithResult(id,deleteZvols,forceDelete)) {
                 is ApiResult.Success -> {
-                    val jobID = result.data
-                    ToastManager.showSuccess("Deleting")
-                    trackContainerOperation(id,jobID,"DELETING")
+                    ToastManager.showSuccess("Deleted Virtual Machine")
                     refresh()
                 }
                 is ApiResult.Error -> {

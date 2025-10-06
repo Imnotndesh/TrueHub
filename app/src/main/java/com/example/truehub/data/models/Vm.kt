@@ -85,4 +85,10 @@ object Vm {
     data class StartOptions(
         val overcommit: Boolean? = false
     )
+
+    @JsonClass(generateAdapter = true)
+    data class DeleteOptions(
+        val zvols : Boolean? = false,
+        val force : Boolean? = false
+    )
 }

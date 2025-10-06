@@ -52,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +59,7 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.services.vm.details.VmInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,30 +89,10 @@ fun VmScreen(
                 onSuspendVm = { id -> viewModel.suspendVm(id) },
                 onResumeVm = { id -> viewModel.resumeVm(id) },
                 onPowerOffVm = { id -> viewModel.powerOffVm(id) },
-                onDeleteVm = { id -> viewModel.deleteVm(id) },
+                onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
                 operationJob = uiState.operationJobs
             )
         }
-    }
-}
-
-@Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        androidx.compose.material3.CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            strokeWidth = 4.dp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Loading virtual machines...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -153,7 +133,7 @@ private fun VmsContent(
     onSuspendVm: (Int) -> Unit,
     onResumeVm: (Int) -> Unit,
     onPowerOffVm: (Int) -> Unit,
-    onDeleteVm: (Int) -> Unit,
+    onDeleteVm: (Int,Boolean,Boolean) -> Unit,
     operationJob: Map<Int, System.Job>
 ) {
     LazyColumn(
@@ -182,7 +162,7 @@ private fun VmsContent(
                 onSuspendVm = { onSuspendVm(vm.id) },
                 onResumeVm = { onResumeVm(vm.id) },
                 onPowerOffVm = { onPowerOffVm(vm.id) },
-                onDeleteVm = { onDeleteVm(vm.id) },
+                onDeleteVm = { deleteZvols,forceDelete -> onDeleteVm(vm.id,deleteZvols,forceDelete) },
                 operationJob = operationJob[vm.id]
             )
         }
@@ -203,7 +183,7 @@ private fun VmCard(
     onSuspendVm: () -> Unit,
     onResumeVm: () -> Unit,
     onPowerOffVm: () -> Unit,
-    onDeleteVm: () -> Unit,
+    onDeleteVm: (Boolean,Boolean) -> Unit,
     operationJob: System.Job? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -493,8 +473,8 @@ private fun VmCard(
     if (showDeleteDialog) {
         DeleteConfirmationDialog(
             vmName = vm.name,
-            onConfirm = {
-                onDeleteVm()
+            onConfirm = {deleteZvols,forceDelete ->
+                onDeleteVm(deleteZvols,forceDelete)
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false }
@@ -502,7 +482,7 @@ private fun VmCard(
     }
 
     if (showInfoDialog) {
-        VmInfoDialog(
+        VmInfoBottomSheet(
             vm = vm,
             onDismiss = { showInfoDialog = false }
         )
@@ -648,21 +628,47 @@ private fun getStatusIcon(status: Vm.VmStatus): ImageVector {
 @Composable
 private fun DeleteConfirmationDialog(
     vmName: String,
-    onConfirm: () -> Unit,
+    onConfirm: (Boolean, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    var deleteZvol by remember { mutableStateOf(false) }
+    var forceDelete by remember { mutableStateOf(false) }
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(text = "Delete Virtual Machine")
         },
         text = {
-            Text(text = "Are you sure you want to delete '$vmName'? This action cannot be undone.")
+            Column {
+
+                Text(text = "Are you sure you want to delete '$vmName'? This action cannot be undone.")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Delete Zvols")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = deleteZvol,
+                        onCheckedChange = { deleteZvol = it }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Force Delete"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceDelete,
+                        onCheckedChange = { forceDelete = it }
+                    )
+                }
+            }
         },
         confirmButton = {
             TextButton(
-                onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                onClick = {
+                    onConfirm(deleteZvol,forceDelete)
+                },
+                colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
@@ -789,122 +795,6 @@ private fun StartConfirmationDialog(
             }
         }
     )
-}
-
-@Composable
-private fun VmInfoDialog(
-    vm: Vm.VmQueryResponse,
-    onDismiss: () -> Unit
-) {
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(text = vm.name)
-        },
-        text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    InfoRow("ID", vm.id.toString())
-                }
-                item {
-                    InfoRow("Status", vm.status.state)
-                }
-                if (vm.description.isNotEmpty()) {
-                    item {
-                        InfoRow("Description", vm.description)
-                    }
-                }
-                item {
-                    InfoRow("vCPUs", "${vm.vcpus}")
-                }
-                item {
-                    InfoRow("Cores", "${vm.cores}")
-                }
-                item {
-                    InfoRow("Threads", "${vm.threads}")
-                }
-                item {
-                    InfoRow("Memory", "${vm.memory} MB")
-                }
-                vm.min_memory?.let {
-                    item {
-                        InfoRow("Min Memory", "$it MB")
-                    }
-                }
-                item {
-                    InfoRow("CPU Mode", vm.cpu_mode.name.replace("_", " "))
-                }
-                vm.cpu_model?.let {
-                    item {
-                        InfoRow("CPU Model", it)
-                    }
-                }
-                item {
-                    InfoRow("Bootloader", vm.bootloader)
-                }
-                item {
-                    InfoRow("Autostart", if (vm.autostart) "Yes" else "No")
-                }
-                item {
-                    InfoRow("Secure Boot", if (vm.enable_secure_boot) "Enabled" else "Disabled")
-                }
-                item {
-                    InfoRow("TPM", if (vm.trusted_platform_module) "Enabled" else "Disabled")
-                }
-                item {
-                    InfoRow("Display Available", if (vm.display_available) "Yes" else "No")
-                }
-                vm.uuid?.let {
-                    item {
-                        InfoRow("UUID", it)
-                    }
-                }
-                vm.arch_type?.let {
-                    item {
-                        InfoRow("Architecture", it)
-                    }
-                }
-                vm.machine_type?.let {
-                    item {
-                        InfoRow("Machine Type", it)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
-}
-
-@Composable
-private fun InfoRow(label: String, value: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f)
-        )
-    }
 }
 private fun getOperationText(state: String): String {
     return when (state) {

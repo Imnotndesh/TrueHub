@@ -176,14 +176,14 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
     }
 
     // Delete VM
-    suspend fun deleteVmInstance(id: Int): Int{
+    suspend fun deleteVmInstance(id: Int,deleteZvols :Boolean? = false, forceDelete : Boolean ?= false): Boolean{
         return client.call(
             method = ApiMethods.Vm.DELETE_INSTANCE,
-            params = listOf(id),
-            resultType = Int::class.java
+            params = listOf(id, Vm.DeleteOptions(deleteZvols,forceDelete)),
+            resultType = Boolean::class.java
         )
     }
-    suspend fun deleteVmInstanceWithResult(id: Int): ApiResult<Int>{
+    suspend fun deleteVmInstanceWithResult(id: Int,deleteZvols: Boolean? = false, forceDelete: Boolean? = false): ApiResult<Boolean>{
         return try {
             val result = deleteVmInstance(id)
             ApiResult.Success(result)
