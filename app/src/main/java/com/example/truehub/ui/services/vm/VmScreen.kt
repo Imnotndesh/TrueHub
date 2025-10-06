@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -80,8 +83,8 @@ fun VmScreen(
             VmsContent(
                 vms = uiState.vms,
                 isRefreshing = uiState.isRefreshing,
-                onStartVm = { id -> viewModel.startVm(id) },
-                onStopVm = { id -> viewModel.stopVm(id) },
+                onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
+                onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
                 onRestartVm = { id -> viewModel.restartVm(id) },
                 onSuspendVm = { id -> viewModel.suspendVm(id) },
                 onResumeVm = { id -> viewModel.resumeVm(id) },
@@ -144,8 +147,8 @@ private fun EmptyVmContent() {
 private fun VmsContent(
     vms: List<Vm.VmQueryResponse>,
     isRefreshing: Boolean,
-    onStartVm: (Int) -> Unit,
-    onStopVm: (Int) -> Unit,
+    onStartVm: (Int,Boolean) -> Unit,
+    onStopVm: (Int, Boolean, Boolean) -> Unit,
     onRestartVm: (Int) -> Unit,
     onSuspendVm: (Int) -> Unit,
     onResumeVm: (Int) -> Unit,
@@ -173,8 +176,8 @@ private fun VmsContent(
         items(vms) { vm ->
             VmCard(
                 vm = vm,
-                onStartVm = { onStartVm(vm.id) },
-                onStopVm = { onStopVm(vm.id) },
+                onStartVm = {overcommit -> onStartVm(vm.id,overcommit) },
+                onStopVm = {force, timeout -> onStopVm(vm.id,force,timeout) },
                 onRestartVm = { onRestartVm(vm.id) },
                 onSuspendVm = { onSuspendVm(vm.id) },
                 onResumeVm = { onResumeVm(vm.id) },
@@ -194,8 +197,8 @@ private fun VmsContent(
 @Composable
 private fun VmCard(
     vm: Vm.VmQueryResponse,
-    onStartVm: () -> Unit,
-    onStopVm: () -> Unit,
+    onStartVm: (Boolean) -> Unit,
+    onStopVm: (Boolean,Boolean) -> Unit,
     onRestartVm: () -> Unit,
     onSuspendVm: () -> Unit,
     onResumeVm: () -> Unit,
@@ -205,6 +208,8 @@ private fun VmCard(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showStopDialog by remember { mutableStateOf(false) }
+    var showStartDialog by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -371,12 +376,13 @@ private fun VmCard(
             ) {
                 when (vm.status.state.lowercase()) {
                     "stopped" -> {
+                        // Add a dialog to force shutdown after timeout and or force it off
                         ActionButton(
                             text = "Start",
                             icon = Icons.Default.PlayArrow,
                             enabled = true,
                             isPrimary = true,
-                            onClick = onStartVm,
+                            onClick = {showStartDialog = true},
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -386,7 +392,7 @@ private fun VmCard(
                             icon = Icons.Default.Stop,
                             enabled = true,
                             isPrimary = true,
-                            onClick = onStopVm,
+                            onClick = {showStopDialog = true},
                             modifier = Modifier.weight(1f)
                         )
                         ActionButton(
@@ -473,6 +479,16 @@ private fun VmCard(
             }
         }
     }
+    if (showStartDialog){
+        StartConfirmationDialog(
+            vmName = vm.name,
+            onConfirm = {overcommit ->
+                onStartVm(overcommit)
+                showStartDialog = false
+            },
+            onDismiss = { showStartDialog = false }
+        )
+    }
 
     if (showDeleteDialog) {
         DeleteConfirmationDialog(
@@ -489,6 +505,16 @@ private fun VmCard(
         VmInfoDialog(
             vm = vm,
             onDismiss = { showInfoDialog = false }
+        )
+    }
+    if (showStopDialog){
+        StopConfirmationDialog(
+            vmName = vm.name,
+            onConfirm = { forceShutoff, forceShutoffAfterTimeout ->
+                onStopVm(forceShutoff, forceShutoffAfterTimeout)
+                showStopDialog = false
+            },
+            onDismiss = { showStopDialog = false }
         )
     }
 }
@@ -641,6 +667,120 @@ private fun DeleteConfirmationDialog(
                 )
             ) {
                 Text("Delete")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+@Composable
+private fun StopConfirmationDialog(
+    vmName: String,
+    onConfirm: (forceShutoff: Boolean, forceShutoffAfterTimeout: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var forceShutoffChecked by remember { mutableStateOf(false) }
+    var forceShutoffAfterTimeoutChecked by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Stop Virtual Machine") // Title changed for consistency
+        },
+        text = {
+            // Use a Column to stack the switches and the main text
+            Column {
+                Text(text = "Are you sure you want to stop '$vmName'? This action can be complex.")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Switch 1: Force Shutoff
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Force shutoff")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceShutoffChecked,
+                        onCheckedChange = { forceShutoffChecked = it }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Switch 2: Force Shutoff After Timeout
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Force shutoff after timeout")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceShutoffAfterTimeoutChecked,
+                        onCheckedChange = { forceShutoffAfterTimeoutChecked = it }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(forceShutoffChecked, forceShutoffAfterTimeoutChecked)
+                },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Stop")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+// Start Dialog
+@Composable
+private fun StartConfirmationDialog(
+    vmName: String,
+    onConfirm: (overcommit: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var overcommit by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Start Virtual Machine")
+        },
+        text = {
+            Column {
+                Text(text = "Are you sure you want to start '$vmName'?")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Overcommit")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = overcommit,
+                        onCheckedChange = { overcommit = it }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(overcommit)
+                },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Stop")
             }
         },
         dismissButton = {

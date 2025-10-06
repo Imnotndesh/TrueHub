@@ -42,16 +42,16 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
     }
 
     // Start Vm
-    suspend fun startVmInstance(id : Int):Int{
+    suspend fun startVmInstance(id : Int, overcommit : Boolean = false):Int{
         return client.call(
             method = ApiMethods.Vm.START_VM_INSTANCE,
-            params = listOf(id),
+            params = listOf(id, Vm.StartOptions(overcommit)),
             resultType = Int::class.java
         )
     }
-    suspend fun startVmInstanceWithResult(id : Int): ApiResult<Int>{
+    suspend fun startVmInstanceWithResult(id : Int,overcommit: Boolean = false): ApiResult<Int>{
         return try {
-            val result = startVmInstance(id)
+            val result = startVmInstance(id,overcommit)
             ApiResult.Success(result)
         }catch (e: Exception){
             ApiResult.Error("Failed to start Vm Instance: ${e.message}",e)
@@ -79,7 +79,7 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
     suspend fun stopVmInstance(id : Int, force: Boolean? = false, forceAfterTimeout : Boolean? = false):Int {
         return client.call(
             method = ApiMethods.Vm.STOP_INSTANCE,
-            params = listOf(id, force, forceAfterTimeout),
+            params = listOf(id, Vm.StopOptions(force, forceAfterTimeout)),
             resultType = Int::class.java
         )
     }
@@ -93,14 +93,14 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
     }
 
     // Suspend Vm
-    suspend fun suspendVmInstance(id: Int):Int{
+    suspend fun suspendVmInstance(id: Int){
         return client.call(
             method = ApiMethods.Vm.SUSPEND_VM,
             params = listOf(id),
-            resultType = Int::class.java
+            resultType = Any::class.java
         )
     }
-    suspend fun suspendVmInstanceWithResult(id: Int): ApiResult<Int>{
+    suspend fun suspendVmInstanceWithResult(id: Int): ApiResult<Any>{
         return try {
             val result = suspendVmInstance(id)
             ApiResult.Success(result)
@@ -110,14 +110,14 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
     }
 
     // Power-off VM
-    suspend fun powerOffVmInstance(id: Int): Int{
+    suspend fun powerOffVmInstance(id: Int){
         return client.call(
             method = ApiMethods.Vm.POWER_OFF_VM,
             params = listOf(id),
-            resultType = Int::class.java
+            resultType = Any::class.java
         )
     }
-    suspend fun powerOffVmInstanceWithResult(id: Int): ApiResult<Int>{
+    suspend fun powerOffVmInstanceWithResult(id: Int): ApiResult<Any>{
         return try {
             val result = powerOffVmInstance(id)
             ApiResult.Success(result)
@@ -126,14 +126,14 @@ class VmService(client: TrueNASClient): BaseApiService(client) {
         }
     }
     // Resume VM
-    suspend fun resumeVmInstance(id:Int): Int{
+    suspend fun resumeVmInstance(id:Int){
         return client.call(
             method = ApiMethods.Vm.RESUME_VM,
             params = listOf(id),
-            resultType = Int::class.java
+            resultType = Any::class.java
         )
     }
-    suspend fun resumeVmInstanceWithResult(id: Int): ApiResult<Int>{
+    suspend fun resumeVmInstanceWithResult(id: Int): ApiResult<Any>{
         return try {
             val result = resumeVmInstance(id)
             ApiResult.Success(result)

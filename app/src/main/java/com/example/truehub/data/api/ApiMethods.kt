@@ -46,7 +46,7 @@ object ApiMethods {
     }
     object Vm{
         const val GET_ALL_VM_INSTANCES = "vm.query"
-        const val START_VM_INSTANCE = "vm.instance.start"
+        const val START_VM_INSTANCE = "vm.start"
         const val STOP_INSTANCE = "vm.stop"
         const val RESTART_INSTANCE = "vm.restart"
         const val DELETE_INSTANCE = "vm.instance.delete"

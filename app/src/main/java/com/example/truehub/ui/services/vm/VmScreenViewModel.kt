@@ -2,6 +2,7 @@ package com.example.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
 import android.util.Log
+import androidx.core.graphics.convertTo
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
@@ -108,12 +109,13 @@ class VmScreenViewModel(
             }
         }
     }
-
-    fun startVm(id: Int) {
+    // TODO: Find a way also to showuser dialog option to overcommit
+    fun startVm(id: Int, overcommit: Boolean = true) {
         viewModelScope.launch {
-            when (val result = manager.vmService.startVmInstanceWithResult(id)) {
+            val jobId : Int
+            when (val result = manager.vmService.startVmInstanceWithResult(id,overcommit)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data
+                    jobId = result.data
                     ToastManager.showSuccess("Starting")
                     trackContainerOperation(id,jobId,"STARTING")
                     refresh()
@@ -136,9 +138,9 @@ class VmScreenViewModel(
         }
     }
 
-    fun stopVm(id: Int, force: Boolean = false) {
+    fun stopVm(id: Int, force: Boolean = false,timeout: Boolean = false) {
         viewModelScope.launch {
-            when (val result = manager.vmService.stopVmInstanceWithResult(id, force)) {
+            when (val result = manager.vmService.stopVmInstanceWithResult(id, force,timeout)) {
                 is ApiResult.Success -> {
                     val jobID = result.data
                     ToastManager.showSuccess("Stopping")
@@ -194,9 +196,7 @@ class VmScreenViewModel(
         viewModelScope.launch {
             when (val result = manager.vmService.suspendVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    val jobID = result.data
                     ToastManager.showSuccess("Suspending")
-                    trackContainerOperation(id,jobID,"SUSPENDING")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -221,9 +221,7 @@ class VmScreenViewModel(
         viewModelScope.launch {
             when (val result = manager.vmService.resumeVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    val jobID = result.data
-                    ToastManager.showSuccess("Resuming")
-                    trackContainerOperation(id,jobID,"RESUMING")
+                    ToastManager.showSuccess("Resuming VM")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -248,9 +246,7 @@ class VmScreenViewModel(
         viewModelScope.launch {
             when (val result = manager.vmService.powerOffVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    val jobID = result.data
-                    ToastManager.showSuccess("Powering Off")
-                    trackContainerOperation(id,jobID,"POWERING_OFF")
+                    ToastManager.showSuccess("Starting Shutdown")
                     refresh()
                 }
                 is ApiResult.Error -> {
