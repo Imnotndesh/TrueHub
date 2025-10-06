@@ -33,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
 import com.example.truehub.ui.components.LoadingScreen
 
@@ -84,7 +86,8 @@ fun VmScreen(
                 onSuspendVm = { id -> viewModel.suspendVm(id) },
                 onResumeVm = { id -> viewModel.resumeVm(id) },
                 onPowerOffVm = { id -> viewModel.powerOffVm(id) },
-                onDeleteVm = { id -> viewModel.deleteVm(id) }
+                onDeleteVm = { id -> viewModel.deleteVm(id) },
+                operationJob = uiState.operationJobs
             )
         }
     }
@@ -147,7 +150,8 @@ private fun VmsContent(
     onSuspendVm: (Int) -> Unit,
     onResumeVm: (Int) -> Unit,
     onPowerOffVm: (Int) -> Unit,
-    onDeleteVm: (Int) -> Unit
+    onDeleteVm: (Int) -> Unit,
+    operationJob: Map<Int, System.Job>
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -175,7 +179,8 @@ private fun VmsContent(
                 onSuspendVm = { onSuspendVm(vm.id) },
                 onResumeVm = { onResumeVm(vm.id) },
                 onPowerOffVm = { onPowerOffVm(vm.id) },
-                onDeleteVm = { onDeleteVm(vm.id) }
+                onDeleteVm = { onDeleteVm(vm.id) },
+                operationJob = operationJob[vm.id]
             )
         }
 
@@ -195,7 +200,8 @@ private fun VmCard(
     onSuspendVm: () -> Unit,
     onResumeVm: () -> Unit,
     onPowerOffVm: () -> Unit,
-    onDeleteVm: () -> Unit
+    onDeleteVm: () -> Unit,
+    operationJob: System.Job? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -317,6 +323,46 @@ private fun VmCard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+            // Loading bar
+            operationJob?.let { job ->
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = job.progress?.description ?: getOperationText(job.state),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "${job.progress?.percent ?: 0}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = { (job.progress?.percent?.coerceIn(0, 100)?.toFloat() ?: 0f) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    )
+                }
+            }
 
             // Action Buttons - First Row
             Row(
@@ -718,5 +764,13 @@ private fun InfoRow(label: String, value: String, modifier: Modifier = Modifier)
             textAlign = TextAlign.End,
             modifier = Modifier.weight(1f)
         )
+    }
+}
+private fun getOperationText(state: String): String {
+    return when (state) {
+        "RUNNING" -> "Processing..."
+        "SUCCESS" -> "Completed"
+        "FAILED" -> "Failed"
+        else -> state.lowercase().replaceFirstChar { it.uppercase() }
     }
 }

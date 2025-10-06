@@ -333,11 +333,13 @@ class VmScreenViewModel(
                             }
                         }
                         is ApiResult.Error -> {
+                            ToastManager.showError("Failed to get job info: ${jobResult.message}")
                             break
                         }
                         else -> {}
                     }
                 } catch (e: Exception) {
+                    ToastManager.showError("Failed to get job info: ${e.message}")
                     break
                 }
 
