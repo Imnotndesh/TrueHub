@@ -57,6 +57,7 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Virt
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.services.containers.details.ContainerInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -411,7 +412,7 @@ private fun ContainerCard(
     }
 
     if (showInfoDialog) {
-        ContainerInfoDialog(
+        ContainerInfoBottomSheet(
             container = container,
             onDismiss = { showInfoDialog = false }
         )
