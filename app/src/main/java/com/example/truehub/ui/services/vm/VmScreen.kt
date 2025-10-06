@@ -141,13 +141,13 @@ private fun EmptyVmContent() {
 private fun VmsContent(
     vms: List<Vm.VmQueryResponse>,
     isRefreshing: Boolean,
-    onStartVm: (String) -> Unit,
-    onStopVm: (String) -> Unit,
-    onRestartVm: (String) -> Unit,
-    onSuspendVm: (String) -> Unit,
-    onResumeVm: (String) -> Unit,
-    onPowerOffVm: (String) -> Unit,
-    onDeleteVm: (String) -> Unit
+    onStartVm: (Int) -> Unit,
+    onStopVm: (Int) -> Unit,
+    onRestartVm: (Int) -> Unit,
+    onSuspendVm: (Int) -> Unit,
+    onResumeVm: (Int) -> Unit,
+    onPowerOffVm: (Int) -> Unit,
+    onDeleteVm: (Int) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -169,13 +169,13 @@ private fun VmsContent(
         items(vms) { vm ->
             VmCard(
                 vm = vm,
-                onStartVm = { onStartVm(vm.id.toString()) },
-                onStopVm = { onStopVm(vm.id.toString()) },
-                onRestartVm = { onRestartVm(vm.id.toString()) },
-                onSuspendVm = { onSuspendVm(vm.id.toString()) },
-                onResumeVm = { onResumeVm(vm.id.toString()) },
-                onPowerOffVm = { onPowerOffVm(vm.id.toString()) },
-                onDeleteVm = { onDeleteVm(vm.id.toString()) }
+                onStartVm = { onStartVm(vm.id) },
+                onStopVm = { onStopVm(vm.id) },
+                onRestartVm = { onRestartVm(vm.id) },
+                onSuspendVm = { onSuspendVm(vm.id) },
+                onResumeVm = { onResumeVm(vm.id) },
+                onPowerOffVm = { onPowerOffVm(vm.id) },
+                onDeleteVm = { onDeleteVm(vm.id) }
             )
         }
 
