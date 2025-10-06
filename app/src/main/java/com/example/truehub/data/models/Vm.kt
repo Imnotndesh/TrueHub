@@ -6,8 +6,7 @@ import com.squareup.moshi.JsonClass
 
 object Vm {
 
-    @JsonClass(generateAdapter = true)
-    enum class CpuMode{
+    enum class CpuMode {
         @field:Json(name = "CUSTOM")
         CUSTOM,
         @field:Json(name = "HOST-MODEL")
@@ -15,13 +14,13 @@ object Vm {
         @field:Json(name = "HOST-PASSTHROUGH")
         HOST_PASSTHROUGH
     }
-    @JsonClass(generateAdapter = true)
 
+    @JsonClass(generateAdapter = true)
     data class VmDevice(
         val id: Int,
-        val attributes: Map<String,String>,
-        val vm :Int,
-        val order : Int
+        val attributes: Map<String, Any?>,
+        val vm: Int,
+        val order: Int
     )
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
@@ -48,7 +47,7 @@ object Vm {
         val cpuset :String? = null,
         val nodeset : String? = null,
         val enable_cpu_topology_extension : Boolean,
-        val pin_cpus: Boolean,
+        val pin_vcpus: Boolean,
         val suspend_on_snapshot: Boolean,
         val trusted_platform_module :Boolean,
         val memory: Int,
@@ -64,7 +63,7 @@ object Vm {
         val arch_type : String?= null,
         val machine_type : String ?= null,
         val uuid : String? = null,
-        val devices: VmDevice? = null,
+        val devices: List<VmDevice>? = null,
         val display_available : Boolean,
         val id : Int,
         val status : VmStatus,

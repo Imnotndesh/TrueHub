@@ -1,6 +1,7 @@
 package com.example.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
+import android.util.Log
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
@@ -37,6 +38,7 @@ class VmScreenViewModel(
 
             when (val result = manager.vmService.queryAllVmsWithResult()) {
                 is ApiResult.Success -> {
+                    Log.e("VM-Check", result.data.toString())
                     _uiState.update {
                         it.copy(
                             vms = result.data,
@@ -46,6 +48,7 @@ class VmScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
+                    Log.e("VM-Check", result.message)
                     _uiState.update {
                         it.copy(
                             isLoading = false,

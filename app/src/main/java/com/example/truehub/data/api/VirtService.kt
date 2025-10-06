@@ -3,8 +3,6 @@ package com.example.truehub.data.api
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Virt
-import com.squareup.moshi.Json
-import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Types
 
 class VirtService(client: TrueNASClient) : BaseApiService(client) {

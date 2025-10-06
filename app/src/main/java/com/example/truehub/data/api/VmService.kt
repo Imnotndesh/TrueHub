@@ -8,25 +8,12 @@ import com.squareup.moshi.Types
 class VmService(client: TrueNASClient): BaseApiService(client) {
 
     suspend fun queryAllVms(): List<Vm.VmQueryResponse> {
-        return try {
-            val type = Types.newParameterizedType(List::class.java, Vm.VmQueryResponse::class.java)
-            client.call(
-                method = ApiMethods.Vm.GET_ALL_VM_INSTANCES,
-                params = listOf(),
-                resultType = type
-            )
-        } catch (e: Exception) {
-            try {
-                val single = client.call<Vm.VmQueryResponse>(
-                    method = ApiMethods.Vm.GET_ALL_VM_INSTANCES,
-                    params = listOf(),
-                    resultType = Vm.VmQueryResponse::class.java
-                )
-                listOf(single)
-            } catch (e: Exception) {
-                emptyList()
-            }
-        }
+        val type = Types.newParameterizedType(List::class.java, Vm.VmQueryResponse::class.java)
+        return client.call(
+            method = ApiMethods.Vm.GET_ALL_VM_INSTANCES,
+            params = listOf(),
+            resultType = type
+        )
     }
     suspend fun queryAllVmsWithResult(): ApiResult<List<Vm.VmQueryResponse>>{
         return try {
