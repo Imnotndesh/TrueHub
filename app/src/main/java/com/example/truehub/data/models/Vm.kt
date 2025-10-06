@@ -1,6 +1,5 @@
 package com.example.truehub.data.models
 
-import com.example.truehub.data.api.ApiMethods
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
@@ -74,5 +73,22 @@ object Vm {
     data class VmDisplayUriQueryResponse(
         val uri : String? = null,
         val error : String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class StopOptions(
+        val force: Boolean? = false,
+        val force_after_timeout: Boolean? = false
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class StartOptions(
+        val overcommit: Boolean? = false
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class DeleteOptions(
+        val zvols : Boolean? = false,
+        val force : Boolean? = false
     )
 }

@@ -17,6 +17,7 @@
       <w>truehub</w>
       <w>virt</w>
       <w>virtio</w>
+      <w>zvols</w>
     </words>
   </dictionary>
 </component>

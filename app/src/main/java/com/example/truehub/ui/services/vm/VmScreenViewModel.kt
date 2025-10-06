@@ -2,10 +2,12 @@ package com.example.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
 import android.util.Log
+import androidx.core.graphics.convertTo
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
 import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,14 +15,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.collections.plus
 
 data class VmScreenUiState(
     val vms: List<Vm.VmQueryResponse> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+    val operationJobs : Map<Int, System.Job> = emptyMap(),
     val error: String? = null
 )
 
+// TODO: In future maybe add the get memory usage api in the info sheet
 class VmScreenViewModel(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
@@ -38,7 +43,6 @@ class VmScreenViewModel(
 
             when (val result = manager.vmService.queryAllVmsWithResult()) {
                 is ApiResult.Success -> {
-                    Log.e("VM-Check", result.data.toString())
                     _uiState.update {
                         it.copy(
                             vms = result.data,
@@ -104,11 +108,15 @@ class VmScreenViewModel(
             }
         }
     }
-
-    fun startVm(id: String) {
+    // TODO: Find a way also to showuser dialog option to overcommit
+    fun startVm(id: Int, overcommit: Boolean = true) {
         viewModelScope.launch {
-            when (val result = manager.vmService.startVmInstanceWithResult(id)) {
+            val jobId : Int
+            when (val result = manager.vmService.startVmInstanceWithResult(id,overcommit)) {
                 is ApiResult.Success -> {
+                    jobId = result.data
+                    ToastManager.showSuccess("Starting")
+                    trackContainerOperation(id,jobId,"STARTING")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -129,10 +137,13 @@ class VmScreenViewModel(
         }
     }
 
-    fun stopVm(id: String, force: Boolean = false) {
+    fun stopVm(id: Int, force: Boolean = false,timeout: Boolean = false) {
         viewModelScope.launch {
-            when (val result = manager.vmService.stopVmInstanceWithResult(id, force)) {
+            when (val result = manager.vmService.stopVmInstanceWithResult(id, force,timeout)) {
                 is ApiResult.Success -> {
+                    val jobID = result.data
+                    ToastManager.showSuccess("Stopping")
+                    trackContainerOperation(id,jobID,"STOPPING")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -153,10 +164,13 @@ class VmScreenViewModel(
         }
     }
 
-    fun restartVm(id: String) {
+    fun restartVm(id: Int) {
         viewModelScope.launch {
             when (val result = manager.vmService.restartVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
+                    val jobID = result.data
+                    ToastManager.showSuccess("Restarting")
+                    trackContainerOperation(id,jobID,"RESTARTING")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -177,10 +191,11 @@ class VmScreenViewModel(
         }
     }
 
-    fun suspendVm(id: String) {
+    fun suspendVm(id: Int) {
         viewModelScope.launch {
             when (val result = manager.vmService.suspendVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
+                    ToastManager.showSuccess("Suspending")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -201,10 +216,11 @@ class VmScreenViewModel(
         }
     }
 
-    fun resumeVm(id: String) {
+    fun resumeVm(id: Int) {
         viewModelScope.launch {
             when (val result = manager.vmService.resumeVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
+                    ToastManager.showSuccess("Resuming VM")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -225,10 +241,11 @@ class VmScreenViewModel(
         }
     }
 
-    fun powerOffVm(id: String) {
+    fun powerOffVm(id: Int) {
         viewModelScope.launch {
             when (val result = manager.vmService.powerOffVmInstanceWithResult(id)) {
                 is ApiResult.Success -> {
+                    ToastManager.showSuccess("Starting Shutdown")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -249,10 +266,11 @@ class VmScreenViewModel(
         }
     }
 
-    fun deleteVm(id: String) {
+    fun deleteVm(id: Int,deleteZvols : Boolean ?= false, forceDelete : Boolean? = false) {
         viewModelScope.launch {
-            when (val result = manager.vmService.deleteVmInstanceWithResult(id)) {
+            when (val result = manager.vmService.deleteVmInstanceWithResult(id,deleteZvols,forceDelete)) {
                 is ApiResult.Success -> {
+                    ToastManager.showSuccess("Deleted Virtual Machine")
                     refresh()
                 }
                 is ApiResult.Error -> {
@@ -275,6 +293,60 @@ class VmScreenViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+    private fun trackContainerOperation(vmID: Int, jobId: Int, operation: String) {
+        viewModelScope.launch {
+            var pollAttempts = 0
+            val maxPollAttempts = 150 // 5 minutes max
+
+            while (pollAttempts < maxPollAttempts) {
+                try {
+                    val jobResult = manager.system.getJobInfoJobWithResult(jobId)
+                    when (jobResult) {
+                        is ApiResult.Success -> {
+                            val job = jobResult.data
+
+                            // Update job state
+                            _uiState.update { state ->
+                                state.copy(
+                                    operationJobs = state.operationJobs + (vmID to job)
+                                )
+                            }
+
+                            // Check for terminal states
+                            if (job.state in listOf("SUCCESS", "FAILED", "ABORTED")) {
+                                kotlinx.coroutines.delay(2000)
+                                _uiState.update { state ->
+                                    state.copy(
+                                        operationJobs = state.operationJobs - vmID
+                                    )
+                                }
+                                refresh()
+                                break
+                            }
+                        }
+                        is ApiResult.Error -> {
+                            ToastManager.showError("Failed to get job info: ${jobResult.message}")
+                            break
+                        }
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    ToastManager.showError("Failed to get job info: ${e.message}")
+                    break
+                }
+
+                pollAttempts++
+                kotlinx.coroutines.delay(2000)
+            }
+
+            // Timeout cleanup
+            if (pollAttempts >= maxPollAttempts) {
+                _uiState.update { state ->
+                    state.copy(operationJobs = state.operationJobs - vmID)
+                }
+            }
+        }
     }
 
     class VmViewModelFactory(

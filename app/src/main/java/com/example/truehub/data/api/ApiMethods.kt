@@ -46,10 +46,10 @@ object ApiMethods {
     }
     object Vm{
         const val GET_ALL_VM_INSTANCES = "vm.query"
-        const val START_VM_INSTANCE = "vm.instance.start"
+        const val START_VM_INSTANCE = "vm.start"
         const val STOP_INSTANCE = "vm.stop"
         const val RESTART_INSTANCE = "vm.restart"
-        const val DELETE_INSTANCE = "vm.instance.delete"
+        const val DELETE_INSTANCE = "vm.delete"
         const val SUSPEND_VM = "vm.suspend"
         const val RESUME_VM = "vm.resume"
         const val POWER_OFF_VM = "vm.poweroff"
@@ -57,6 +57,7 @@ object ApiMethods {
         const val GET_VM_MEMORY_USAGE = "vm.get_memory_usage"
         const val GET_INSTANCE = "vm.get_instance"
         const val GET_VM_STATUS = "vm.status"
+        // TODO : maybe implement this in a webview?
         const val GET_DISPLAY_URL = "vm.get_display_web_uri"
     }
     object Shares{

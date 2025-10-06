@@ -27,13 +27,17 @@ import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,13 +52,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.services.vm.details.VmInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,35 +83,16 @@ fun VmScreen(
             VmsContent(
                 vms = uiState.vms,
                 isRefreshing = uiState.isRefreshing,
-                onStartVm = { id -> viewModel.startVm(id) },
-                onStopVm = { id -> viewModel.stopVm(id) },
+                onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
+                onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
                 onRestartVm = { id -> viewModel.restartVm(id) },
                 onSuspendVm = { id -> viewModel.suspendVm(id) },
                 onResumeVm = { id -> viewModel.resumeVm(id) },
                 onPowerOffVm = { id -> viewModel.powerOffVm(id) },
-                onDeleteVm = { id -> viewModel.deleteVm(id) }
+                onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
+                operationJob = uiState.operationJobs
             )
         }
-    }
-}
-
-@Composable
-private fun LoadingContent() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        androidx.compose.material3.CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            strokeWidth = 4.dp
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Loading virtual machines...",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
@@ -141,13 +127,14 @@ private fun EmptyVmContent() {
 private fun VmsContent(
     vms: List<Vm.VmQueryResponse>,
     isRefreshing: Boolean,
-    onStartVm: (String) -> Unit,
-    onStopVm: (String) -> Unit,
-    onRestartVm: (String) -> Unit,
-    onSuspendVm: (String) -> Unit,
-    onResumeVm: (String) -> Unit,
-    onPowerOffVm: (String) -> Unit,
-    onDeleteVm: (String) -> Unit
+    onStartVm: (Int,Boolean) -> Unit,
+    onStopVm: (Int, Boolean, Boolean) -> Unit,
+    onRestartVm: (Int) -> Unit,
+    onSuspendVm: (Int) -> Unit,
+    onResumeVm: (Int) -> Unit,
+    onPowerOffVm: (Int) -> Unit,
+    onDeleteVm: (Int,Boolean,Boolean) -> Unit,
+    operationJob: Map<Int, System.Job>
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -169,13 +156,14 @@ private fun VmsContent(
         items(vms) { vm ->
             VmCard(
                 vm = vm,
-                onStartVm = { onStartVm(vm.id.toString()) },
-                onStopVm = { onStopVm(vm.id.toString()) },
-                onRestartVm = { onRestartVm(vm.id.toString()) },
-                onSuspendVm = { onSuspendVm(vm.id.toString()) },
-                onResumeVm = { onResumeVm(vm.id.toString()) },
-                onPowerOffVm = { onPowerOffVm(vm.id.toString()) },
-                onDeleteVm = { onDeleteVm(vm.id.toString()) }
+                onStartVm = {overcommit -> onStartVm(vm.id,overcommit) },
+                onStopVm = {force, timeout -> onStopVm(vm.id,force,timeout) },
+                onRestartVm = { onRestartVm(vm.id) },
+                onSuspendVm = { onSuspendVm(vm.id) },
+                onResumeVm = { onResumeVm(vm.id) },
+                onPowerOffVm = { onPowerOffVm(vm.id) },
+                onDeleteVm = { deleteZvols,forceDelete -> onDeleteVm(vm.id,deleteZvols,forceDelete) },
+                operationJob = operationJob[vm.id]
             )
         }
 
@@ -189,16 +177,19 @@ private fun VmsContent(
 @Composable
 private fun VmCard(
     vm: Vm.VmQueryResponse,
-    onStartVm: () -> Unit,
-    onStopVm: () -> Unit,
+    onStartVm: (Boolean) -> Unit,
+    onStopVm: (Boolean,Boolean) -> Unit,
     onRestartVm: () -> Unit,
     onSuspendVm: () -> Unit,
     onResumeVm: () -> Unit,
     onPowerOffVm: () -> Unit,
-    onDeleteVm: () -> Unit
+    onDeleteVm: (Boolean,Boolean) -> Unit,
+    operationJob: System.Job? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showStopDialog by remember { mutableStateOf(false) }
+    var showStartDialog by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -317,6 +308,46 @@ private fun VmCard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+            // Loading bar
+            operationJob?.let { job ->
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = job.progress?.description ?: getOperationText(job.state),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = "${job.progress?.percent ?: 0}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LinearProgressIndicator(
+                        progress = { (job.progress?.percent?.coerceIn(0, 100)?.toFloat() ?: 0f) / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    )
+                }
+            }
 
             // Action Buttons - First Row
             Row(
@@ -325,12 +356,13 @@ private fun VmCard(
             ) {
                 when (vm.status.state.lowercase()) {
                     "stopped" -> {
+                        // Add a dialog to force shutdown after timeout and or force it off
                         ActionButton(
                             text = "Start",
                             icon = Icons.Default.PlayArrow,
                             enabled = true,
                             isPrimary = true,
-                            onClick = onStartVm,
+                            onClick = {showStartDialog = true},
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -340,7 +372,7 @@ private fun VmCard(
                             icon = Icons.Default.Stop,
                             enabled = true,
                             isPrimary = true,
-                            onClick = onStopVm,
+                            onClick = {showStopDialog = true},
                             modifier = Modifier.weight(1f)
                         )
                         ActionButton(
@@ -427,12 +459,22 @@ private fun VmCard(
             }
         }
     }
+    if (showStartDialog){
+        StartConfirmationDialog(
+            vmName = vm.name,
+            onConfirm = {overcommit ->
+                onStartVm(overcommit)
+                showStartDialog = false
+            },
+            onDismiss = { showStartDialog = false }
+        )
+    }
 
     if (showDeleteDialog) {
         DeleteConfirmationDialog(
             vmName = vm.name,
-            onConfirm = {
-                onDeleteVm()
+            onConfirm = {deleteZvols,forceDelete ->
+                onDeleteVm(deleteZvols,forceDelete)
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false }
@@ -440,9 +482,19 @@ private fun VmCard(
     }
 
     if (showInfoDialog) {
-        VmInfoDialog(
+        VmInfoBottomSheet(
             vm = vm,
             onDismiss = { showInfoDialog = false }
+        )
+    }
+    if (showStopDialog){
+        StopConfirmationDialog(
+            vmName = vm.name,
+            onConfirm = { forceShutoff, forceShutoffAfterTimeout ->
+                onStopVm(forceShutoff, forceShutoffAfterTimeout)
+                showStopDialog = false
+            },
+            onDismiss = { showStopDialog = false }
         )
     }
 }
@@ -576,21 +628,47 @@ private fun getStatusIcon(status: Vm.VmStatus): ImageVector {
 @Composable
 private fun DeleteConfirmationDialog(
     vmName: String,
-    onConfirm: () -> Unit,
+    onConfirm: (Boolean, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    var deleteZvol by remember { mutableStateOf(false) }
+    var forceDelete by remember { mutableStateOf(false) }
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(text = "Delete Virtual Machine")
         },
         text = {
-            Text(text = "Are you sure you want to delete '$vmName'? This action cannot be undone.")
+            Column {
+
+                Text(text = "Are you sure you want to delete '$vmName'? This action cannot be undone.")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Delete Zvols")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = deleteZvol,
+                        onCheckedChange = { deleteZvol = it }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Force Delete"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceDelete,
+                        onCheckedChange = { forceDelete = it }
+                    )
+                }
+            }
         },
         confirmButton = {
             TextButton(
-                onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                onClick = {
+                    onConfirm(deleteZvol,forceDelete)
+                },
+                colors = ButtonDefaults.textButtonColors(
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
@@ -604,119 +682,125 @@ private fun DeleteConfirmationDialog(
         }
     )
 }
-
 @Composable
-private fun VmInfoDialog(
-    vm: Vm.VmQueryResponse,
+private fun StopConfirmationDialog(
+    vmName: String,
+    onConfirm: (forceShutoff: Boolean, forceShutoffAfterTimeout: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
-    androidx.compose.material3.AlertDialog(
+    var forceShutoffChecked by remember { mutableStateOf(false) }
+    var forceShutoffAfterTimeoutChecked by remember { mutableStateOf(false) }
+
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(text = vm.name)
+            Text(text = "Stop Virtual Machine") // Title changed for consistency
         },
         text = {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    InfoRow("ID", vm.id.toString())
+            // Use a Column to stack the switches and the main text
+            Column {
+                Text(text = "Are you sure you want to stop '$vmName'? This action can be complex.")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Switch 1: Force Shutoff
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Force shutoff")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceShutoffChecked,
+                        onCheckedChange = { forceShutoffChecked = it }
+                    )
                 }
-                item {
-                    InfoRow("Status", vm.status.state)
-                }
-                if (vm.description.isNotEmpty()) {
-                    item {
-                        InfoRow("Description", vm.description)
-                    }
-                }
-                item {
-                    InfoRow("vCPUs", "${vm.vcpus}")
-                }
-                item {
-                    InfoRow("Cores", "${vm.cores}")
-                }
-                item {
-                    InfoRow("Threads", "${vm.threads}")
-                }
-                item {
-                    InfoRow("Memory", "${vm.memory} MB")
-                }
-                vm.min_memory?.let {
-                    item {
-                        InfoRow("Min Memory", "$it MB")
-                    }
-                }
-                item {
-                    InfoRow("CPU Mode", vm.cpu_mode.name.replace("_", " "))
-                }
-                vm.cpu_model?.let {
-                    item {
-                        InfoRow("CPU Model", it)
-                    }
-                }
-                item {
-                    InfoRow("Bootloader", vm.bootloader)
-                }
-                item {
-                    InfoRow("Autostart", if (vm.autostart) "Yes" else "No")
-                }
-                item {
-                    InfoRow("Secure Boot", if (vm.enable_secure_boot) "Enabled" else "Disabled")
-                }
-                item {
-                    InfoRow("TPM", if (vm.trusted_platform_module) "Enabled" else "Disabled")
-                }
-                item {
-                    InfoRow("Display Available", if (vm.display_available) "Yes" else "No")
-                }
-                vm.uuid?.let {
-                    item {
-                        InfoRow("UUID", it)
-                    }
-                }
-                vm.arch_type?.let {
-                    item {
-                        InfoRow("Architecture", it)
-                    }
-                }
-                vm.machine_type?.let {
-                    item {
-                        InfoRow("Machine Type", it)
-                    }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Switch 2: Force Shutoff After Timeout
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Force shutoff after timeout")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = forceShutoffAfterTimeoutChecked,
+                        onCheckedChange = { forceShutoffAfterTimeoutChecked = it }
+                    )
                 }
             }
         },
         confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(forceShutoffChecked, forceShutoffAfterTimeoutChecked)
+                },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Stop")
+            }
+        },
+        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text("Cancel")
             }
         }
     )
 }
 
+// Start Dialog
 @Composable
-private fun InfoRow(label: String, value: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f)
-        )
+private fun StartConfirmationDialog(
+    vmName: String,
+    onConfirm: (overcommit: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var overcommit by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = "Start Virtual Machine")
+        },
+        text = {
+            Column {
+                Text(text = "Are you sure you want to start '$vmName'?")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = "Overcommit")
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = overcommit,
+                        onCheckedChange = { overcommit = it }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onConfirm(overcommit)
+                },
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Stop")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+private fun getOperationText(state: String): String {
+    return when (state) {
+        "RUNNING" -> "Processing..."
+        "SUCCESS" -> "Completed"
+        "FAILED" -> "Failed"
+        else -> state.lowercase().replaceFirstChar { it.uppercase() }
     }
 }
