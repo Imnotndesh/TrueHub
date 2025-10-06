@@ -916,7 +916,7 @@ private fun PerformanceOverviewCard(
             },
             title = {
                 Text(
-                    text = "Shutdown System",
+                    text = "Shutdown TrueNAS",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
