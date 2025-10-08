@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
                     EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
                     onStateChange(
                         AppState.Error(
-                            "Token Expired, Login Again",
+                            "Session Expired, Login Again",
                             Screen.Login.route
                         ), localManager
                     )
@@ -333,10 +333,15 @@ class MainActivity : ComponentActivity() {
             composable(Screen.Settings.route) {
                 TrueHubAppTheme {
                     SettingsScreen(
+                        manager = manager,
                         onDummyAction = { settingAction ->
                             ToastManager.showInfo(settingAction)
                         },
-                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToLogin = {
+                            navController.navigate(Screen.Login.route) {
+                                popUpTo(Screen.Settings.route) { inclusive = true }
+                            }
+                        }
                     )
                 }
             }
