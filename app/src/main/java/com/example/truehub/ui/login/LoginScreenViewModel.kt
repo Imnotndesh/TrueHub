@@ -186,8 +186,6 @@ class LoginScreenViewModel(
     }
 
     private suspend fun performPasswordLogin(context: Context, state: LoginUiState) {
-        ToastManager.showInfo("Authenticating...")
-
         try {
             withTimeout(15000L) {
                 val loginResult = manager!!.auth.loginUserWithResult(
@@ -214,7 +212,7 @@ class LoginScreenViewModel(
                                     ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
                                 }
                                 is ApiResult.Loading -> {
-                                    // Continue waiting
+                                    _uiState.update { it.copy(isLoading = true) }
                                 }
                             }
                         } else {
@@ -227,7 +225,8 @@ class LoginScreenViewModel(
                         ToastManager.showError("Login failed: ${loginResult.message}")
                     }
                     is ApiResult.Loading -> {
-                        // Continue waiting
+                        _uiState.update { it.copy(isLoading = true) }
+                        ToastManager.showInfo("Authenticating with username and password")
                     }
                 }
             }
@@ -270,7 +269,7 @@ class LoginScreenViewModel(
                         ToastManager.showError("API key validation failed: ${loginResult.message}")
                     }
                     is ApiResult.Loading -> {
-                        // Continue waiting
+                        _uiState.update { it.copy(isLoading = true) }
                     }
                 }
             }

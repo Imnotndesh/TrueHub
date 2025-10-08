@@ -1,11 +1,8 @@
 package com.example.truehub
 
 import android.Manifest
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresPermission
@@ -35,31 +32,33 @@ import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.EncryptedPrefs
+import com.example.truehub.data.helpers.NetworkConnectivityObserver
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Config.ClientConfig
 import com.example.truehub.ui.MainScreen
 import com.example.truehub.ui.Screen
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.components.ModernToastHost
+import com.example.truehub.ui.components.NoInternetScreen
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
 import com.example.truehub.ui.settings.SettingsScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.material3.Typography as M3Typography
 
 sealed class AppState {
     object Initializing : AppState()
     object CheckingConnection : AppState()
     object ValidatingToken : AppState()
+    object NoInternet :AppState()
     object AttemptingAutoLogin : AppState()
     data class Ready(val startRoute: String) : AppState()
     data class Error(val message: String, val fallbackRoute: String) : AppState()
 }
 
 class MainActivity : ComponentActivity() {
-    private var trueNASClient: TrueNASClient? = null
-    private var manager: TrueNASApiManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,16 +68,19 @@ class MainActivity : ComponentActivity() {
             var appState by remember { mutableStateOf<AppState>(AppState.Initializing) }
             val navController = rememberNavController()
 
+            var manager by remember { mutableStateOf<TrueNASApiManager?>(null) }
             LaunchedEffect(Unit) {
-                initializeApp { state -> appState = state }
+                initializeApp { state, newManager ->
+                    appState = state
+                    if (newManager != null) {
+                        manager = newManager
+                    }
+                }
             }
-
-            // Keep connection alive - ONLY if authenticated
             LaunchedEffect(manager) {
                 manager?.let { mgr ->
                     while (true) {
                         try {
-                            // Only ping if we're logged in AND have valid credentials
                             val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
                             val hasToken = EncryptedPrefs.getAuthToken(this@MainActivity) != null
                             val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
@@ -86,7 +88,7 @@ class MainActivity : ComponentActivity() {
                             if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
                                 mgr.connection.pingConnection()
                             }
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             // Connection lost - this is normal if not authenticated
                         }
                         delay(30000L)
@@ -107,7 +109,6 @@ class MainActivity : ComponentActivity() {
                             manager = manager,
                             onManagerUpdate = { newManager ->
                                 manager = newManager
-                                trueNASClient = newManager.getClient()
                             }
                         )
                     }
@@ -121,7 +122,14 @@ class MainActivity : ComponentActivity() {
                             manager = manager,
                             onManagerUpdate = { newManager ->
                                 manager = newManager
-                                trueNASClient = newManager.getClient()
+                            }
+                        )
+                    }
+                    is AppState.NoInternet ->{
+                        NoInternetScreen(
+                            message = "No internet connection.",
+                            onRetry = {
+                                appState = AppState.Initializing
                             }
                         )
                     }
@@ -138,30 +146,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun initializeApp(onStateChange: (AppState) -> Unit) {
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+    private fun initializeApp(onStateChange: (AppState, TrueNASApiManager?) -> Unit) {
         lifecycleScope.launch {
             try {
-                onStateChange(AppState.Initializing)
-
+                onStateChange(AppState.Initializing, null)
                 val (savedUrl, savedInsecure) = Prefs.load(this@MainActivity)
 
-                // No saved URL - go to login (will handle setup)
                 if (savedUrl == null) {
-                    onStateChange(AppState.Ready(Screen.Login.route))
+                    onStateChange(AppState.Ready(Screen.Login.route), null)
                     return@launch
                 }
 
-                // Has saved URL - try to initialize connection
-                onStateChange(AppState.CheckingConnection)
+                onStateChange(AppState.CheckingConnection, null)
 
-                if (!isNetworkAvailable()) {
-                    // No network - go to login, let user see the error
-                    onStateChange(
-                        AppState.Error(
-                            "No internet connection.",
-                            Screen.Login.route
-                        )
-                    )
+                val networkUtils = NetworkConnectivityObserver(this@MainActivity)
+                if (!networkUtils.isNetworkAvailable()) {
+                    onStateChange(AppState.NoInternet,null)
                     return@launch
                 }
 
@@ -174,13 +175,13 @@ class MainActivity : ComponentActivity() {
                     enableDebugLogging = true
                 )
 
-                trueNASClient = TrueNASClient(config)
-                manager = TrueNASApiManager(trueNASClient!!)
+                val localTrueNasClient = TrueNASClient(config)
+                val localManager = TrueNASApiManager(localTrueNasClient)
 
                 val connectionResult = try {
-                    manager!!.connect()
+                    localManager.connect()
                     true
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     false
                 }
 
@@ -189,21 +190,22 @@ class MainActivity : ComponentActivity() {
                         AppState.Error(
                             "Unable to connect to server.",
                             Screen.Login.route
-                        )
+                        ),
+                        localManager
                     )
                     return@launch
                 }
 
                 // Validate credentials
-                onStateChange(AppState.ValidatingToken)
+                onStateChange(AppState.ValidatingToken, localManager)
 
                 val token = EncryptedPrefs.getAuthToken(this@MainActivity)
                 val apiKey = EncryptedPrefs.getApiKey(this@MainActivity)
                 val loginMethod = EncryptedPrefs.getLoginMethod(this@MainActivity)
 
                 val isValid = when (loginMethod) {
-                    "api_key" -> apiKey?.let { validateApiKey(it) } ?: false
-                    "password" -> token?.let { validateToken(it) } ?: false
+                    "api_key" -> apiKey?.let { validateApiKey(it, localManager) } ?: false
+                    "password" -> token?.let { validateToken(it, localManager) } ?: false
                     else -> false
                 }
 
@@ -211,10 +213,12 @@ class MainActivity : ComponentActivity() {
                     /**
                      * Clear previous token and generate new one
                      */
-                    val result = manager?.auth?.generateTokenWithResult()
+                    val result = withTimeoutOrNull(1000L){
+                        localManager.auth.generateTokenWithResult()
+                    }
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
                     EncryptedPrefs.saveAuthToken(this@MainActivity, (result as ApiResult.Success).data)
-                    onStateChange(AppState.Ready(Screen.Main.route))
+                    onStateChange(AppState.Ready(Screen.Main.route), localManager)
                 } else if (loginMethod == "api_key" ) {
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
                     EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
@@ -222,12 +226,12 @@ class MainActivity : ComponentActivity() {
                     var autoLoginSuccessful = false
 
                     if (autoLoginEnabled) {
-                        onStateChange(AppState.AttemptingAutoLogin)
-                        autoLoginSuccessful = attemptAutoLogin()
+                        onStateChange(AppState.AttemptingAutoLogin, localManager)
+                        autoLoginSuccessful = attemptAutoLogin(localManager)
                     }
 
                     if (autoLoginSuccessful) {
-                        onStateChange(AppState.Ready(Screen.Main.route))
+                        onStateChange(AppState.Ready(Screen.Main.route), localManager)
                     } else {
                         EncryptedPrefs.clearAuthToken(this@MainActivity)
                         EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
@@ -236,7 +240,7 @@ class MainActivity : ComponentActivity() {
                             AppState.Error(
                                 "Auto Login Failed: Check API Key",
                                 Screen.Login.route
-                            )
+                            ), localManager
                         )
                     }
                 }else{
@@ -246,7 +250,7 @@ class MainActivity : ComponentActivity() {
                         AppState.Error(
                             "Token Expired, Login Again",
                             Screen.Login.route
-                        )
+                        ), localManager
                     )
                 }
 
@@ -255,14 +259,17 @@ class MainActivity : ComponentActivity() {
                     AppState.Error(
                         "Initialization failed: ${e.message}",
                         Screen.Login.route
-                    )
+                    ),
+                    null
                 )
             }
         }
     }
-    private suspend fun attemptAutoLogin(): Boolean {
+    private suspend fun attemptAutoLogin(manager: TrueNASApiManager): Boolean {
         return try {
-            val tokenResult = manager?.auth?.generateTokenWithResult()
+            val tokenResult = withTimeoutOrNull(10000L){
+                manager.auth.generateTokenWithResult()
+            }
             if (tokenResult is ApiResult.Success && tokenResult.data.isNotBlank()) {
                 val newToken = tokenResult.data
                 EncryptedPrefs.saveAuthToken(this, newToken)
@@ -271,7 +278,7 @@ class MainActivity : ComponentActivity() {
             } else {
                 false
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -307,9 +314,9 @@ class MainActivity : ComponentActivity() {
 
             composable(Screen.Main.route) {
                 // Main screen requires a valid manager
-                manager?.let {
+                manager?.let { validManager ->
                     TrueHubAppTheme {
-                        MainScreen(it, navController)
+                        MainScreen(validManager, navController)
                     }
                 } ?: run {
                     // Fallback if manager is null (shouldn't happen normally)
@@ -336,44 +343,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun validateToken(token: String): Boolean {
+    private suspend fun validateToken(token: String, manager: TrueNASApiManager): Boolean {
         return try {
-            val result = manager?.auth?.loginWithTokenAndResult(token)
-            result is ApiResult.Success && result.data
-        } catch (e: Exception) {
+            val result = withTimeoutOrNull(10000L){
+                manager.auth.loginWithTokenAndResult(token)
+            }
+            return result is ApiResult.Success && result.data
+        } catch (_: Exception) {
             false
         }
     }
 
-    private suspend fun validateApiKey(apiKey: String): Boolean {
+    private suspend fun validateApiKey(apiKey: String, manager: TrueNASApiManager): Boolean {
         return try {
-            val result = manager?.auth?.loginWithApiKeyWithResult(apiKey)
+            val result = withTimeoutOrNull(10000L){
+                manager.auth.loginWithApiKeyWithResult(apiKey)
+            }
             result is ApiResult.Success && result.data
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    private fun isNetworkAvailable(): Boolean {
-        return try {
-            val connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
-            val activeNetwork = connectivityManager.activeNetwork ?: return false
-            val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                    networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                    networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        manager?.disconnect()
-        trueNASClient = null
-        manager = null
     }
 }
 @Composable
