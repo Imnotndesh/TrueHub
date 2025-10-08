@@ -30,7 +30,6 @@ data class LoginUiState(
     val isApiKeyVisible: Boolean = false,
     val saveApiKeyForAutoLogin: Boolean = false
 )
-
 sealed class ConnectionStatus {
     object Unknown : ConnectionStatus()
     object Connected : ConnectionStatus()
@@ -48,6 +47,7 @@ sealed class LoginEvent {
     data class Login(val context: Context) : LoginEvent()
     object ResetLoginState : LoginEvent()
     object CheckConnection : LoginEvent()
+    object LoginNavigationCompleted : LoginEvent()
     object ToggleApiKeyVisibility : LoginEvent()
     data class UpdateSaveApiKey(val enabled: Boolean, val context: Context) : LoginEvent()
 }
@@ -56,7 +56,6 @@ class LoginScreenViewModel(
     private var manager: TrueNASApiManager?,
     private val application: Application
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -66,7 +65,6 @@ class LoginScreenViewModel(
 
     fun updateManager(newManager: TrueNASApiManager) {
         manager = newManager
-        // Reset connection status when manager changes
         checkConnection()
     }
 
@@ -90,6 +88,9 @@ class LoginScreenViewModel(
             }
             is LoginEvent.Login -> {
                 performLogin(event.context)
+            }
+            is LoginEvent.LoginNavigationCompleted -> {
+                _uiState.update { it.copy(isLoginSuccessful = false) }
             }
             is LoginEvent.ResetLoginState -> {
                 _uiState.update { it.copy(
@@ -247,7 +248,7 @@ class LoginScreenViewModel(
         ToastManager.showInfo("Validating API key...")
 
         try {
-            withTimeout(15000L) {
+            withTimeout(10000L) {
                 val loginResult = manager!!.auth.loginWithApiKeyWithResult(state.apiKey)
 
                 when (loginResult) {

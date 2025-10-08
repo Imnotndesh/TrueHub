@@ -1,6 +1,7 @@
 package com.example.truehub.data.api
 
 import com.example.truehub.data.ApiResult
+import com.example.truehub.data.ConnectionState
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Auth
 import com.example.truehub.data.models.Config
@@ -46,6 +47,11 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
         )
     }
     suspend fun loginUserWithResult(details: DefaultAuth): ApiResult<Boolean> {
+        if (!client.isConnected()){
+            if (!client.connect()) {
+                return ApiResult.Error("Failed to connect to server, network issue")
+            }
+        }
         return try {
             val result = loginUser(details)
             ApiResult.Success(result)
@@ -68,6 +74,11 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
     }
 
     suspend fun loginWithApiKeyWithResult(apiKey: String): ApiResult<Boolean> {
+        if (!client.isConnected()){
+            if (!client.connect()) {
+                return ApiResult.Error("Failed to connect to server, network issue")
+            }
+        }
         return try {
             val result = loginWithApiKey(apiKey)
             ApiResult.Success(result)
@@ -95,6 +106,12 @@ class AuthService(override val client: TrueNASClient): BaseApiService(client) {
     }
 
     suspend fun generateTokenWithResult(): ApiResult<String> {
+        val state = client.getCurrentConnectionState()
+        if (state is ConnectionState.Disconnected) {
+            if (!client.connect()) {
+                return ApiResult.Error("Failed to connect to server, network issue")
+            }
+        }
         return try {
             val result = generateToken()
             ApiResult.Success(result)

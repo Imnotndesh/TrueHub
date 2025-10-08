@@ -169,8 +169,8 @@ class MainActivity : ComponentActivity() {
                 val config = ClientConfig(
                     serverUrl = savedUrl,
                     insecure = savedInsecure,
-                    connectionTimeoutMs = 15000,
-                    enablePing = false, // Disable auto-ping until authenticated
+                    connectionTimeoutMs = 10000,
+                    enablePing = false,
                     enableDebugLogging = true
                 )
 
@@ -185,20 +185,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (!connectionResult) {
-                    // Connection failed - go to login with option to reconfigure
                     onStateChange(
                         AppState.Error(
                             "Unable to connect to server.",
                             Screen.Login.route
                         )
                     )
-                    return@launch
-                }
-
-                // Check if logged in
-                val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
-                if (!isLoggedIn) {
-                    onStateChange(AppState.Ready(Screen.Login.route))
                     return@launch
                 }
 
@@ -216,6 +208,12 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (isValid) {
+                    /**
+                     * Clear previous token and generate new one
+                     */
+                    val result = manager?.auth?.generateTokenWithResult()
+                    EncryptedPrefs.clearAuthToken(this@MainActivity)
+                    EncryptedPrefs.saveAuthToken(this@MainActivity, (result as ApiResult.Success).data)
                     onStateChange(AppState.Ready(Screen.Main.route))
                 } else if (loginMethod == "api_key" ) {
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
@@ -241,6 +239,15 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
+                }else{
+                    EncryptedPrefs.clearAuthToken(this@MainActivity)
+                    EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
+                    onStateChange(
+                        AppState.Error(
+                            "Token Expired, Login Again",
+                            Screen.Login.route
+                        )
+                    )
                 }
 
             } catch (e: Exception) {
@@ -287,6 +294,12 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         onManagerInitialized = { newManager ->
                             onManagerUpdate(newManager)
+                        },
+                        onLoginSuccess = {
+                            navController.navigate(Screen.Main.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
