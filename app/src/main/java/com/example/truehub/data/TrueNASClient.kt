@@ -26,8 +26,6 @@ import com.example.truehub.data.models.RpcRequest as Request
 import com.example.truehub.data.models.RpcResponse as Response
 import okhttp3.Request as wsRequest
 
-// Client Configuration
-
 
 class TrueNASClient(private val config: ClientConfig) {
     private val client: OkHttpClient = if (config.insecure) {
@@ -273,7 +271,5 @@ class TrueNASClient(private val config: ClientConfig) {
 
     // Check connection status
     fun isConnected(): Boolean = _connectionState.value is ConnectionState.Connected
-
-    // Get current connection state
     fun getCurrentConnectionState(): ConnectionState = _connectionState.value
 }

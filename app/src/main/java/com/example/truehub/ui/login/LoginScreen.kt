@@ -1,6 +1,7 @@
 package com.example.truehub.ui.login
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,7 +88,8 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     existingManager: TrueNASApiManager?,
     navController: NavController,
-    onManagerInitialized: (TrueNASApiManager) -> Unit
+    onManagerInitialized: (TrueNASApiManager) -> Unit,
+    onLoginSuccess : ()->Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -98,7 +100,7 @@ fun LoginScreen(
     var localManager by remember(existingManager) {
         mutableStateOf(existingManager)
     }
-    var showSetupSheet by remember { mutableStateOf(localManager == null || savedUrl == null) }
+    var showSetupSheet by remember { mutableStateOf( savedUrl == null) }
 
     val viewModel: LoginScreenViewModel = viewModel(
         factory = LoginViewModelFactory(existingManager, application)
@@ -108,7 +110,6 @@ fun LoginScreen(
     // Handle manager initialization when URL is configured but manager is null
     LaunchedEffect(savedUrl, savedInsecure, localManager) {
         if (localManager == null && savedUrl != null) {
-            // Initialize manager with saved configuration
             lifecycleOwner.lifecycleScope.launch {
                 try {
                     ToastManager.showInfo("Connecting to server...")
@@ -123,16 +124,19 @@ fun LoginScreen(
 
                     val client = TrueNASClient(config)
                     val newManager = TrueNASApiManager(client)
-                    newManager.connect()
+                    val connected = newManager.connect()
 
-                    localManager = newManager
-                    onManagerInitialized(newManager)
-                    viewModel.updateManager(newManager)
-
-                    ToastManager.showSuccess("Connected to server!")
-
+                    if (connected) {
+                        localManager = newManager
+                        onManagerInitialized(newManager)
+                        viewModel.updateManager(newManager)
+                        ToastManager.showSuccess("Connected to server!")
+                        showSetupSheet = false
+                    } else {
+                        ToastManager.showError("Initial connection failed: Could not reach server.")
+                        showSetupSheet = true
+                    }
                 } catch (e: Exception) {
-                    // Connection failed, show setup sheet
                     ToastManager.showError("Connection failed: ${e.message}")
                     showSetupSheet = true
                 }
@@ -143,11 +147,11 @@ fun LoginScreen(
     // Handle login success
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            navController.navigate(Screen.Main.route) {
-                popUpTo(Screen.Login.route) { inclusive = true }
-                launchSingleTop = true
-            }
-            viewModel.handleEvent(LoginEvent.ResetLoginState)
+            Log.d("LoginScreen", "Login successful, invoking onLoginSuccess callback.")
+
+            onLoginSuccess()
+
+            viewModel.handleEvent(LoginEvent.LoginNavigationCompleted)
         }
     }
 
@@ -214,18 +218,22 @@ fun LoginScreen(
 
                             val client = TrueNASClient(config)
                             val newManager = TrueNASApiManager(client)
-                            newManager.connect()
+                            val connected = newManager.connect()
 
-                            // Save configuration
-                            Prefs.save(context, url, insecure)
+                            if (connected) {
+                                Prefs.save(context, url, insecure)
 
-                            // Update managers
-                            localManager = newManager
-                            onManagerInitialized(newManager)
-                            viewModel.updateManager(newManager)
 
-                            showSetupSheet = false
-                            ToastManager.showSuccess("Connected successfully!")
+                                localManager = newManager
+                                onManagerInitialized(newManager)
+                                viewModel.updateManager(newManager)
+
+                                showSetupSheet = false
+                                ToastManager.showSuccess("Connected successfully!")
+                            } else {
+                                ToastManager.showError("Failed to connect: Could not reach server with provided details.")
+                                showSetupSheet = true
+                            }
 
                         } catch (e: Exception) {
                             ToastManager.showError("Failed to connect: ${e.message}")
@@ -635,7 +643,7 @@ private fun ServerInfoSection(onChangeServerClick: () -> Unit) {
     val (serverUrl, _) = remember { Prefs.load(context) }
 
     Card(
-        onClick = {onChangeServerClick},
+        onClick = onChangeServerClick,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)

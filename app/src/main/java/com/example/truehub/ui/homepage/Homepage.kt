@@ -844,7 +844,7 @@ private fun PerformanceOverviewCard(
                     Surface(
                         onClick = onNavigateToServices,
                         shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         modifier = Modifier.weight(1f)
                     ) {
                         Column(
