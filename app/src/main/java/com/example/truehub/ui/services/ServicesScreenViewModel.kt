@@ -19,8 +19,10 @@ data class ServicesUiState(
     val isLoading: Boolean = false,
     val apps: List<Apps.AppQueryResponse> = emptyList(),
     val error: String? = null,
+    val upgradeSummaryResult: Apps.AppUpgradeSummaryResult? = null,
     val isRefreshing: Boolean = false,
-    val upgradeJobs :Map<String, System.UpgradeJobState> = emptyMap()
+    val upgradeJobs :Map<String, System.UpgradeJobState> = emptyMap(),
+    val isLoadingUpgradeSummaryForApp: String? = null
 )
 
 class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
@@ -49,7 +51,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                             isLoading = false,
                             apps = apps.data,
                             error = null,
-                            isRefreshing = false
+                            isRefreshing = false,
                         )
                     }
                     is ApiResult.Error -> {
@@ -240,6 +242,57 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
             }
         }
     }
+    // load app upgrade summary
+    fun loadUpgradeSummary(appName: String, appVersion: String? = "latest") {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoadingUpgradeSummaryForApp = appName,
+                error = null
+            )
+
+            try {
+                val result = manager.apps.getUpgradeSummaryWithResult(appName, appVersion)
+                when (result) {
+                    is ApiResult.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingUpgradeSummaryForApp = appName,
+                            upgradeSummaryResult = result.data,
+                            error = null
+                        )
+                        ToastManager.showSuccess("Upgrade summary loaded")
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingUpgradeSummaryForApp = appName,
+                            upgradeSummaryResult = null,
+                            error = result.message
+                        )
+                        ToastManager.showError("Failed to load upgrade summary")
+                    }
+                    is ApiResult.Loading -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingUpgradeSummaryForApp = appName,
+                            error = null
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingUpgradeSummaryForApp = appName,
+                    upgradeSummaryResult = null,
+                    error = e.message ?: "Failed to load upgrade summary"
+                )
+                ToastManager.showError("Error loading upgrade summary: ${e.message}")
+            }
+        }
+    }
+    fun clearUpgradeSummary() {
+        _uiState.value = _uiState.value.copy(
+            upgradeSummaryResult = null,
+            isLoadingUpgradeSummaryForApp = null
+        )
+    }
+
 
 
 

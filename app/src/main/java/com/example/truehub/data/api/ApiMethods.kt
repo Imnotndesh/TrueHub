@@ -34,6 +34,7 @@ object ApiMethods {
         const val START_APP = "app.start"
         const val STOP_APP = "app.stop"
         const val UPGRADE_APP = "app.upgrade"
+        const val GET_UPGRADE_SUMMARY = "app.upgrade_summary"
     }
     object Virt{
         const val GET_ALL_INSTANCES = "virt.instance.query"

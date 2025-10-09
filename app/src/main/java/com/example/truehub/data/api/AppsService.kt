@@ -98,4 +98,20 @@ class AppsService(client: TrueNASClient) : BaseApiService(client) {
             ApiResult.Error("Cannot fetch Job Info: ${e.message}", e)
         }
     }
+
+    suspend fun getUpgradeSummary(appName: String, appVersion :String? = "latest"): Apps.AppUpgradeSummaryResult{
+        return client.call(
+            method = ApiMethods.Apps.GET_UPGRADE_SUMMARY,
+            params = listOf(appName,Apps.AppUpgradeRequest(appVersion)),
+            resultType = Apps.AppUpgradeSummaryResult::class.java
+        )
+    }
+    suspend fun getUpgradeSummaryWithResult(appName: String, appVersion :String? = "latest"): ApiResult<Apps.AppUpgradeSummaryResult>{
+        return try {
+            val result = getUpgradeSummary(appName,appVersion)
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get upgrade summary: ${e.message}", e)
+        }
+    }
 }

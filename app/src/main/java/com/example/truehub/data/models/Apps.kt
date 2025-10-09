@@ -1,5 +1,6 @@
 package com.example.truehub.data.models
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
 object Apps {
     @Suppress("PropertyName")
@@ -130,5 +131,29 @@ object Apps {
         val app_version : String = "latest",
         val values: Map<String,Any> = emptyMap(),
         val snapshot_hostpaths : Boolean = false
+    )
+
+
+    // Upgrade Summary
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class AppUpgradeSummaryResult(
+        val latest_version : String,
+        val latest_human_version : String,
+        val upgrade_version : String,
+        val upgrade_human_version : String,
+        val available_versions_for_upgrade : List<AvailableVersionForUpgrade>,
+        val changelog: String?= null
+    )
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class AvailableVersionForUpgrade(
+        val version : String,
+        val human_version : String
+    )
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class AppUpgradeRequest(
+        val app_version: String? = "latest"
     )
 }
