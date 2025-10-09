@@ -7,6 +7,9 @@ import com.squareup.moshi.Types
 
 class SharingService(client: TrueNASClient): BaseApiService(client) {
     suspend fun getSmbShares(): List<Shares.SmbShare>{
+        if (!client.isConnected()){
+            return emptyList()
+        }
         val type = Types.newParameterizedType(List::class.java, Shares.SmbShare::class.java)
         return client.call(
             method = ApiMethods.Shares.GET_SMB_SHARES,
@@ -23,5 +26,4 @@ class SharingService(client: TrueNASClient): BaseApiService(client) {
             ApiResult.Error("Cannot fetch SMB Shares from Server: ${e.message}",e)
         }
     }
-
 }

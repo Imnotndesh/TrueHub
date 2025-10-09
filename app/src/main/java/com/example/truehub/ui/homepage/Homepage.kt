@@ -1,7 +1,7 @@
 package com.example.truehub.ui.homepage
 
-import android.util.Log
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,13 +24,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
+import com.example.truehub.data.models.Shares
 import com.example.truehub.ui.background.WavyGradientBackground
 import com.example.truehub.ui.components.LoadingScreen
-import com.example.truehub.ui.homepage.HomeUiState
-import com.example.truehub.ui.homepage.HomeViewModel
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
 import com.example.truehub.ui.homepage.details.MetricType
 import com.example.truehub.ui.homepage.details.PerformanceBottomSheet
+import com.example.truehub.ui.homepage.details.ShareInfoBottomSheet
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +44,7 @@ fun HomeScreen(
         factory = HomeViewModel.HomeViewModelFactory(manager)
     )
     val uiState by viewModel.uiState.collectAsState()
+    val isConnected by viewModel.isConnected.collectAsState()
 
     Box(
         modifier = Modifier
@@ -57,23 +58,135 @@ fun HomeScreen(
                 )
             )
     ) {
-        when (val state = uiState) {
-            is HomeUiState.Loading -> LoadingScreen("Loading your homescreen")
-            is HomeUiState.Error -> ErrorScreen(
-                error = state.message,
-                canRetry = state.canRetry,
-                onRetry = { viewModel.retryLoad() },
-                onDismiss = { viewModel.clearError() }
-            )
-            is HomeUiState.Success -> HomeContent(
-                state = state,
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header is always visible
+            HeaderSection(
                 onRefresh = { viewModel.refresh() },
-                onShutdown = { reason -> viewModel.shutdownSystem(reason) },
-                onNavigateToServices = onNavigateToServices,
-                onNavigateToProfile = onNavigateToProfile,
-                onRefreshGraph = {viewModel.loadPerformanceData()}
+                onShutdown = { viewModel.shutdownSystem(it) },
+                isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
+                isConnected = isConnected
+            )
+
+            when (val state = uiState) {
+                is HomeUiState.Loading -> {
+                    LoadingScreen("Loading Homescreen")
+                }
+                is HomeUiState.Error -> ErrorScreen(
+                    error = state.message,
+                    canRetry = state.canRetry,
+                    onRetry = { viewModel.retryLoad() },
+                    onDismiss = { viewModel.clearError() }
+                )
+                is HomeUiState.Success -> HomeContent(
+                    state = state,
+                    onRefresh = { viewModel.refresh() },
+                    onShutdown = { reason -> viewModel.shutdownSystem(reason) },
+                    onNavigateToServices = onNavigateToServices,
+                    onNavigateToProfile = onNavigateToProfile,
+                    onRefreshGraph = { viewModel.loadPerformanceData() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderSection(
+    onRefresh: () -> Unit,
+    onShutdown: (String) -> Unit,
+    isRefreshing: Boolean,
+    isConnected: Boolean
+) {
+    var showShutdownDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Dashboard",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Welcome back",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Connection status indicator
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (isConnected) Color(0xFF2E7D32)
+                                else MaterialTheme.colorScheme.error
+                            )
+                    )
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Refresh Button
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isRefreshing
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                // Power Menu
+                IconButton(
+                    onClick = { showShutdownDialog = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PowerSettingsNew,
+                        contentDescription = "Power",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        // Refresh Progress Indicator
+        if (isRefreshing) {
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         }
+    }
+
+    // Shutdown Dialog
+    if (showShutdownDialog) {
+        ShutdownDialog(
+            onConfirm = { reason ->
+                onShutdown(reason)
+                showShutdownDialog = false
+            },
+            onDismiss = { showShutdownDialog = false }
+        )
     }
 }
 
@@ -84,12 +197,11 @@ private fun ErrorScreen(
     onRetry: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        contentAlignment = Alignment.Center
     ) {
         Card(
             modifier = Modifier
@@ -163,10 +275,11 @@ private fun HomeContent(
     onNavigateToServices: () -> Unit,
     onNavigateToProfile: () -> Unit
 ) {
-    var showShutdownDialog by remember { mutableStateOf(false) }
     var showMemoryDialog by remember { mutableStateOf(false) }
     var showPerformanceDialog by remember { mutableStateOf(false) }
     var currentMetricType by remember { mutableStateOf(MetricType.ALL) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var selectedShare by remember { mutableStateOf<Shares.SmbShare?>(null) }  // ADD THIS
 
     Column(
         modifier = Modifier
@@ -174,67 +287,6 @@ private fun HomeContent(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // Header Section
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Dashboard",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Welcome back",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Refresh Button
-                IconButton(
-                    onClick = onRefresh,
-                    enabled = !state.isRefreshing
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                // Power Menu
-                IconButton(
-                    onClick = { showShutdownDialog = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = "Power",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        // Refresh Progress Indicator
-        if (state.isRefreshing) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-
         // System Overview Card
         SystemOverviewCard(
             systemInfo = state.systemInfo,
@@ -274,14 +326,15 @@ private fun HomeContent(
             NoStorageCard(modifier = Modifier.padding(bottom = 16.dp))
         }
 
-        // Performance Overview
-        if (state.cpuData != null || state.memoryData != null) {
-            PerformanceOverviewCard(
-                cpuData = state.cpuData,
-                memoryData = state.memoryData,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
+        // SMB Shares Section
+        SmbSharesCard(
+            shares = state.smbShares,
+            modifier = Modifier.padding(bottom = 16.dp),
+            onShareClick = { share ->
+                selectedShare = share
+                showShareDialog = true
+            }
+        )
 
         // Quick Actions
         QuickActionsCard(
@@ -291,16 +344,6 @@ private fun HomeContent(
         )
     }
 
-    // Shutdown Dialog
-    if (showShutdownDialog) {
-        ShutdownDialog(
-            onConfirm = { reason ->
-                onShutdown(reason)
-                showShutdownDialog = false
-            },
-            onDismiss = { showShutdownDialog = false }
-        )
-    }
     if (showMemoryDialog) {
         DiskInfoBottomSheet(
             disks = state.diskDetails,
@@ -321,6 +364,15 @@ private fun HomeContent(
             onRefresh = onRefresh
         )
     }
+    if (showShareDialog && selectedShare != null) {
+        ShareInfoBottomSheet(
+            share = selectedShare!!,
+            onDismiss = {
+                showShareDialog = false
+                selectedShare = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -339,81 +391,81 @@ private fun SystemOverviewCard(
             .padding(horizontal = 4.dp)
     ) {
         WavyGradientBackground {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Server Icon
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Computer,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = systemInfo.hostname,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = systemInfo.version,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Uptime: ${systemInfo.uptime}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Status indicator
-            Surface(
-                color = Color(0xFF2E7D32).copy(alpha = 0.12f),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Server Icon
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF2E7D32))
+                    Icon(
+                        imageVector = Icons.Default.Computer,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Online",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF2E7D32),
-                        fontWeight = FontWeight.SemiBold
+                        text = systemInfo.hostname,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Text(
+                        text = systemInfo.version,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Uptime: ${systemInfo.uptime}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Status indicator
+                Surface(
+                    color = Color(0xFF2E7D32).copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF2E7D32))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Online",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
-    }
     }
 }
 
@@ -514,12 +566,11 @@ private fun StatCard(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.Start
         ) {
-            Spacer(modifier = Modifier.width(8.dp))
             Icon(
                 imageVector = icon,
-                contentDescription = "Active graph",
-                modifier = Modifier.size(12.dp),
-                tint = MaterialTheme.colorScheme.primary
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = color
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -580,7 +631,7 @@ private fun StorageCard(
                 .padding(20.dp)
         ) {
             Text(
-                text = "Pools",
+                text = "Storage Pools",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -719,9 +770,218 @@ private fun NoStorageCard(
 }
 
 @Composable
-private fun PerformanceOverviewCard(
-    cpuData: List<System.ReportingGraphResponse>?,
-    memoryData: List<System.ReportingGraphResponse>?,
+private fun SmbSharesCard(
+    shares: List<Shares.SmbShare>,
+    modifier: Modifier = Modifier,
+    onShareClick: (Shares.SmbShare) -> Unit = {}
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "SMB Shares",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "${shares.size} ${if (shares.size == 1) "Share" else "Shares"}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (shares.isEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FolderShared,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No SMB shares configured",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+                shares.take(5).forEach { share ->
+                    ShareItem(
+                        share = share,
+                        onShareClick = onShareClick
+                    )
+                    if (share != shares.take(5).last()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
+                }
+
+                if (shares.size > 5) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "And ${shares.size - 5} more...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShareItem(
+    share: Shares.SmbShare,
+    modifier: Modifier = Modifier,
+    onShareClick: (Shares.SmbShare) -> Unit = {}
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onShareClick(share) }
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (share.enabled) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = if (share.enabled) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = share.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = share.path,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (share.comment.isNotEmpty()) {
+                    Text(
+                        text = share.comment,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        Column(
+            horizontalAlignment = Alignment.End
+        ) {
+            Surface(
+                color = if (share.enabled)
+                    Color(0xFF2E7D32).copy(alpha = 0.12f)
+                else
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = if (share.enabled) "Active" else "Disabled",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (share.enabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+
+            if (share.enabled) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (share.ro) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Read-only",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (share.guestok) {
+                        Icon(
+                            imageVector = Icons.Default.PersonOutline,
+                            contentDescription = "Guest access",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun QuickActionsCard(
+    onNavigateToServices: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -740,7 +1000,7 @@ private fun PerformanceOverviewCard(
                 .padding(20.dp)
         ) {
             Text(
-                text = "Performance Overview",
+                text = "Quick Actions",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -749,55 +1009,57 @@ private fun PerformanceOverviewCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // CPU Info
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                // Services Button
+                Surface(
+                    onClick = onNavigateToServices,
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Memory,
+                            imageVector = Icons.Default.Apps,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "CPU Usage",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Services",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
-                    Text(
-                        text = if (cpuData != null) "Available" else "Loading...",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
 
-                // Memory Info
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                // Profile Button
+                Surface(
+                    onClick = onNavigateToProfile,
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Storage,
+                            imageVector = Icons.Default.Person,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.secondary
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Memory Usage",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = if (memoryData != null) "Available" else "Loading...",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            text = "Profile",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -807,151 +1069,60 @@ private fun PerformanceOverviewCard(
     }
 }
 
-    @Composable
-    fun QuickActionsCard(
-        onNavigateToServices: () -> Unit,
-        onNavigateToProfile: () -> Unit,
-        modifier: Modifier = Modifier
-    ) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                Text(
-                    text = "Quick Actions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+@Composable
+fun ShutdownDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var shutdownReason by remember { mutableStateOf("User requested shutdown") }
 
-                Row(
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.PowerSettingsNew,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(
+                text = "Shutdown TrueNAS",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Are you sure you want to shutdown the TrueNAS system?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = shutdownReason,
+                    onValueChange = { shutdownReason = it },
+                    label = { Text("Shutdown reason") },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Services Button
-                    Surface(
-                        onClick = onNavigateToServices,
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Apps,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Services",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    // Profile Button
-                    Surface(
-                        onClick = onNavigateToProfile,
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Profile",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-        }
-    }
-}
-
-    @Composable
-    fun ShutdownDialog(
-        onConfirm: (String) -> Unit,
-        onDismiss: () -> Unit
-    ) {
-        var shutdownReason by remember { mutableStateOf("User requested shutdown") }
-
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.PowerSettingsNew,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.error
+                    maxLines = 2
                 )
-            },
-            title = {
-                Text(
-                    text = "Shutdown TrueNAS",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "Are you sure you want to shutdown the TrueNAS system?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = shutdownReason,
-                        onValueChange = { shutdownReason = it },
-                        label = { Text("Shutdown reason") },
-                        modifier = Modifier.fillMaxWidth(),
-                        maxLines = 2
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { onConfirm(shutdownReason) },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Shutdown", color = MaterialTheme.colorScheme.onError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text("Cancel")
-                }
             }
-        )
-    }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(shutdownReason) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Shutdown", color = MaterialTheme.colorScheme.onError)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
