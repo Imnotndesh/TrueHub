@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
+import com.example.truehub.data.models.Shares
 import com.example.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 
 sealed class HomeUiState {
     object Loading : HomeUiState()
@@ -22,6 +24,7 @@ sealed class HomeUiState {
         val cpuData: List<System.ReportingGraphResponse>?,
         val memoryData: List<System.ReportingGraphResponse>?,
         val temperatureData: List<System.ReportingGraphResponse>? = null,
+        val smbShares: List<Shares.SmbShare> = emptyList(),
         val isRefreshing: Boolean = false
     ) : HomeUiState()
 
@@ -37,12 +40,39 @@ class HomeViewModel(
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
     private var _performanceDataLoading = MutableStateFlow(false)
     val performanceDataLoading: StateFlow<Boolean> = _performanceDataLoading.asStateFlow()
 
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
+    private val _connectionError = MutableStateFlow<String?>(null)
+    val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
 
     init {
+        startConnectivityMonitoring()
         loadDashboardData()
+    }
+
+    private fun startConnectivityMonitoring() {
+        viewModelScope.launch {
+            while (true) {
+                checkConnectivity()
+                delay(30000) // Check every 30 seconds
+            }
+        }
+    }
+
+    private suspend fun checkConnectivity() {
+        try {
+            val result = apiManager.system.getSystemInfoWithResult()
+            _isConnected.value = result is ApiResult.Success
+            _connectionError.value = if (result is ApiResult.Error) result.message else null
+        } catch (e: Exception) {
+            _isConnected.value = false
+            _connectionError.value = e.message
+        }
     }
 
     fun refresh() {
@@ -68,9 +98,11 @@ class HomeViewModel(
                 if (systemInfoResult !is ApiResult.Success) {
                     _uiState.value = HomeUiState.Error("Failed to load system information")
                     ToastManager.showError("Unable to connect to TrueNAS system")
+                    _isConnected.value = false
                     return@launch
                 }
 
+                _isConnected.value = true
                 val systemInfo = systemInfoResult.data
 
                 // Load other data concurrently
@@ -79,6 +111,9 @@ class HomeViewModel(
                 }
                 val diskDeferred = async {
                     apiManager.system.getDisksWithResult()
+                }
+                val smbSharesDeferred = async {
+                    apiManager.sharing.getSmbSharesWithResult()
                 }
                 val cpuDataDeferred = async {
                     val cpuGraphRequest = listOf(
@@ -120,12 +155,14 @@ class HomeViewModel(
                 // Await all results
                 val poolResult = poolDeferred.await()
                 val diskResult = diskDeferred.await()
+                val smbSharesResult = smbSharesDeferred.await()
                 val cpuDataResult = cpuDataDeferred.await()
                 val memoryDataResult = memoryDataDeferred.await()
                 val tempDataResult = tempDataDeferred.await()
 
                 val pools = if (poolResult is ApiResult.Success) poolResult.data else emptyList()
                 val disks = if (diskResult is ApiResult.Success) diskResult.data else emptyList()
+                val smbShares = if (smbSharesResult is ApiResult.Success) smbSharesResult.data else emptyList()
 
                 _uiState.value = HomeUiState.Success(
                     systemInfo = systemInfo,
@@ -134,6 +171,7 @@ class HomeViewModel(
                     cpuData = if (cpuDataResult is ApiResult.Success) cpuDataResult.data else null,
                     memoryData = if (memoryDataResult is ApiResult.Success) memoryDataResult.data else null,
                     temperatureData = if (tempDataResult is ApiResult.Success) tempDataResult.data else null,
+                    smbShares = smbShares,
                     isRefreshing = false
                 )
                 ToastManager.showSuccess("Dashboard updated successfully")
@@ -145,6 +183,7 @@ class HomeViewModel(
                     canRetry = true
                 )
                 ToastManager.showError("Failed to load dashboard: ${e.message}")
+                _isConnected.value = false
             }
         }
     }
@@ -178,6 +217,7 @@ class HomeViewModel(
             loadDashboardData()
         }
     }
+
     fun loadPerformanceData(): Triple<List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?> {
         var cpuData: List<System.ReportingGraphResponse>? = null
         var memoryData: List<System.ReportingGraphResponse>? = null

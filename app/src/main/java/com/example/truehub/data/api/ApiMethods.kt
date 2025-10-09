@@ -61,6 +61,6 @@ object ApiMethods {
         const val GET_DISPLAY_URL = "vm.get_display_web_uri"
     }
     object Shares{
-        const val GET_SMB_SHARES = "vm.sharing.smb.query"
+        const val GET_SMB_SHARES = "sharing.smb.query"
     }
 }
