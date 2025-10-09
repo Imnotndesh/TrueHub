@@ -246,19 +246,9 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     }
                 }
                 1 -> {
-                    // Containers Tab - Empty for now
-//                    EmptyTabContent(
-//                        title = "No containers found",
-//                        description = "Container management coming soon"
-//                    )
                     ContainerScreen(manager)
                 }
                 2 -> {
-                    // VMs Tab - Empty for now
-//                    EmptyTabContent(
-//                        title = "No virtual machines found",
-//                        description = "VM management coming soon"
-//                    )
                     VmScreen(manager)
                 }
             }

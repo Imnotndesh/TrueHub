@@ -115,4 +115,22 @@ object EncryptedPrefs {
             it[autoLoginPref] = true
         }
     }
+
+    suspend fun saveUsername(context: Context,username:String){
+        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+        context.dataStore.edit {
+            it[usernamePref] = username
+        }
+    }
+    suspend fun getUsername(context: Context) : String?{
+        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+        val preferences = context.dataStore.data.first()
+        return preferences[usernamePref]
+    }
+    suspend fun clearUsername(context: Context){
+        val usernamePref = stringPreferencesKey(USERNAME_PREF)
+        context.dataStore.edit {
+            it.remove(usernamePref)
+        }
+    }
 }

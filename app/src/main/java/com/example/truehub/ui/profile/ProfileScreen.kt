@@ -1,5 +1,6 @@
 package com.example.truehub.ui.profile
 
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,8 +64,9 @@ fun ProfileScreen(
     manager: TrueNASApiManager,
     onSettingsClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val viewModel: ProfileViewModel = viewModel(
-        factory = ProfileViewModel.ProfileViewModelFactory(manager)
+        factory = ProfileViewModel.ProfileViewModelFactory(manager,context.applicationContext as Application)
     )
     val state by viewModel.uiState.collectAsState()
 

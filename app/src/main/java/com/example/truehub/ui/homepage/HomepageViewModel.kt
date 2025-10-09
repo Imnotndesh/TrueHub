@@ -59,9 +59,10 @@ class HomeViewModel(
         viewModelScope.launch {
             while (true) {
                 checkConnectivity()
-                delay(30000) // Check every 30 seconds
+                delay(30000)
             }
         }
+
     }
 
     private suspend fun checkConnectivity() {

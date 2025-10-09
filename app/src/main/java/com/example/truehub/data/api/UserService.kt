@@ -8,16 +8,21 @@ import com.squareup.moshi.Types
 class UserService(client: TrueNASClient): BaseApiService(client) {
     // Change Password
     suspend fun changeUserPassword(username : String, oldPass: String, newPass:String){
+        val passChangeRequest = User.ChangeUserPasswordRequest(username,oldPass,newPass)
         return client.call(
             method = ApiMethods.User.CHANGE_PASSWORD,
-            params = listOf(username,oldPass,newPass),
+            params = listOf(passChangeRequest),
             resultType = Any::class.java
         )
     }
     suspend fun changeUserPasswordWithResult(username : String, oldPass: String, newPass:String): ApiResult<Any>{
         return try{
             val result = changeUserPassword(username,oldPass,newPass)
-            ApiResult.Success(result)
+            if (result == null) {
+                ApiResult.Success(true)
+            } else {
+                ApiResult.Error("Unexpected response: $result")
+            }
         }catch (e: Exception){
             ApiResult.Error("Unable to change password: ${e.message}",e)
         }
