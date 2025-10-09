@@ -1,6 +1,7 @@
 package com.example.truehub.ui.homepage
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
 import com.example.truehub.ui.homepage.details.MetricType
 import com.example.truehub.ui.homepage.details.PerformanceBottomSheet
+import com.example.truehub.ui.homepage.details.ShareInfoBottomSheet
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -276,6 +278,8 @@ private fun HomeContent(
     var showMemoryDialog by remember { mutableStateOf(false) }
     var showPerformanceDialog by remember { mutableStateOf(false) }
     var currentMetricType by remember { mutableStateOf(MetricType.ALL) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var selectedShare by remember { mutableStateOf<Shares.SmbShare?>(null) }  // ADD THIS
 
     Column(
         modifier = Modifier
@@ -325,7 +329,11 @@ private fun HomeContent(
         // SMB Shares Section
         SmbSharesCard(
             shares = state.smbShares,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 16.dp),
+            onShareClick = { share ->
+                selectedShare = share
+                showShareDialog = true
+            }
         )
 
         // Quick Actions
@@ -354,6 +362,15 @@ private fun HomeContent(
                 currentMetricType = MetricType.ALL
             },
             onRefresh = onRefresh
+        )
+    }
+    if (showShareDialog && selectedShare != null) {
+        ShareInfoBottomSheet(
+            share = selectedShare!!,
+            onDismiss = {
+                showShareDialog = false
+                selectedShare = null
+            }
         )
     }
 }
@@ -755,7 +772,8 @@ private fun NoStorageCard(
 @Composable
 private fun SmbSharesCard(
     shares: List<Shares.SmbShare>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShareClick: (Shares.SmbShare) -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -821,7 +839,10 @@ private fun SmbSharesCard(
             } else {
                 Spacer(modifier = Modifier.height(12.dp))
                 shares.take(5).forEach { share ->
-                    ShareItem(share = share)
+                    ShareItem(
+                        share = share,
+                        onShareClick = onShareClick
+                    )
                     if (share != shares.take(5).last()) {
                         HorizontalDivider(
                             modifier = Modifier.padding(vertical = 8.dp),
@@ -847,11 +868,13 @@ private fun SmbSharesCard(
 @Composable
 private fun ShareItem(
     share: Shares.SmbShare,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onShareClick: (Shares.SmbShare) -> Unit = {}
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable { onShareClick(share) }
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
