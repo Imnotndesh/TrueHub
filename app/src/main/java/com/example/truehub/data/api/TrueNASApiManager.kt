@@ -11,7 +11,7 @@ class TrueNASApiManager(private val client: TrueNASClient) {
     val connection: ConnectionService by lazy { ConnectionService(client) }
     val virtService: VirtService by lazy { VirtService(client) }
     val vmService: VmService by lazy { VmService(client) }
-
+    val user: UserService by lazy { UserService(client) }
     val sharing : SharingService by lazy { SharingService(client) }
 
     // Convenience methods for connection management

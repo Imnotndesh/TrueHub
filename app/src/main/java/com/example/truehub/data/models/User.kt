@@ -122,4 +122,10 @@ object User {
         val path: String,
         val name: String
     )
+    @Suppress("PropertyName")
+    data class ChangeUserPasswordRequest(
+        val username: String,
+        val old_password: String,
+        val new_password: String
+    )
 }

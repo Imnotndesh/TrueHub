@@ -41,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.settings.sheets.ChangePasswordBottomSheet
 
 @Composable
 fun SettingsScreen(
@@ -62,6 +67,7 @@ fun SettingsScreen(
         factory = SettingsScreenViewModel.SettingsViewModelFactory(manager, LocalContext.current.applicationContext as Application)
     )
     val uiState by viewModel.uiState.collectAsState()
+    var showPassChangeDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.logoutSuccess) {
         if (uiState.logoutSuccess) {
@@ -118,7 +124,7 @@ fun SettingsScreen(
                         icon = Icons.Default.Security,
                         name = "Password",
                         description = "Change your password",
-                        onClick = { onDummyAction("Password") }
+                        onClick = { showPassChangeDialog = true}
                     ),
                     SettingItem(
                         icon = Icons.Default.VerifiedUser,
@@ -179,6 +185,20 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+            if (showPassChangeDialog){
+                ChangePasswordBottomSheet(
+                    onDismiss = { showPassChangeDialog = false },
+                    onSubmit = {oldPassword, newPassword ->
+                        viewModel.handleEvent(
+                            SettingsEvent.ChangePassword(
+                                oldPassword,
+                                newPassword
+                            )
+                        )
+                        showPassChangeDialog = false
+                    }
+                )
+            }
         }
     }
 }

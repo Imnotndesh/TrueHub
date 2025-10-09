@@ -65,6 +65,7 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.services.apps.UpgradeSummaryBottomSheet
 import com.example.truehub.ui.services.containers.ContainerScreen
 import com.example.truehub.ui.services.containers.ContainerScreenViewModel
 import com.example.truehub.ui.services.details.AppInfoDialog
@@ -86,6 +87,24 @@ fun ServicesScreen(manager: TrueNASApiManager) {
     val uiState by servicesViewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Apps", "Containers", "VMs")
+    var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
+
+    if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
+        UpgradeSummaryBottomSheet(
+            appName = appForUpgradeSummary!!,
+            upgradeSummary = uiState.upgradeSummaryResult!!,
+            onDismiss = {
+                servicesViewModel.clearUpgradeSummary()
+                appForUpgradeSummary = null
+            },
+            onConfirmUpgrade = {
+                servicesViewModel.upgradeApp(appForUpgradeSummary!!)
+                servicesViewModel.clearUpgradeSummary()
+                appForUpgradeSummary = null
+            },
+            isUpgrading = uiState.upgradeJobs.containsKey(appForUpgradeSummary)
+        )
+    }
     LaunchedEffect(selectedTabIndex) {
         when (selectedTabIndex) {
             0 -> servicesViewModel.refresh()
@@ -238,27 +257,21 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                                 apps = uiState.apps,
                                 isRefreshing = uiState.isRefreshing,
                                 onStartApp = {appName ->servicesViewModel.startApp(appName)},
+                                loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                                 onStopApp = {appName -> servicesViewModel.stopApp(appName)},
-                                onAppUpgrade = {appName -> servicesViewModel.upgradeApp(appName)},
+                                onShowUpgradeSummary = { appName ->
+                                    appForUpgradeSummary = appName
+                                    servicesViewModel.loadUpgradeSummary(appName)
+                                },
                                 upgradeJobs = uiState.upgradeJobs
                             )
                         }
                     }
                 }
                 1 -> {
-                    // Containers Tab - Empty for now
-//                    EmptyTabContent(
-//                        title = "No containers found",
-//                        description = "Container management coming soon"
-//                    )
                     ContainerScreen(manager)
                 }
                 2 -> {
-                    // VMs Tab - Empty for now
-//                    EmptyTabContent(
-//                        title = "No virtual machines found",
-//                        description = "VM management coming soon"
-//                    )
                     VmScreen(manager)
                 }
             }
@@ -327,9 +340,10 @@ private fun EmptyTabContent(
 private fun ServicesContent(
     apps: List<Apps.AppQueryResponse>,
     isRefreshing: Boolean,
+    loadingSummaryForApp: String?,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onAppUpgrade: (String) -> Unit,
+    onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
     LazyColumn(
@@ -352,9 +366,10 @@ private fun ServicesContent(
         items(apps) { app ->
             ServiceCard(
                 app = app,
+                isLoadingSummary = app.name == loadingSummaryForApp,
                 onStartApp = onStartApp,
                 onStopApp = onStopApp,
-                onAppUpgrade = onAppUpgrade,
+                onShowUpgradeSummary = onShowUpgradeSummary,
                 upgradeJobs = upgradeJobs
             )
         }
@@ -369,9 +384,10 @@ private fun ServicesContent(
 @Composable
 private fun ServiceCard(
     app: Apps.AppQueryResponse,
+    isLoadingSummary: Boolean,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onAppUpgrade: (String) -> Unit,
+    onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -453,7 +469,8 @@ private fun ServiceCard(
 
                     if (upgradeJobs[app.name] == null) {
                         UpgradeButton(
-                            onAppUpgrade = { onAppUpgrade(app.name) }
+                            onClick = { onShowUpgradeSummary(app.name) },
+                            isLoading = isLoadingSummary
                         )
                     } else {
                         UpgradeStatusChip(upgradeState = upgradeJobs[app.name]!!)
@@ -549,23 +566,33 @@ private fun ServiceCard(
 
 @Composable
 private fun UpgradeButton(
-    onAppUpgrade: () -> Unit
+    onClick: () -> Unit,
+    isLoading: Boolean
 ) {
     Surface(
-        onClick = onAppUpgrade,
+        onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primaryContainer
+        color = MaterialTheme.colorScheme.primaryContainer,
+        enabled = !isLoading
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.CloudUpload,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            if (isLoading){
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }else{
+                Icon(
+                    imageVector = Icons.Default.CloudUpload,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "Update",
