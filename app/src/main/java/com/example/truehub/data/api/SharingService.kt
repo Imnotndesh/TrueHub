@@ -31,7 +31,7 @@ class SharingService(client: TrueNASClient): BaseApiService(client) {
         return client.call(
             method = ApiMethods.Shares.GET_NFS_SHARES,
             params = emptyList(),
-            resultType = type::class.java,
+            resultType = type,
         )
     }
     suspend fun getNfsSharesWithResult(): ApiResult<List<Shares.NfsShare>>{
