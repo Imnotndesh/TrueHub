@@ -21,6 +21,7 @@ sealed class HomeUiState {
         val systemInfo: System.SystemInfo,
         val poolDetails: List<System.Pool>,
         val diskDetails: List<System.DiskDetails>,
+        val nfsShares : List<Shares.NfsShare>,
         val cpuData: List<System.ReportingGraphResponse>?,
         val memoryData: List<System.ReportingGraphResponse>?,
         val temperatureData: List<System.ReportingGraphResponse>? = null,
@@ -116,6 +117,9 @@ class HomeViewModel(
                 val smbSharesDeferred = async {
                     apiManager.sharing.getSmbSharesWithResult()
                 }
+                val nfsSharesDeferred = async {
+                    apiManager.sharing.getNfsSharesWithResult()
+                }
                 val cpuDataDeferred = async {
                     val cpuGraphRequest = listOf(
                         System.ReportingGraphRequest(
@@ -157,14 +161,14 @@ class HomeViewModel(
                 val poolResult = poolDeferred.await()
                 val diskResult = diskDeferred.await()
                 val smbSharesResult = smbSharesDeferred.await()
+                val nfsSharesResult = nfsSharesDeferred.await()
                 val cpuDataResult = cpuDataDeferred.await()
                 val memoryDataResult = memoryDataDeferred.await()
                 val tempDataResult = tempDataDeferred.await()
-
                 val pools = if (poolResult is ApiResult.Success) poolResult.data else emptyList()
                 val disks = if (diskResult is ApiResult.Success) diskResult.data else emptyList()
                 val smbShares = if (smbSharesResult is ApiResult.Success) smbSharesResult.data else emptyList()
-
+                val nfsShares = if (nfsSharesResult is ApiResult.Success) nfsSharesResult.data else emptyList()
                 _uiState.value = HomeUiState.Success(
                     systemInfo = systemInfo,
                     poolDetails = pools,
@@ -173,6 +177,7 @@ class HomeViewModel(
                     memoryData = if (memoryDataResult is ApiResult.Success) memoryDataResult.data else null,
                     temperatureData = if (tempDataResult is ApiResult.Success) tempDataResult.data else null,
                     smbShares = smbShares,
+                    nfsShares = nfsShares,
                     isRefreshing = false
                 )
                 ToastManager.showSuccess("Dashboard updated successfully")

@@ -1,5 +1,7 @@
 package com.example.truehub.data.models
 
+import com.squareup.moshi.JsonClass
+
 object Shares {
     @Suppress("PropertyName")
     data class SmbShare(
@@ -40,4 +42,32 @@ object Shares {
             val ignore_list: List<String>
         )
     }
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class NfsShare(
+        val id: Int,
+        val path: String,
+        val aliases: List<String> = emptyList(),
+        val comment: String = "",
+        val networks: List<String> = emptyList(),
+        val hosts: List<String> = emptyList(),
+        val ro: Boolean = false,
+        val maproot_user: String ?= "",
+        val maproot_group: String ?= "",
+        val mapall_user: String ?= "",
+        val mapall_group: String ?= "",
+        val security: List<String> = emptyList(),
+        val enabled: Boolean = false,
+        val locked: Boolean = false,
+        val expose_snapshots: Boolean = false
+    )
+//    @JsonClass(generateAdapter = true)
+//    enum class NfsSecurity{
+//        SYS,
+//        KRB5,
+//        KRB5I,
+//        KRB5P
+//    }
+
+
 }

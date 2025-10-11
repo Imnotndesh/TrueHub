@@ -5,6 +5,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,10 +23,16 @@ import androidx.compose.ui.unit.sp
 import com.example.truehub.data.models.Shares
 import com.example.truehub.ui.background.WavyGradientBackground
 
+// Sealed class to handle both share types
+sealed class ShareType {
+    data class Smb(val share: Shares.SmbShare) : ShareType()
+    data class Nfs(val share: Shares.NfsShare) : ShareType()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareInfoBottomSheet(
-    share: Shares.SmbShare,
+    shareType: ShareType,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
@@ -37,16 +45,23 @@ fun ShareInfoBottomSheet(
             modifier = Modifier.fillMaxSize()
         ) {
             // Header Section
-            ShareInfoHeader(share = share, onDismiss = onDismiss)
+            when (shareType) {
+                is ShareType.Smb -> SmbShareInfoHeader(share = shareType.share, onDismiss = onDismiss)
+                is ShareType.Nfs -> NfsShareInfoHeader(share = shareType.share, onDismiss = onDismiss)
+            }
 
             // Share details content
-            ShareDetailsContent(share = share)
+            when (shareType) {
+                is ShareType.Smb -> SmbShareDetailsContent(share = shareType.share)
+                is ShareType.Nfs -> NfsShareDetailsContent(share = shareType.share)
+            }
         }
     }
 }
 
+// SMB Share Components
 @Composable
-private fun ShareInfoHeader(
+private fun SmbShareInfoHeader(
     share: Shares.SmbShare,
     onDismiss: () -> Unit
 ) {
@@ -57,7 +72,6 @@ private fun ShareInfoHeader(
             .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
     ) {
         WavyGradientBackground {
-            // Close button
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
@@ -71,24 +85,21 @@ private fun ShareInfoHeader(
                 )
             }
 
-            // Share info
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Share icon
                 Icon(
                     imageVector = if (share.timemachine) Icons.Default.Backup
                     else if (share.home) Icons.Default.Home
-                    else Icons.Default.Folder,
+                    else Icons.Default.Storage,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(48.dp)
                 )
 
-                // Share name
                 Text(
                     text = share.name,
                     style = MaterialTheme.typography.headlineSmall,
@@ -97,161 +108,12 @@ private fun ShareInfoHeader(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                // Status and path
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        color = if (share.enabled)
-                            Color(0xFF2E7D32).copy(alpha = 0.3f)
-                        else
-                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(
-                            text = if (share.enabled) "Active" else "Disabled",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                    Text(
-                        text = "•",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = share.path,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                        fontSize = 14.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
         }
     }
 }
 
-@Composable
-private fun ShareDetailsContent(
-    share: Shares.SmbShare
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        // Basic Information Section
-        ShareInfoSection(
-            title = "Basic Information",
-            icon = Icons.Default.Info
-        ) {
-            ShareInfoRow("Share Name", share.name)
-            ShareInfoRow("Path", share.path)
-            if (share.path_suffix.isNotEmpty()) {
-                ShareInfoRow("Path Suffix", share.path_suffix)
-            }
-            if (share.comment.isNotEmpty()) {
-                ShareInfoRow("Description", share.comment)
-            }
-            ShareInfoRow("Purpose", share.purpose.ifEmpty { "General" })
-        }
-
-        // Status & Features Section
-        ShareInfoSection(
-            title = "Status & Features",
-            icon = Icons.Default.ToggleOn
-        ) {
-            ShareStatusCard(
-                title = "Share Status",
-                status = if (share.enabled) "Enabled" else "Disabled",
-                isPositive = share.enabled,
-                icon = Icons.Default.PowerSettingsNew
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Feature chips
-            ShareFeatureChips(share = share)
-        }
-
-        // Access Control Section
-        ShareInfoSection(
-            title = "Access Control",
-            icon = Icons.Default.Security
-        ) {
-            ShareAccessCard(share = share)
-        }
-
-        // Advanced Settings Section
-        ShareInfoSection(
-            title = "Advanced Settings",
-            icon = Icons.Default.Settings
-        ) {
-            ShareAdvancedCard(share = share)
-        }
-
-        // Network Access Section
-        if (share.hostsallow.isNotEmpty() || share.hostsdeny.isNotEmpty()) {
-            ShareInfoSection(
-                title = "Network Access",
-                icon = Icons.Default.NetworkCheck
-            ) {
-                ShareNetworkCard(share = share)
-            }
-        }
-
-        // Time Machine Section
-        if (share.timemachine) {
-            ShareInfoSection(
-                title = "Time Machine",
-                icon = Icons.Default.Backup
-            ) {
-                ShareTimeMachineCard(share = share)
-            }
-        }
-
-        // Audit Section
-        if (share.audit.enable) {
-            ShareInfoSection(
-                title = "Audit Settings",
-                icon = Icons.Default.Assignment
-            ) {
-                ShareAuditCard(share = share)
-            }
-        }
-
-        // Additional Configuration
-        if (share.auxsmbconf.isNotEmpty()) {
-            ShareInfoSection(
-                title = "Additional Configuration",
-                icon = Icons.Default.Code
-            ) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = share.auxsmbconf,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
+// Shared Components
 @Composable
 private fun ShareInfoSection(
     title: String,
@@ -369,6 +231,373 @@ private fun ShareStatusCard(
 }
 
 @Composable
+private fun FeatureChip(text: String, icon: ImageVector) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccessDetailRow(
+    label: String,
+    value: String,
+    isEnabled: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (isEnabled) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp),
+                    tint = Color(0xFF2E7D32)
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// NFS Share Header
+@Composable
+private fun NfsShareInfoHeader(
+    share: Shares.NfsShare,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+    ) {
+        WavyGradientBackground {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Storage,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(48.dp)
+                )
+
+                Text(
+                    text = share.path.substringAfterLast('/').ifEmpty { "NFS Share" },
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = if (share.enabled)
+                            Color(0xFF2E7D32).copy(alpha = 0.3f)
+                        else
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (share.enabled) "Active" else "Disabled",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = "•",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = share.path,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SmbShareDetailsContent(
+    share: Shares.SmbShare
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Basic Information Section
+        ShareInfoSection(
+            title = "Basic Information",
+            icon = Icons.Default.Info
+        ) {
+            ShareInfoRow("Share Name", share.name)
+            ShareInfoRow("Path", share.path)
+            if (share.path_suffix.isNotEmpty()) {
+                ShareInfoRow("Path Suffix", share.path_suffix)
+            }
+            if (share.comment.isNotEmpty()) {
+                ShareInfoRow("Description", share.comment)
+            }
+            ShareInfoRow("Purpose", share.purpose.ifEmpty { "General" })
+        }
+
+        // Status & Features Section
+        ShareInfoSection(
+            title = "Status & Features",
+            icon = Icons.Default.ToggleOn
+        ) {
+            ShareStatusCard(
+                title = "Share Status",
+                status = if (share.enabled) "Enabled" else "Disabled",
+                isPositive = share.enabled,
+                icon = Icons.Default.PowerSettingsNew
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Feature chips
+            ShareFeatureChips(share = share)
+        }
+
+        // Access Control Section
+        ShareInfoSection(
+            title = "Access Control",
+            icon = Icons.Default.Security
+        ) {
+            ShareAccessCard(share = share)
+        }
+
+        // Advanced Settings Section
+        ShareInfoSection(
+            title = "Advanced Settings",
+            icon = Icons.Default.Settings
+        ) {
+            ShareAdvancedCard(share = share)
+        }
+
+        // Network Access Section
+        if (share.hostsallow.isNotEmpty() || share.hostsdeny.isNotEmpty()) {
+            ShareInfoSection(
+                title = "Network Access",
+                icon = Icons.Default.NetworkCheck
+            ) {
+                ShareNetworkCard(share = share)
+            }
+        }
+
+        // Time Machine Section
+        if (share.timemachine) {
+            ShareInfoSection(
+                title = "Time Machine",
+                icon = Icons.Default.Backup
+            ) {
+                ShareTimeMachineCard(share = share)
+            }
+        }
+
+        // Audit Section
+        if (share.audit.enable) {
+            ShareInfoSection(
+                title = "Audit Settings",
+                icon = Icons.AutoMirrored.Filled.Assignment
+            ) {
+                ShareAuditCard(share = share)
+            }
+        }
+
+        // Additional Configuration
+        if (share.auxsmbconf.isNotEmpty()) {
+            ShareInfoSection(
+                title = "Additional Configuration",
+                icon = Icons.Default.Code
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = share.auxsmbconf,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NfsShareDetailsContent(
+    share: Shares.NfsShare
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Basic Information Section
+        ShareInfoSection(
+            title = "Basic Information",
+            icon = Icons.Default.Info
+        ) {
+            ShareInfoRow("Path", share.path)
+            ShareInfoRow("ID", share.id.toString())
+            if (share.comment.isNotEmpty()) {
+                ShareInfoRow("Description", share.comment)
+            }
+        }
+
+        // Status Section
+        ShareInfoSection(
+            title = "Status",
+            icon = Icons.Default.ToggleOn
+        ) {
+            ShareStatusCard(
+                title = "Share Status",
+                status = if (share.enabled == true) "Enabled" else "Disabled",
+                isPositive = share.enabled == true,
+                icon = Icons.Default.PowerSettingsNew
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Feature chips
+            NfsFeatureChips(share = share)
+        }
+
+        // Network Access Section
+        if (share.networks.isNotEmpty() || share.hosts.isNotEmpty()) {
+            ShareInfoSection(
+                title = "Network Access",
+                icon = Icons.Default.NetworkCheck
+            ) {
+                NfsNetworkAccessCard(share = share)
+            }
+        }
+
+        // User Mapping Section
+        if (share.maproot_user!!.isNotEmpty() || share.mapall_user!!.isNotEmpty()) {
+            ShareInfoSection(
+                title = "User Mapping",
+                icon = Icons.Default.Person
+            ) {
+                NfsUserMappingCard(share = share)
+            }
+        }
+
+        // Security Section
+        if (share.security.isNotEmpty()) {
+            ShareInfoSection(
+                title = "Security",
+                icon = Icons.Default.Security
+            ) {
+                NfsSecurityCard(share = share)
+            }
+        }
+
+        // Aliases Section
+        if (share.aliases.isNotEmpty()) {
+            ShareInfoSection(
+                title = "Aliases",
+                icon = Icons.AutoMirrored.Filled.Label
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        share.aliases.forEach { alias ->
+                            Text(
+                                text = "• $alias",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ShareFeatureChips(share: Shares.SmbShare) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Row 1
@@ -422,28 +651,19 @@ private fun ShareFeatureChips(share: Shares.SmbShare) {
 }
 
 @Composable
-private fun FeatureChip(text: String, icon: ImageVector) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = RoundedCornerShape(8.dp)
+private fun NfsFeatureChips(share: Shares.NfsShare) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                fontWeight = FontWeight.Medium
-            )
+        if (share.ro) {
+            FeatureChip("Read-Only", Icons.Default.Lock)
+        }
+        if (share.locked) {
+            FeatureChip("Locked", Icons.Default.LockPerson)
+        }
+        if (share.expose_snapshots) {
+            FeatureChip("Snapshots Exposed", Icons.Default.CameraAlt)
         }
     }
 }
@@ -680,39 +900,166 @@ private fun ShareAuditCard(share: Shares.SmbShare) {
 }
 
 @Composable
-private fun AccessDetailRow(
-    label: String,
-    value: String,
-    isEnabled: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+private fun NfsNetworkAccessCard(share: Shares.NfsShare) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (isEnabled) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = Color(0xFF2E7D32)
-                )
+            if (share.networks.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.NetworkCheck,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Allowed Networks",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    share.networks.forEach { network ->
+                        Text(
+                            text = "• $network",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 24.dp)
+                        )
+                    }
+                }
             }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+            if (share.hosts.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Computer,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Allowed Hosts",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    share.hosts.forEach { host ->
+                        Text(
+                            text = "• $host",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 24.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NfsUserMappingCard(share: Shares.NfsShare) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (share.maproot_user!!.isNotEmpty()) {
+                ShareInfoRow("Map Root User", share.maproot_user)
+            }
+            if (share.maproot_group!!.isNotEmpty()) {
+                ShareInfoRow("Map Root Group", share.maproot_group)
+            }
+            if (share.mapall_user!!.isNotEmpty()) {
+                ShareInfoRow("Map All User", share.mapall_user)
+            }
+            if (share.mapall_group!!.isNotEmpty()) {
+                ShareInfoRow("Map All Group", share.mapall_group)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NfsSecurityCard(share: Shares.NfsShare) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = share.path,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = if (share.enabled == true)
+                            Color(0xFF2E7D32).copy(alpha = 0.3f)
+                        else
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (share.enabled == true) "Active" else "Disabled",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = "•",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = share.path,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
