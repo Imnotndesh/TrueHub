@@ -64,6 +64,7 @@ import coil.compose.AsyncImage
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.services.apps.UpgradeSummaryBottomSheet
 import com.example.truehub.ui.services.containers.ContainerScreen
@@ -88,6 +89,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Apps", "Containers", "VMs")
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
+    var upgradeAppCurrentVersion by remember { mutableStateOf("") }
 
     if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
         UpgradeSummaryBottomSheet(
@@ -101,7 +103,9 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 servicesViewModel.upgradeApp(appForUpgradeSummary!!)
                 servicesViewModel.clearUpgradeSummary()
                 appForUpgradeSummary = null
+                upgradeAppCurrentVersion = ""
             },
+            currentVersion  = upgradeAppCurrentVersion,
             isUpgrading = uiState.upgradeJobs.containsKey(appForUpgradeSummary)
         )
     }
@@ -156,16 +160,24 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     )
                 }
 
-                // Refresh Button
-                IconButton(
-                    onClick = { servicesViewModel.refresh() },
-                    enabled = !uiState.isLoading && !uiState.isRefreshing
+                // Actions button
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    // Alerts Bell Button
+                    AlertsBellButton(manager = manager)
+
+                    // Refresh Button
+                    IconButton(
+                        onClick = { servicesViewModel.refresh() },
+                        enabled = !uiState.isLoading && !uiState.isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
@@ -259,8 +271,9 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                                 onStartApp = {appName ->servicesViewModel.startApp(appName)},
                                 loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                                 onStopApp = {appName -> servicesViewModel.stopApp(appName)},
-                                onShowUpgradeSummary = { appName ->
+                                onShowUpgradeSummary = { appName,currentVersion ->
                                     appForUpgradeSummary = appName
+                                    upgradeAppCurrentVersion = currentVersion
                                     servicesViewModel.loadUpgradeSummary(appName)
                                 },
                                 upgradeJobs = uiState.upgradeJobs
@@ -307,43 +320,13 @@ private fun EmptyContent() {
 }
 
 @Composable
-private fun EmptyTabContent(
-    title: String,
-    description: String
-) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.Info,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = description,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
 private fun ServicesContent(
     apps: List<Apps.AppQueryResponse>,
     isRefreshing: Boolean,
     loadingSummaryForApp: String?,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onShowUpgradeSummary: (String) -> Unit,
+    onShowUpgradeSummary: (String, String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
     LazyColumn(
@@ -387,7 +370,7 @@ private fun ServiceCard(
     isLoadingSummary: Boolean,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onShowUpgradeSummary: (String) -> Unit,
+    onShowUpgradeSummary: (String, String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
@@ -469,7 +452,7 @@ private fun ServiceCard(
 
                     if (upgradeJobs[app.name] == null) {
                         UpgradeButton(
-                            onClick = { onShowUpgradeSummary(app.name) },
+                            onClick = { onShowUpgradeSummary(app.name,app.humanVersion!!) },
                             isLoading = isLoadingSummary
                         )
                     } else {

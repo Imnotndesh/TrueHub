@@ -2,7 +2,6 @@ package com.example.truehub.ui.homepage
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Shares
+import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.background.WavyGradientBackground
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
@@ -63,6 +63,7 @@ fun HomeScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             // Header is always visible
             HeaderSection(
+                manager = manager,
                 onRefresh = { viewModel.refresh() },
                 onShutdown = { viewModel.shutdownSystem(it) },
                 isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
@@ -96,6 +97,7 @@ fun HomeScreen(
 private fun HeaderSection(
     onRefresh: () -> Unit,
     onShutdown: (String) -> Unit,
+    manager : TrueNASApiManager,
     isRefreshing: Boolean,
     isConnected: Boolean
 ) {
@@ -144,6 +146,7 @@ private fun HeaderSection(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                AlertsBellButton(manager = manager)
                 // Refresh Button
                 IconButton(
                     onClick = onRefresh,
@@ -1070,16 +1073,16 @@ private fun NfsShareItem(
             }
 
             Surface(
-                color = if (share.enabled == true)
+                color = if (share.enabled)
                     MaterialTheme.colorScheme.secondaryContainer
                 else
                     MaterialTheme.colorScheme.errorContainer,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = if (share.enabled == true) "Active" else "Disabled",
+                    text = if (share.enabled) "Active" else "Disabled",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (share.enabled == true)
+                    color = if (share.enabled)
                         MaterialTheme.colorScheme.onSecondaryContainer
                     else
                         MaterialTheme.colorScheme.onErrorContainer,

@@ -314,5 +314,45 @@ object System {
         val parsed: String,
         val source: String
     )
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class AlertResponse(
+        val uuid: String,
+        val source: String,
+        val klass: String,
+        val args: Any? = null,
+        val node: String,
+        val key: String,
+        val datetime: MongoDate,
+        val last_occurrence: MongoDate,
+        val dismissed: Boolean,
+        val mail: Any? = null, // Can be null or object
+        val text: String,
+        val id: String,
+        val level: String,
+        val formatted: String? = null,
+        val one_shot: Boolean
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class MongoDate(
+        @Json(name = "\$date") val date: Long // Milliseconds since epoch
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class AlertCategoriesResponse(
+        val id : String,
+        val title : String,
+        val classes : AlertCategoriesClasses,
+    )
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AlertCategoriesClasses(
+        val id : String,
+        val title:String,
+        val level : String,
+        val proactive_support: Boolean
+    )
+
 
 }
