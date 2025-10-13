@@ -64,6 +64,7 @@ import coil.compose.AsyncImage
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
+import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.services.apps.UpgradeSummaryBottomSheet
 import com.example.truehub.ui.services.containers.ContainerScreen
@@ -159,16 +160,24 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     )
                 }
 
-                // Refresh Button
-                IconButton(
-                    onClick = { servicesViewModel.refresh() },
-                    enabled = !uiState.isLoading && !uiState.isRefreshing
+                // Actions button
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    // Alerts Bell Button
+                    AlertsBellButton(manager = manager)
+
+                    // Refresh Button
+                    IconButton(
+                        onClick = { servicesViewModel.refresh() },
+                        enabled = !uiState.isLoading && !uiState.isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
 
