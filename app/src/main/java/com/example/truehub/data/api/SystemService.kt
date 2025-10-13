@@ -1,6 +1,7 @@
 package com.example.truehub.data.api
 
 import android.util.Log
+import androidx.annotation.Nullable
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.ApiMethods.System.GET_GRAPH_DATA
@@ -139,4 +140,123 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         }
     }
 
+
+    // Alerts Info
+    suspend fun dismissAlert(uuid: String){
+        return client.call(
+            method = ApiMethods.System.DISMISS_ALERT,
+            params = listOf(uuid),
+            resultType = Any::class.java
+        )
+    }
+
+    /**
+     * Modelled after method:
+     * @param uuid
+     * @see dismissAlert
+     * @return null
+     */
+    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Any>{
+        return try {
+            val res = dismissAlert(uuid)
+            ApiResult.Success(res)
+        }catch (e : Exception){
+            ApiResult.Error("Cannot dismiss alert withe error: ${e.message}",e)
+        }
+    }
+
+    suspend fun listAlerts():List<System.AlertResponse>{
+        val type = Types.newParameterizedType(List::class.java, System.AlertResponse::class.java)
+        return client.call(
+            method = ApiMethods.System.LIST_ALERTS,
+            params = listOf(),
+            resultType = type
+        )
+    }
+
+    /**
+     * Fetch all alerts from system
+     * @param none
+     * @see ApiMethods.System.LIST_ALERTS
+     */
+    suspend fun listAlertsWithResult(): ApiResult<List<System.AlertResponse>>{
+        return try{
+            val result = listAlerts()
+            ApiResult.Success(result)
+        }catch (e: Exception){
+            ApiResult.Error("Cannot fetch alerts: ${e.message}",e)
+        }
+    }
+
+    suspend fun listCategories():List<System.AlertCategoriesResponse>{
+        val type = Types.newParameterizedType(List::class.java, System.AlertCategoriesResponse::class.java)
+        return client.call(
+            method = ApiMethods.System.LIST_CATEGORIES,
+            params = listOf(),
+            resultType = type
+        )
+    }
+
+    /**
+     * Fetch alert categories from server
+     * @param none
+     * @see ApiMethods.System.LIST_CATEGORIES
+     */
+
+    suspend fun listCategoriesWithResult(): ApiResult<List<System.AlertCategoriesResponse>>{
+        return try {
+            val result = listCategories()
+            ApiResult.Success(result)
+        }catch (e : Exception){
+            ApiResult.Error("Cannot fetch categories : ${e.message}",e)
+        }
+    }
+
+    suspend fun listAlertPolicies(): List<String>{
+        val type  = Types.newParameterizedType(List::class.java,String::class.java)
+        return client.call(
+            method = ApiMethods.System.LIST_POLICIES,
+            params = listOf(),
+            resultType = type
+        )
+    }
+
+    /**
+     * List all alert policies from server
+     * @see listAlertPolicies
+     * @return ArrayOf(String)
+     * @param none
+     */
+    suspend fun listAlertPoliciesWithResult(): ApiResult<List<String>>{
+        return try{
+            val result = listAlertPolicies()
+            ApiResult.Success(result)
+        }catch (e : Exception){
+            ApiResult.Error("Cannot fetch alert policies : ${e.message}",e)
+        }
+    }
+
+    suspend fun restoreAlert(uuid :String){
+        return client.call(
+            method = ApiMethods.System.RESTORE_ALERTS,
+            params = listOf(uuid),
+            resultType = Any::class.java
+        )
+    }
+
+    /**
+     * Restore alerts based on their `uuid`
+     * @param uuid
+     * @see restoreAlert
+     * @see ApiMethods.System.RESTORE_ALERTS
+     * @return null
+     */
+    suspend fun restoreAlertWithResult(uuid:String): ApiResult<Any>{
+        return try {
+            val response = restoreAlert(uuid)
+            ApiResult.Success(response)
+        }catch (e : Exception){
+            ApiResult.Error("Cannot Restore Alert : ${e.message}",e)
+        }
+    }
 }

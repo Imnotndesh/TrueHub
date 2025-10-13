@@ -28,6 +28,34 @@ object ApiMethods {
         // Reporting Stuff
         const val GET_GRAPHS = "reporting.graphs"
         const val GET_GRAPH_DATA = "reporting.get_data"
+
+        // Alert Stuff
+        /**
+         * Dismiss alert based on uuid(String)
+         * @param uuid
+         */
+        const val DISMISS_ALERT = "alert.dismiss"
+        /**
+         * List all alerts from server
+         * @see com.example.truehub.data.models.System.AlertResponse
+         */
+        const val LIST_ALERTS = "alert.list"
+        /**
+         * List available alert categories
+         * @see com.example.truehub.data.models.System.AlertCategoriesResponse
+         * and
+         * @see com.example.truehub.data.models.System.AlertCategoriesClasses
+         */
+        const val LIST_CATEGORIES = "alert.list_categories"
+        /**
+         * List all category policies
+         */
+        const val LIST_POLICIES = "alert.list_policies"
+        /**
+         * Restore a cleared alert based on uuid
+         * @param uuid
+         */
+        const val RESTORE_ALERTS = "alert.restore"
     }
     object Apps {
         const val QUERY_APPS = "app.query"
