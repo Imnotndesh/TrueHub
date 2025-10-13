@@ -145,7 +145,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         return client.call(
             method = ApiMethods.System.DISMISS_ALERT,
             params = listOf(uuid),
-            resultType = Unit::class.java
+            resultType = Any::class.java
         )
     }
 
@@ -155,12 +155,12 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @see dismissAlert
      * @return null
      */
-    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Unit>{
+    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Any>{
         return try {
             val res = dismissAlert(uuid)
             ApiResult.Success(res)
         }catch (e : Exception){
-            ApiResult.Error("Cannot dismiss alert withe error: ${e.message}",e)
+            ApiResult.Error("Cannot dismiss alert with error: ${e.message}",e)
         }
     }
 
@@ -235,11 +235,11 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         }
     }
 
-    suspend fun restoreAlert(uuid :String): Unit{
+    suspend fun restoreAlert(uuid :String){
         return client.call(
             method = ApiMethods.System.RESTORE_ALERTS,
             params = listOf(uuid),
-            resultType = Unit::class.java
+            resultType = Any::class.java
         )
     }
 
@@ -250,7 +250,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @see ApiMethods.System.RESTORE_ALERTS
      * @return null
      */
-    suspend fun restoreAlertWithResult(uuid:String): ApiResult<Unit>{
+    suspend fun restoreAlertWithResult(uuid:String): ApiResult<Any>{
         return try {
             val response = restoreAlert(uuid)
             ApiResult.Success(response)

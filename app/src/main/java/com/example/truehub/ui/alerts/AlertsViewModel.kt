@@ -87,8 +87,7 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
     fun dismissAlert(uuid: String) {
         viewModelScope.launch {
             val result = try {
-                manager.system.dismissAlert(uuid)
-                // If we get here without exception, it succeeded (null response is success)
+                manager.system.dismissAlertWithResult(uuid)
                 ApiResult.Success(Unit)
             } catch (e: Exception) {
                 ApiResult.Error(e.message ?: "Failed to dismiss alert")
@@ -97,7 +96,6 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
             when (result) {
                 is ApiResult.Success -> {
                     ToastManager.showSuccess("Alert dismissed")
-                    // Refresh to get updated list
                     loadAlerts(isRefresh = true)
                 }
                 is ApiResult.Error -> {
@@ -106,7 +104,7 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
                     )
                     ToastManager.showError(result.message)
                 }
-                ApiResult.Loading -> {}
+                is ApiResult.Loading ->{}
             }
         }
     }
@@ -114,7 +112,7 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
     fun restoreAlert(uuid: String) {
         viewModelScope.launch {
             val result = try {
-                manager.system.restoreAlert(uuid)
+                manager.system.restoreAlertWithResult(uuid)
                 // If we get here without exception, it succeeded (null response is success)
                 ApiResult.Success(Unit)
             } catch (e: Exception) {
