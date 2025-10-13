@@ -1,7 +1,6 @@
 package com.example.truehub.data.api
 
 import android.util.Log
-import androidx.annotation.Nullable
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.ApiMethods.System.GET_GRAPH_DATA
@@ -146,7 +145,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         return client.call(
             method = ApiMethods.System.DISMISS_ALERT,
             params = listOf(uuid),
-            resultType = Any::class.java
+            resultType = Unit::class.java
         )
     }
 
@@ -156,7 +155,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @see dismissAlert
      * @return null
      */
-    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Any>{
+    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Unit>{
         return try {
             val res = dismissAlert(uuid)
             ApiResult.Success(res)
@@ -236,11 +235,11 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
         }
     }
 
-    suspend fun restoreAlert(uuid :String){
+    suspend fun restoreAlert(uuid :String): Unit{
         return client.call(
             method = ApiMethods.System.RESTORE_ALERTS,
             params = listOf(uuid),
-            resultType = Any::class.java
+            resultType = Unit::class.java
         )
     }
 
@@ -251,7 +250,7 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @see ApiMethods.System.RESTORE_ALERTS
      * @return null
      */
-    suspend fun restoreAlertWithResult(uuid:String): ApiResult<Any>{
+    suspend fun restoreAlertWithResult(uuid:String): ApiResult<Unit>{
         return try {
             val response = restoreAlert(uuid)
             ApiResult.Success(response)
