@@ -40,7 +40,6 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
             when (val result = manager.system.listAlertsWithResult()) {
                 is ApiResult.Success -> {
-                    // Also load categories for better alert display
                     loadCategories()
 
                     val unreadCount = result.data.count { !it.dismissed }
@@ -59,13 +58,11 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
                         error = result.message
                     )
                 }
-
                 ApiResult.Loading -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = true,
                         error = null
                     )
-                    ToastManager.showInfo("Loading alerts")
                 }
             }
         }
@@ -82,84 +79,61 @@ class AlertsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
                 is ApiResult.Error -> {
                     // Categories are optional, don't update error state
                 }
-
-                ApiResult.Loading ->{
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = true,
-                        error = null
-                    )
-                    ToastManager.showInfo("Loading alert categories")
-                }
+                ApiResult.Loading -> {}
             }
         }
     }
 
     fun dismissAlert(uuid: String) {
         viewModelScope.launch {
-            when (manager.system.dismissAlertWithResult(uuid)) {
+            val result = try {
+                manager.system.dismissAlert(uuid)
+                // If we get here without exception, it succeeded (null response is success)
+                ApiResult.Success(Unit)
+            } catch (e: Exception) {
+                ApiResult.Error(e.message ?: "Failed to dismiss alert")
+            }
+
+            when (result) {
                 is ApiResult.Success -> {
-                    // Update local state
-                    val updatedAlerts = _uiState.value.alerts.map { alert ->
-                        if (alert.uuid == uuid) {
-                            alert.copy(dismissed = true)
-                        } else {
-                            alert
-                        }
-                    }
-                    val unreadCount = updatedAlerts.count { !it.dismissed }
-                    _uiState.value = _uiState.value.copy(
-                        alerts = updatedAlerts,
-                        unreadCount = unreadCount
-                    )
+                    ToastManager.showSuccess("Alert dismissed")
+                    // Refresh to get updated list
+                    loadAlerts(isRefresh = true)
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(
-                        error = "Failed to dismiss alert"
+                        error = result.message
                     )
+                    ToastManager.showError(result.message)
                 }
-
-                ApiResult.Loading -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = true,
-                        error = null
-                    )
-                    ToastManager.showInfo("Dismissing alerts")
-                }
+                ApiResult.Loading -> {}
             }
         }
     }
 
     fun restoreAlert(uuid: String) {
         viewModelScope.launch {
-            when (manager.system.restoreAlertWithResult(uuid)) {
+            val result = try {
+                manager.system.restoreAlert(uuid)
+                // If we get here without exception, it succeeded (null response is success)
+                ApiResult.Success(Unit)
+            } catch (e: Exception) {
+                ApiResult.Error(e.message ?: "Failed to restore alert")
+            }
+
+            when (result) {
                 is ApiResult.Success -> {
-                    // Update local state
-                    val updatedAlerts = _uiState.value.alerts.map { alert ->
-                        if (alert.uuid == uuid) {
-                            alert.copy(dismissed = false)
-                        } else {
-                            alert
-                        }
-                    }
-                    val unreadCount = updatedAlerts.count { !it.dismissed }
-                    _uiState.value = _uiState.value.copy(
-                        alerts = updatedAlerts,
-                        unreadCount = unreadCount
-                    )
+                    ToastManager.showSuccess("Alert restored")
+                    // Refresh to get updated list
+                    loadAlerts(isRefresh = true)
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(
-                        error = "Failed to restore alert"
+                        error = result.message
                     )
+                    ToastManager.showError(result.message)
                 }
-
-                ApiResult.Loading -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = true,
-                        error = null
-                    )
-                    ToastManager.showInfo("Restoring alert")
-                }
+                ApiResult.Loading -> {}
             }
         }
     }

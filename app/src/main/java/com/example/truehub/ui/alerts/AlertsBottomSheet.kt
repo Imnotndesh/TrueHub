@@ -40,17 +40,20 @@ fun AlertsBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
-        modifier = Modifier.fillMaxHeight(0.9f)
+        modifier = Modifier.fillMaxHeight(),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
+                .statusBarsPadding()
         ) {
+
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
                     .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -97,10 +100,11 @@ fun AlertsBottomSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
                     .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                AlertFilter.values().forEach { filter ->
+                AlertFilter.entries.forEach { filter ->
                     FilterChip(
                         selected = selectedFilter == filter,
                         onClick = { selectedFilter = filter },
@@ -128,6 +132,7 @@ fun AlertsBottomSheet(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
                         .padding(bottom = 16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
@@ -177,12 +182,12 @@ fun AlertsBottomSheet(
                     val filteredAlerts = when (selectedFilter) {
                         AlertFilter.ALL -> uiState.alerts
                         AlertFilter.UNREAD -> uiState.alerts.filter { !it.dismissed }
-                        AlertFilter.CRITICAL -> uiState.alerts.filter {
-                            it.level.equals("CRITICAL", ignoreCase = true) ||
+                        AlertFilter.NOTICE -> uiState.alerts.filter {
+                            it.level.equals("NOTICE", ignoreCase = true) ||
                                     it.level.equals("ALERT", ignoreCase = true)
                         }
-                        AlertFilter.WARNING -> uiState.alerts.filter {
-                            it.level.equals("WARNING", ignoreCase = true)
+                        AlertFilter.INFO -> uiState.alerts.filter {
+                            it.level.equals("INFO", ignoreCase = true)
                         }
                     }
 
@@ -190,9 +195,15 @@ fun AlertsBottomSheet(
                         EmptyAlertsContent(filter = selectedFilter)
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f, fill = false),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(bottom = 24.dp)
+                            contentPadding = PaddingValues(
+                                start = 20.dp,
+                                end = 20.dp,
+                                bottom = 24.dp
+                            )
                         ) {
                             items(filteredAlerts, key = { it.uuid }) { alert ->
                                 AlertItem(
@@ -229,8 +240,8 @@ private fun EmptyAlertsContent(filter: AlertFilter) {
             text = when (filter) {
                 AlertFilter.ALL -> "No alerts"
                 AlertFilter.UNREAD -> "No unread alerts"
-                AlertFilter.CRITICAL -> "No critical alerts"
-                AlertFilter.WARNING -> "No warning alerts"
+                AlertFilter.NOTICE -> "No notice alerts"
+                AlertFilter.INFO -> "No info alerts"
             },
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
@@ -445,9 +456,9 @@ private fun getAlertLevelIcon(level: String): ImageVector {
     }
 }
 
-private fun formatTimeAgo(dateTimeString: String): String {
+private fun formatTimeAgo(mongoDate: System.MongoDate): String {
     return try {
-        val instant = Instant.parse(dateTimeString)
+        val instant = Instant.ofEpochMilli(mongoDate.date)
         val now = Instant.now()
         val minutes = ChronoUnit.MINUTES.between(instant, now)
         val hours = ChronoUnit.HOURS.between(instant, now)
@@ -458,27 +469,27 @@ private fun formatTimeAgo(dateTimeString: String): String {
             minutes < 60 -> "${minutes}m ago"
             hours < 24 -> "${hours}h ago"
             days < 7 -> "${days}d ago"
-            else -> formatDateTime(dateTimeString)
+            else -> formatDateTime(mongoDate)
         }
-    } catch (e: Exception) {
-        dateTimeString
+    } catch (_: Exception) {
+        "Invalid date"
     }
 }
 
-private fun formatDateTime(dateTimeString: String): String {
+private fun formatDateTime(mongoDate: System.MongoDate): String {
     return try {
-        val instant = Instant.parse(dateTimeString)
+        val instant = Instant.ofEpochMilli(mongoDate.date)
         val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
             .withZone(ZoneId.systemDefault())
         formatter.format(instant)
-    } catch (e: Exception) {
-        dateTimeString
+    } catch (_: Exception) {
+        "Invalid date"
     }
 }
 
 enum class AlertFilter(val label: String) {
     ALL("All"),
     UNREAD("Unread"),
-    CRITICAL("Critical"),
-    WARNING("Warning")
+    NOTICE("Notice"),
+    INFO("Info")
 }

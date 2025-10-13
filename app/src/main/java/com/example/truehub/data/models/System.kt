@@ -317,21 +317,26 @@ object System {
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class AlertResponse(
-        val uuid : String,
-        val source :String,
-        val klass : String,
-        val args: Map<Any, Any>,
-        val node : String,
-        val key : String,
-        val datetime : String, // format is date-time
-        val last_occurrence : String,// format is date-time
-        val dismissed : Boolean,
-        val mail : Map<Any,Any>,
-        val text : String,
-        val id : String,
-        val level :String,
-        val formatted :String ?= null,
-        val one_shot : Boolean
+        val uuid: String,
+        val source: String,
+        val klass: String,
+        val args: Any? = null,
+        val node: String,
+        val key: String,
+        val datetime: MongoDate,
+        val last_occurrence: MongoDate,
+        val dismissed: Boolean,
+        val mail: Any? = null, // Can be null or object
+        val text: String,
+        val id: String,
+        val level: String,
+        val formatted: String? = null,
+        val one_shot: Boolean
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class MongoDate(
+        @Json(name = "\$date") val date: Long // Milliseconds since epoch
     )
 
     @JsonClass(generateAdapter = true)
