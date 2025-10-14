@@ -156,4 +156,11 @@ object Apps {
     data class AppUpgradeRequest(
         val app_version: String? = "latest"
     )
+
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class RollbackOptions(
+        val app_version: String? = "latest",
+        val rollback_snapshot: Boolean = true
+    )
 }
