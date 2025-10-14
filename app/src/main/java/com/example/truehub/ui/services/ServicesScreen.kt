@@ -20,9 +20,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -346,7 +349,7 @@ private fun ServicesContent(
     onStopApp: (String) -> Unit,
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
-    onShowRollbackDialog: (String) -> Unit
+    onShowRollbackDialog: (String) -> Unit,
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -392,9 +395,10 @@ private fun ServiceCard(
     onStopApp: (String) -> Unit,
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
-    onShowRollbackDialog: (String) -> Unit
+    onShowRollbackDialog: (String) -> Unit,
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showMoreOptions by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -456,7 +460,7 @@ private fun ServiceCard(
             }
 
             if (app.upgrade_available || upgradeJobs[app.name] != null) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -524,6 +528,8 @@ private fun ServiceCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            Spacer(modifier = Modifier.height(20.dp))
+            // Primary action row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -556,14 +562,67 @@ private fun ServiceCard(
                     onClick = { showInfoDialog = true },
                     modifier = Modifier.weight(1f)
                 )
-                ActionButton(
-                    text = "Rollback",
-                    icon = Icons.Default.Refresh,
-                    enabled = true,
-                    isPrimary = false,
-                    onClick = { onShowRollbackDialog(app.name) },
-                    modifier = Modifier.weight(1f)
-                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+// More Options expandable section
+            Surface(
+                onClick = { showMoreOptions = !showMoreOptions },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "More Options",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (showMoreOptions) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showMoreOptions,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    ActionButton(
+                        text = "Rollback Version",
+                        icon = Icons.Default.Refresh,
+                        enabled = true,
+                        isPrimary = false,
+                        onClick = { onShowRollbackDialog(app.name) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Less Important Options go in here
+                }
             }
         }
     }

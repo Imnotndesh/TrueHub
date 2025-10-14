@@ -71,8 +71,8 @@ fun RollbackVersionDialog(
     Dialog(onDismissRequest = { if (!isRollbackInProgress) onDismiss() }) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+                .fillMaxWidth(0.95F)
+                .padding(10.dp),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
@@ -299,7 +299,7 @@ fun RollbackVersionDialog(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(250.dp),
+                        .height(320.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
