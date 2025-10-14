@@ -70,6 +70,7 @@ import com.example.truehub.ui.services.apps.UpgradeSummaryBottomSheet
 import com.example.truehub.ui.services.containers.ContainerScreen
 import com.example.truehub.ui.services.containers.ContainerScreenViewModel
 import com.example.truehub.ui.services.details.AppInfoDialog
+import com.example.truehub.ui.services.details.RollbackVersionDialog
 import com.example.truehub.ui.services.vm.VmScreen
 import com.example.truehub.ui.services.vm.VmScreenViewModel
 
@@ -85,11 +86,12 @@ fun ServicesScreen(manager: TrueNASApiManager) {
     val vmViewModel: VmScreenViewModel = viewModel(
         factory = VmScreenViewModel.VmViewModelFactory(manager)
     )
+    // Tracked App States
     val uiState by servicesViewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Apps", "Containers", "VMs")
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
-    var upgradeAppCurrentVersion by remember { mutableStateOf("") }
+    var showRollbackDialog by remember { mutableStateOf<String?>(null) }
 
     if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
         UpgradeSummaryBottomSheet(
@@ -103,10 +105,26 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                 servicesViewModel.upgradeApp(appForUpgradeSummary!!)
                 servicesViewModel.clearUpgradeSummary()
                 appForUpgradeSummary = null
-                upgradeAppCurrentVersion = ""
             },
-            currentVersion  = upgradeAppCurrentVersion,
             isUpgrading = uiState.upgradeJobs.containsKey(appForUpgradeSummary)
+        )
+    }
+    if (showRollbackDialog != null) {
+        RollbackVersionDialog(
+            appName = showRollbackDialog!!,
+            versions = uiState.rollbackVersions,
+            isLoadingVersions = uiState.isLoadingRollbackVersions,
+            rollbackJobState = uiState.rollbackJobs[showRollbackDialog],
+            onDismiss = {
+                servicesViewModel.clearRollbackVersions()
+                showRollbackDialog = null
+            },
+            onConfirmRollback = { version, rollbackSnapshot ->
+                servicesViewModel.rollbackApp(showRollbackDialog!!, version, rollbackSnapshot)
+            },
+            onLoadVersions = {
+                servicesViewModel.loadRollbackVersions(showRollbackDialog!!)
+            }
         )
     }
     LaunchedEffect(selectedTabIndex) {
@@ -271,12 +289,12 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                                 onStartApp = {appName ->servicesViewModel.startApp(appName)},
                                 loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                                 onStopApp = {appName -> servicesViewModel.stopApp(appName)},
-                                onShowUpgradeSummary = { appName,currentVersion ->
+                                onShowUpgradeSummary = { appName ->
                                     appForUpgradeSummary = appName
-                                    upgradeAppCurrentVersion = currentVersion
                                     servicesViewModel.loadUpgradeSummary(appName)
                                 },
-                                upgradeJobs = uiState.upgradeJobs
+                                upgradeJobs = uiState.upgradeJobs,
+                                onShowRollbackDialog = { appName -> showRollbackDialog = appName }
                             )
                         }
                     }
@@ -326,8 +344,9 @@ private fun ServicesContent(
     loadingSummaryForApp: String?,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onShowUpgradeSummary: (String, String) -> Unit,
-    upgradeJobs: Map<String, System.UpgradeJobState>
+    onShowUpgradeSummary: (String) -> Unit,
+    upgradeJobs: Map<String, System.UpgradeJobState>,
+    onShowRollbackDialog: (String) -> Unit
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -353,7 +372,8 @@ private fun ServicesContent(
                 onStartApp = onStartApp,
                 onStopApp = onStopApp,
                 onShowUpgradeSummary = onShowUpgradeSummary,
-                upgradeJobs = upgradeJobs
+                upgradeJobs = upgradeJobs,
+                onShowRollbackDialog = onShowRollbackDialog
             )
         }
 
@@ -370,8 +390,9 @@ private fun ServiceCard(
     isLoadingSummary: Boolean,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
-    onShowUpgradeSummary: (String, String) -> Unit,
-    upgradeJobs: Map<String, System.UpgradeJobState>
+    onShowUpgradeSummary: (String) -> Unit,
+    upgradeJobs: Map<String, System.UpgradeJobState>,
+    onShowRollbackDialog: (String) -> Unit
 ) {
     var showInfoDialog by remember { mutableStateOf(false) }
 
@@ -452,7 +473,7 @@ private fun ServiceCard(
 
                     if (upgradeJobs[app.name] == null) {
                         UpgradeButton(
-                            onClick = { onShowUpgradeSummary(app.name,app.humanVersion!!) },
+                            onClick = { onShowUpgradeSummary(app.name) },
                             isLoading = isLoadingSummary
                         )
                     } else {
@@ -533,6 +554,14 @@ private fun ServiceCard(
                     enabled = true,
                     isPrimary = false,
                     onClick = { showInfoDialog = true },
+                    modifier = Modifier.weight(1f)
+                )
+                ActionButton(
+                    text = "Rollback",
+                    icon = Icons.Default.Refresh,
+                    enabled = true,
+                    isPrimary = false,
+                    onClick = { onShowRollbackDialog(app.name) },
                     modifier = Modifier.weight(1f)
                 )
             }
