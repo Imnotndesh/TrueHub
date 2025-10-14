@@ -27,7 +27,6 @@ fun UpgradeSummaryBottomSheet(
     appName: String,
     upgradeSummary: Apps.AppUpgradeSummaryResult,
     onDismiss: () -> Unit,
-    currentVersion: String,
     onConfirmUpgrade: () -> Unit,
     isUpgrading: Boolean = false
 ) {
@@ -43,7 +42,7 @@ fun UpgradeSummaryBottomSheet(
             // Header Section
             UpgradeSummaryHeader(
                 appName = appName,
-                currentVersion = currentVersion,
+                currentVersion = upgradeSummary.latest_human_version,
                 upgradeVersion = upgradeSummary.upgrade_human_version,
                 onDismiss = onDismiss
             )

@@ -12,8 +12,6 @@ data class RpcRequest(
     @field:Json("params")
     val params: List<Any?>
 )
-
-
 data class RpcResponse<T>(
     @field:Json("jsonrpc")
     val jsonrpc: String,

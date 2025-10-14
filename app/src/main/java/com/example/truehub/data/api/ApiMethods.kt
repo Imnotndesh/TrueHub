@@ -63,6 +63,14 @@ object ApiMethods {
         const val STOP_APP = "app.stop"
         const val UPGRADE_APP = "app.upgrade"
         const val GET_UPGRADE_SUMMARY = "app.upgrade_summary"
+
+        /**
+         * App rollback Method
+         * @see com.example.truehub.data.models.Apps.RollbackOptions
+         */
+        const val ROLLBACK_APP = "app.rollback"
+        const val APP_ROLLBACK_VERSIONS ="app.rollback_versions"
+        const val DELETE_APP = "app.delete"
     }
     object Virt{
         const val GET_ALL_INSTANCES = "virt.instance.query"

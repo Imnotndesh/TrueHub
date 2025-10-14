@@ -1,20 +1,21 @@
 // ServiceInfoDialog.kt
 package com.example.truehub.ui.services.details
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Launch
+import androidx.compose.material.icons.automirrored.filled.Note
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -23,8 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.truehub.data.models.Apps
 import com.example.truehub.ui.background.WavyGradientBackground
@@ -97,7 +96,7 @@ fun AppInfoDialog(
                             title = "Categories & Tags",
                             icon = Icons.Default.Tag
                         ) {
-                            app.metadata?.categories?.let { categories ->
+                            app.metadata.categories?.let { categories ->
                                 ServiceInfoChipGroup(
                                     title = "Categories",
                                     items = categories,
@@ -106,7 +105,7 @@ fun AppInfoDialog(
                                 )
                             }
 
-                            app.metadata?.keywords?.let { keywords ->
+                            app.metadata.keywords?.let { keywords ->
                                 if (keywords.isNotEmpty()) {
                                     Spacer(modifier = Modifier.height(12.dp))
                                     ServiceInfoChipGroup(
@@ -140,7 +139,7 @@ fun AppInfoDialog(
                         if (portals.isNotEmpty()) {
                             ServiceInfoSection(
                                 title = "Web Portals",
-                                icon = Icons.Default.Launch
+                                icon = Icons.AutoMirrored.Filled.Launch
                             ) {
                                 portals.forEach { (name, url) ->
                                     ServicePortalCard(name = name, url = url)
@@ -225,7 +224,7 @@ fun AppInfoDialog(
                         if (notes.isNotBlank()) {
                             ServiceInfoSection(
                                 title = "Notes",
-                                icon = Icons.Default.Note
+                                icon = Icons.AutoMirrored.Filled.Note
                             ) {
                                 Card(
                                     colors = CardDefaults.cardColors(
@@ -455,7 +454,7 @@ private fun ServicePortalCard(name: String, url: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = Icons.Default.Launch,
+                imageVector = Icons.AutoMirrored.Filled.Launch,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(20.dp)
@@ -616,7 +615,7 @@ private fun ServiceLinkCard(name: String, url: String, icon: ImageVector) {
                 )
             }
             Icon(
-                imageVector = Icons.Default.OpenInNew,
+                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant

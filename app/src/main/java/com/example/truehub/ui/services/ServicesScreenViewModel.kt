@@ -22,7 +22,11 @@ data class ServicesUiState(
     val upgradeSummaryResult: Apps.AppUpgradeSummaryResult? = null,
     val isRefreshing: Boolean = false,
     val upgradeJobs :Map<String, System.UpgradeJobState> = emptyMap(),
-    val isLoadingUpgradeSummaryForApp: String? = null
+    val isLoadingUpgradeSummaryForApp: String? = null,
+    // Rollback Stuff
+    val rollbackVersions: List<String> = emptyList(),
+    val isLoadingRollbackVersions: Boolean = false,
+    val rollbackJobs: Map<String, System.UpgradeJobState> = emptyMap()
 )
 
 class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
@@ -290,6 +294,149 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
         _uiState.value = _uiState.value.copy(
             upgradeSummaryResult = null,
             isLoadingUpgradeSummaryForApp = null
+        )
+    }
+    fun loadRollbackVersions(appName: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoadingRollbackVersions = true,
+                rollbackVersions = emptyList(),
+                error = null
+            )
+
+            try {
+                val result = manager.apps.getRollbackVersionsWithResult(appName)
+                when (result) {
+                    is ApiResult.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingRollbackVersions = false,
+                            rollbackVersions = result.data,
+                            error = null
+                        )
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingRollbackVersions = false,
+                            rollbackVersions = emptyList(),
+                            error = result.message
+                        )
+                        ToastManager.showError("Failed to load rollback versions")
+                    }
+                    is ApiResult.Loading -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingRollbackVersions = true
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingRollbackVersions = false,
+                    rollbackVersions = emptyList(),
+                    error = e.message ?: "Failed to load rollback versions"
+                )
+                ToastManager.showError("Error loading rollback versions: ${e.message}")
+            }
+        }
+    }
+
+    fun rollbackApp(appName: String, version: String, rollbackSnapshot: Boolean = true) {
+        viewModelScope.launch {
+            val result = manager.apps.rollbackAppWithResult(appName, version, rollbackSnapshot)
+            when (result) {
+                is ApiResult.Success -> {
+                    val jobId = result.data
+                    _uiState.value = _uiState.value.copy(
+                        rollbackJobs = _uiState.value.rollbackJobs + (
+                                appName to System.UpgradeJobState(state = "ROLLING_BACK", progress = 0, description = "Starting rollback...")
+                                )
+                    )
+
+                    var pollAttempts = 0
+                    val maxPollAttempts = 150
+
+                    while (pollAttempts < maxPollAttempts) {
+                        try {
+                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            when (jobResult) {
+                                is ApiResult.Success -> {
+                                    val job = jobResult.data
+                                    val state = job.state
+                                    val percent = job.progress?.percent ?: 0
+                                    val description = job.progress?.description
+
+                                    _uiState.value = _uiState.value.copy(
+                                        rollbackJobs = _uiState.value.rollbackJobs + (
+                                                appName to System.UpgradeJobState(
+                                                    state = state,
+                                                    progress = percent,
+                                                    description = description
+                                                )
+                                                )
+                                    )
+
+                                    Log.d("RollbackJob", "App: $appName, State: $state, Progress: $percent%")
+
+                                    if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
+                                        kotlinx.coroutines.delay(3000)
+                                        _uiState.value = _uiState.value.copy(
+                                            rollbackJobs = _uiState.value.rollbackJobs - appName
+                                        )
+
+                                        if (state == "SUCCESS") {
+                                            ToastManager.showSuccess("App rolled back successfully")
+                                            loadApps()
+                                        } else {
+                                            ToastManager.showError("Rollback $state")
+                                        }
+                                        break
+                                    }
+                                }
+                                is ApiResult.Error -> {
+                                    Log.e("RollbackJob", "Error polling job $jobId: ${jobResult.message}")
+                                    _uiState.value = _uiState.value.copy(
+                                        rollbackJobs = _uiState.value.rollbackJobs - appName,
+                                        error = "Rollback monitoring failed: ${jobResult.message}"
+                                    )
+                                    ToastManager.showError("Rollback monitoring failed")
+                                    break
+                                }
+                                is ApiResult.Loading -> {}
+                            }
+                        } catch (e: Exception) {
+                            Log.e("RollbackJob", "Exception while polling: ${e.message}", e)
+                            _uiState.value = _uiState.value.copy(
+                                rollbackJobs = _uiState.value.rollbackJobs - appName,
+                                error = "Rollback monitoring error: ${e.message}"
+                            )
+                            ToastManager.showError("Rollback error: ${e.message}")
+                            break
+                        }
+
+                        pollAttempts++
+                        kotlinx.coroutines.delay(2000)
+                    }
+
+                    if (pollAttempts >= maxPollAttempts) {
+                        _uiState.value = _uiState.value.copy(
+                            rollbackJobs = _uiState.value.rollbackJobs - appName,
+                            error = "Rollback monitoring timeout for $appName"
+                        )
+                        ToastManager.showError("Rollback timeout")
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                    ToastManager.showError("Failed to start rollback: ${result.message}")
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun clearRollbackVersions() {
+        _uiState.value = _uiState.value.copy(
+            rollbackVersions = emptyList(),
+            isLoadingRollbackVersions = false
         )
     }
 
