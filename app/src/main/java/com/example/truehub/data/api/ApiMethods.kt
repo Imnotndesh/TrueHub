@@ -80,6 +80,8 @@ object ApiMethods {
         const val DELETE_INSTANCE = "virt.instance.delete"
         const val UPDATE_INSTANCE = "virt.instance.update"
         const val DELETE_INSTANCE_DEVICE = "virt.instance.device_delete"
+
+        const val GET_IMAGE_CHOICES = "virt.instance.image_choice"
     }
     object Vm{
         const val GET_ALL_VM_INSTANCES = "vm.query"

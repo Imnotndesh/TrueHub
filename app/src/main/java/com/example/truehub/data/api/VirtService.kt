@@ -154,4 +154,22 @@ class VirtService(client: TrueNASClient) : BaseApiService(client) {
             ApiResult.Error("Failed to delete instance device: ${e.message}", e)
         }
     }
+
+    // Get Virt image choices
+    suspend fun getVirtImageChoices(): List<Virt.ImageChoice> {
+        val type = Types.newParameterizedType(List::class.java, Virt.ImageChoice::class.java)
+        return client.call(
+            method = ApiMethods.Virt.GET_IMAGE_CHOICES,
+            params = listOf(),
+            resultType = type
+        )
+    }
+    suspend fun getVirtImageChoicesWithResult(): ApiResult<List<Virt.ImageChoice>>{
+        return try {
+            val result = getVirtImageChoices()
+            ApiResult.Success(result)
+        } catch (e: Exception) {
+            ApiResult.Error("Failed to get image choices: ${e.message}", e)
+        }
+    }
 }

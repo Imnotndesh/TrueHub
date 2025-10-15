@@ -20,10 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -174,6 +177,7 @@ private fun ContainerCard(
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var showMoreOptions by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -285,6 +289,7 @@ private fun ContainerCard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
             operationJob?.let { job ->
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -325,8 +330,9 @@ private fun ContainerCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Action Buttons
+            // Primary action row - Start/Stop and View Info only
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -351,14 +357,6 @@ private fun ContainerCard(
                             onClick = onStopContainer,
                             modifier = Modifier.weight(1f)
                         )
-                        ActionButton(
-                            text = "Restart",
-                            icon = Icons.Default.RestartAlt,
-                            enabled = true,
-                            isPrimary = false,
-                            onClick = onRestartContainer,
-                            modifier = Modifier.weight(1f)
-                        )
                     }
                     else -> {
                         ActionButton(
@@ -371,14 +369,7 @@ private fun ContainerCard(
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 ActionButton(
                     text = "View Info",
                     icon = Icons.Default.Info,
@@ -387,15 +378,82 @@ private fun ContainerCard(
                     onClick = { showInfoDialog = true },
                     modifier = Modifier.weight(1f)
                 )
-                ActionButton(
-                    text = "Delete",
-                    icon = Icons.Default.Delete,
-                    enabled = container.status == Virt.Status.STOPPED,
-                    isPrimary = false,
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.weight(1f),
-                    isDanger = true
-                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // More Options expandable section
+            Surface(
+                onClick = { showMoreOptions = !showMoreOptions },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "More Options",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (showMoreOptions) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showMoreOptions,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Restart button (only show when running)
+                    if (container.status == Virt.Status.RUNNING) {
+                        ActionButton(
+                            text = "Restart",
+                            icon = Icons.Default.RestartAlt,
+                            enabled = true,
+                            isPrimary = false,
+                            onClick = onRestartContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Delete button (only enabled when stopped)
+                    ActionButton(
+                        text = "Delete",
+                        icon = Icons.Default.Delete,
+                        enabled = container.status == Virt.Status.STOPPED,
+                        isPrimary = false,
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        isDanger = true
+                    )
+                }
             }
         }
     }

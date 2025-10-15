@@ -21,11 +21,14 @@ import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
@@ -190,6 +193,7 @@ private fun VmCard(
     var showInfoDialog by remember { mutableStateOf(false) }
     var showStopDialog by remember { mutableStateOf(false) }
     var showStartDialog by remember { mutableStateOf(false) }
+    var showMoreOptions by remember { mutableStateOf(false) }
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -308,6 +312,7 @@ private fun VmCard(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
             // Loading bar
             operationJob?.let { job ->
                 Spacer(modifier = Modifier.height(12.dp))
@@ -349,20 +354,21 @@ private fun VmCard(
                 }
             }
 
-            // Action Buttons - First Row
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Primary action row - Start/Stop/Resume and View Info only
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (vm.status.state.lowercase()) {
                     "stopped" -> {
-                        // Add a dialog to force shutdown after timeout and or force it off
                         ActionButton(
                             text = "Start",
                             icon = Icons.Default.PlayArrow,
                             enabled = true,
                             isPrimary = true,
-                            onClick = {showStartDialog = true},
+                            onClick = { showStartDialog = true },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -372,15 +378,7 @@ private fun VmCard(
                             icon = Icons.Default.Stop,
                             enabled = true,
                             isPrimary = true,
-                            onClick = {showStopDialog = true},
-                            modifier = Modifier.weight(1f)
-                        )
-                        ActionButton(
-                            text = "Restart",
-                            icon = Icons.Default.RestartAlt,
-                            enabled = true,
-                            isPrimary = false,
-                            onClick = onRestartVm,
+                            onClick = { showStopDialog = true },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -405,40 +403,7 @@ private fun VmCard(
                         )
                     }
                 }
-            }
 
-            // Second Row - More Actions
-            if (vm.status.state.lowercase() == "running") {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ActionButton(
-                        text = "Suspend",
-                        icon = Icons.Default.Pause,
-                        enabled = true,
-                        isPrimary = false,
-                        onClick = onSuspendVm,
-                        modifier = Modifier.weight(1f)
-                    )
-                    ActionButton(
-                        text = "Power Off",
-                        icon = Icons.Default.PowerOff,
-                        enabled = true,
-                        isPrimary = false,
-                        onClick = onPowerOffVm,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Third Row - Info and Delete
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 ActionButton(
                     text = "View Info",
                     icon = Icons.Default.Info,
@@ -447,22 +412,114 @@ private fun VmCard(
                     onClick = { showInfoDialog = true },
                     modifier = Modifier.weight(1f)
                 )
-                ActionButton(
-                    text = "Delete",
-                    icon = Icons.Default.Delete,
-                    enabled = vm.status.state.lowercase() == "stopped",
-                    isPrimary = false,
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.weight(1f),
-                    isDanger = true
-                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // More Options expandable section
+            Surface(
+                onClick = { showMoreOptions = !showMoreOptions },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "More Options",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (showMoreOptions) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showMoreOptions,
+                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Restart button (only show when running)
+                    if (vm.status.state.lowercase() == "running") {
+                        ActionButton(
+                            text = "Restart",
+                            icon = Icons.Default.RestartAlt,
+                            enabled = true,
+                            isPrimary = false,
+                            onClick = onRestartVm,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Suspend button (only show when running)
+                    if (vm.status.state.lowercase() == "running") {
+                        ActionButton(
+                            text = "Suspend",
+                            icon = Icons.Default.Pause,
+                            enabled = true,
+                            isPrimary = false,
+                            onClick = onSuspendVm,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Power Off button (only show when running)
+                    if (vm.status.state.lowercase() == "running") {
+                        ActionButton(
+                            text = "Power Off",
+                            icon = Icons.Default.PowerOff,
+                            enabled = true,
+                            isPrimary = false,
+                            onClick = onPowerOffVm,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Delete button (only enabled when stopped)
+                    ActionButton(
+                        text = "Delete",
+                        icon = Icons.Default.Delete,
+                        enabled = vm.status.state.lowercase() == "stopped",
+                        isPrimary = false,
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        isDanger = true
+                    )
+                }
             }
         }
     }
-    if (showStartDialog){
+
+    if (showStartDialog) {
         StartConfirmationDialog(
             vmName = vm.name,
-            onConfirm = {overcommit ->
+            onConfirm = { overcommit ->
                 onStartVm(overcommit)
                 showStartDialog = false
             },
@@ -473,8 +530,8 @@ private fun VmCard(
     if (showDeleteDialog) {
         DeleteConfirmationDialog(
             vmName = vm.name,
-            onConfirm = {deleteZvols,forceDelete ->
-                onDeleteVm(deleteZvols,forceDelete)
+            onConfirm = { deleteZvols, forceDelete ->
+                onDeleteVm(deleteZvols, forceDelete)
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false }
@@ -487,7 +544,8 @@ private fun VmCard(
             onDismiss = { showInfoDialog = false }
         )
     }
-    if (showStopDialog){
+
+    if (showStopDialog) {
         StopConfirmationDialog(
             vmName = vm.name,
             onConfirm = { forceShutoff, forceShutoffAfterTimeout ->

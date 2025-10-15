@@ -221,4 +221,20 @@ object Virt {
         @field:Json("force")
         val force: Boolean? = false
     )
+
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    /**
+     * Maps to call :
+     * @see com.example.truehub.data.api.ApiMethods.Virt.GET_IMAGE_CHOICES
+     */
+    data class ImageChoice(
+        val label: String,
+        val os :String,
+        val release: String,
+        val archs : List<String>,
+        val variant: String,
+        val instance_types: List<String>,
+        val secureboot: Boolean? = null
+    )
 }
