@@ -1,5 +1,5 @@
 // ServicesScreenViewModel.kt
-package com.example.truehub.ui.services
+package com.example.truehub.ui.services.apps
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -10,6 +10,7 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.components.ToastManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +30,7 @@ data class ServicesUiState(
     val rollbackJobs: Map<String, System.UpgradeJobState> = emptyMap()
 )
 
-class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServicesUiState(isLoading = true))
     val uiState: StateFlow<ServicesUiState> = _uiState.asStateFlow()
@@ -193,7 +194,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                                     // Check for terminal states
                                     if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
                                         // Remove from upgradeJobs after a delay to show final state
-                                        kotlinx.coroutines.delay(3000)
+                                        delay(3000)
                                         _uiState.value = _uiState.value.copy(
                                             upgradeJobs = _uiState.value.upgradeJobs - appName
                                         )
@@ -228,7 +229,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         }
 
                         pollAttempts++
-                        kotlinx.coroutines.delay(2000)
+                        delay(2000)
                     }
 
                     // Timeout handling
@@ -377,7 +378,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                                     Log.d("RollbackJob", "App: $appName, State: $state, Progress: $percent%")
 
                                     if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
-                                        kotlinx.coroutines.delay(3000)
+                                        delay(3000)
                                         _uiState.value = _uiState.value.copy(
                                             rollbackJobs = _uiState.value.rollbackJobs - appName
                                         )
@@ -413,7 +414,7 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
                         }
 
                         pollAttempts++
-                        kotlinx.coroutines.delay(2000)
+                        delay(2000)
                     }
 
                     if (pollAttempts >= maxPollAttempts) {
@@ -453,8 +454,8 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(ServicesScreenViewModel::class.java)) {
-                return ServicesScreenViewModel(manager) as T
+            if (modelClass.isAssignableFrom(AppsScreenViewModel::class.java)) {
+                return AppsScreenViewModel(manager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

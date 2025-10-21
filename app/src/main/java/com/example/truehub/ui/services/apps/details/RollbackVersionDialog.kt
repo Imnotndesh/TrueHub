@@ -1,4 +1,4 @@
-package com.example.truehub.ui.services.details
+package com.example.truehub.ui.services.apps.details
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

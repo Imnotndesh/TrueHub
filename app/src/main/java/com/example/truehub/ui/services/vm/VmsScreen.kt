@@ -44,6 +44,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,12 +67,15 @@ import com.example.truehub.ui.services.vm.details.VmInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VmScreen(
+fun VmsScreen(
     manager: TrueNASApiManager,
     viewModel: VmScreenViewModel = viewModel(
         factory = VmScreenViewModel.VmViewModelFactory(manager)
     )
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadVms()
+    }
     val uiState by viewModel.uiState.collectAsState()
 
     // Content based on state
