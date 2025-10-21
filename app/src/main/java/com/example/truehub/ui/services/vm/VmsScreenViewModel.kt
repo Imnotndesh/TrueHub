@@ -2,7 +2,6 @@ package com.example.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
 import android.util.Log
-import androidx.core.graphics.convertTo
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
@@ -26,7 +25,7 @@ data class VmScreenUiState(
 )
 
 // TODO: In future maybe add the get memory usage api in the info sheet
-class VmScreenViewModel(
+class VmsScreenViewModel(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -52,6 +51,7 @@ class VmScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to load VMs")
                     Log.e("VM-Check", result.message)
                     _uiState.update {
                         it.copy(
@@ -62,7 +62,6 @@ class VmScreenViewModel(
                 }
 
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to load VMs")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -89,6 +88,7 @@ class VmScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to refresh VM")
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
@@ -97,7 +97,6 @@ class VmScreenViewModel(
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to refresh VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -120,12 +119,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to start VM")
                     _uiState.update {
                         it.copy(error = "Failed to start VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to start VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -147,12 +146,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to stop VM")
                     _uiState.update {
                         it.copy(error = "Failed to stop VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to stop VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -174,12 +173,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to restart VM")
                     _uiState.update {
                         it.copy(error = "Failed to restart VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to restart VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -199,12 +198,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to suspend VM")
                     _uiState.update {
                         it.copy(error = "Failed to suspend VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to suspend VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -224,12 +223,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to resume VM")
                     _uiState.update {
                         it.copy(error = "Failed to resume VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to resume VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -249,12 +248,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to Power-Off VM")
                     _uiState.update {
                         it.copy(error = "Failed to power off VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to Power-Off VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -274,12 +273,12 @@ class VmScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
+                    ToastManager.showError("Unable to Delete VM")
                     _uiState.update {
                         it.copy(error = "Failed to delete VM: ${result.message}")
                     }
                 }
                 ApiResult.Loading -> {
-                    ToastManager.showError("Unable to Delete VM")
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -353,9 +352,9 @@ class VmScreenViewModel(
         private val manager: TrueNASApiManager
     ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(VmScreenViewModel::class.java)) {
+            if (modelClass.isAssignableFrom(VmsScreenViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return VmScreenViewModel(manager) as T
+                return VmsScreenViewModel(manager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

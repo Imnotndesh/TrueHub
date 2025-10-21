@@ -155,12 +155,7 @@ fun AppsScreen(manager: TrueNASApiManager) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = when (selectedTabIndex) {
-                            0 -> "${uiState.apps.size} containers"
-                            1 -> "0 containers"
-                            2 -> "0 virtual machines"
-                            else -> ""
-                        },
+                        text = "${uiState.apps.size} containers",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

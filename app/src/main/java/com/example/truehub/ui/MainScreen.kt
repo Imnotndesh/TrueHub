@@ -69,8 +69,7 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
              */
             composable(Screen.Home.route) { HomeScreen(manager,
                 // TODO: DEPRECATE THESE LINKS OR FIND A MORE CLEVER WAY TO HANDLE THEM AND COMPLETELY REMOVE PROFILE
-                onNavigateToServices = {navController.navigate(Screen.Apps.route)},
-                onNavigateToProfile = {navController.navigate(Screen.Profile.route)})
+                onNavigateToSettings = {rootNavController.navigate(Screen.Settings.route)})
             }
 
             /**

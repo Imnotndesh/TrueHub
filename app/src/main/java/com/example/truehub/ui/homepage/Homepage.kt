@@ -39,8 +39,7 @@ import java.text.DecimalFormat
 @Composable
 fun HomeScreen(
     manager: TrueNASApiManager,
-    onNavigateToServices: () -> Unit = {},
-    onNavigateToProfile: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.HomeViewModelFactory(manager)
@@ -67,7 +66,7 @@ fun HomeScreen(
                 onRefresh = { viewModel.refresh() },
                 onShutdown = { viewModel.shutdownSystem(it) },
                 isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
-                isConnected = isConnected
+                onNavigateToSettings = onNavigateToSettings
             )
 
             when (val state = uiState) {
@@ -84,9 +83,8 @@ fun HomeScreen(
                     state = state,
                     onRefresh = { viewModel.refresh() },
                     onShutdown = { reason -> viewModel.shutdownSystem(reason) },
-                    onNavigateToServices = onNavigateToServices,
-                    onNavigateToProfile = onNavigateToProfile,
-                    onRefreshGraph = { viewModel.loadPerformanceData() }
+                    onRefreshGraph = { viewModel.loadPerformanceData() },
+                    isConnectedStatus = isConnected
                 )
             }
         }
@@ -96,10 +94,10 @@ fun HomeScreen(
 @Composable
 private fun HeaderSection(
     onRefresh: () -> Unit,
+    onNavigateToSettings : () -> Unit,
     onShutdown: (String) -> Unit,
     manager : TrueNASApiManager,
-    isRefreshing: Boolean,
-    isConnected: Boolean
+    isRefreshing: Boolean
 ) {
     var showShutdownDialog by remember { mutableStateOf(false) }
 
@@ -131,15 +129,6 @@ private fun HeaderSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     // Connection status indicator
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                if (isConnected) Color(0xFF2E7D32)
-                                else MaterialTheme.colorScheme.error
-                            )
-                    )
                 }
             }
 
@@ -156,6 +145,15 @@ private fun HeaderSection(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
                         tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(
+                    onClick = onNavigateToSettings
+                ){
+                    Icon(
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
 
@@ -273,12 +271,11 @@ private fun ErrorScreen(
 
 @Composable
 private fun HomeContent(
+    isConnectedStatus :Boolean,
     state: HomeUiState.Success,
     onRefresh: () -> Unit,
     onRefreshGraph: () -> Unit,
     onShutdown: (String) -> Unit,
-    onNavigateToServices: () -> Unit,
-    onNavigateToProfile: () -> Unit
 ) {
     var showMemoryDialog by remember { mutableStateOf(false) }
     var showPerformanceDialog by remember { mutableStateOf(false) }
@@ -292,6 +289,7 @@ private fun HomeContent(
     ) {
         // System Overview Card
         SystemOverviewCard(
+            isConnectedStatus = isConnectedStatus,
             systemInfo = state.systemInfo,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -340,13 +338,6 @@ private fun HomeContent(
                 selectedShare = ShareType.Nfs(share)
             }
         )
-
-        // Quick Actions
-        QuickActionsCard(
-            onNavigateToServices = onNavigateToServices,
-            onNavigateToProfile = onNavigateToProfile,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
     }
 
     if (showMemoryDialog) {
@@ -379,6 +370,7 @@ private fun HomeContent(
 
 @Composable
 private fun SystemOverviewCard(
+    isConnectedStatus : Boolean,
     systemInfo: System.SystemInfo,
     modifier: Modifier = Modifier
 ) {
@@ -434,7 +426,7 @@ private fun SystemOverviewCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Uptime: ${systemInfo.uptime}",
+                        text = "Uptime: ${systemInfo.uptime.toShortUptime()}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -455,11 +447,11 @@ private fun SystemOverviewCard(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFF2E7D32))
+                                .background( if (isConnectedStatus) Color(0xFF2E7D32) else Color(0xFFF57C00))
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Online",
+                            text = if (isConnectedStatus) "Online" else "Offline",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color(0xFF2E7D32),
                             fontWeight = FontWeight.SemiBold
@@ -468,6 +460,29 @@ private fun SystemOverviewCard(
                 }
             }
         }
+    }
+}
+
+/**
+ * Uptime Formatter, might be used later
+ */
+fun String.toShortUptime(): String {
+
+    val lastColonIndex = this.lastIndexOf(':')
+    if (lastColonIndex == -1) {
+        return this
+    }
+    val startOfSeconds = lastColonIndex + 1
+    val commaIndex = this.indexOf(',')
+
+    return if (commaIndex != -1) {
+        val timePartStart = commaIndex + 2
+        val dayPart = this.substring(0, timePartStart)
+        val shortTimePart = this.substring(timePartStart, lastColonIndex)
+        "$dayPart$shortTimePart"
+
+    } else {
+        this.substring(0, lastColonIndex)
     }
 }
 
@@ -1088,97 +1103,6 @@ private fun NfsShareItem(
                         MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun QuickActionsCard(
-    onNavigateToServices: () -> Unit,
-    onNavigateToProfile: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            Text(
-                text = "Quick Actions",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Services Button
-                Surface(
-                    onClick = onNavigateToServices,
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Apps,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Services",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-
-                // Profile Button
-                Surface(
-                    onClick = onNavigateToProfile,
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Profile",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
             }
         }
     }

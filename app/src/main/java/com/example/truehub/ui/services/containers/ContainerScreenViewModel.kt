@@ -40,7 +40,6 @@ class ContainerScreenViewModel(
 
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Loaded ${result.data.size} containers")
                     _uiState.update {
                         it.copy(
                             containers = result.data,

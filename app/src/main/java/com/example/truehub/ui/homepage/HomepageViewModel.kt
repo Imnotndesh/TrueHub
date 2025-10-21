@@ -180,8 +180,6 @@ class HomeViewModel(
                     nfsShares = nfsShares,
                     isRefreshing = false
                 )
-                ToastManager.showSuccess("Dashboard updated successfully")
-
 
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Error(
