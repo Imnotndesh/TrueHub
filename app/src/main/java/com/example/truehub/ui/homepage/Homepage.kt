@@ -312,6 +312,10 @@ private fun HomeContent(
             onLoadClick = {
                 currentMetricType = MetricType.ALL
                 showPerformanceDialog = true
+            },
+            onTempClick = {
+                currentMetricType = MetricType.TEMPERATURE
+                showPerformanceDialog = true
             }
         )
 
@@ -346,7 +350,6 @@ private fun HomeContent(
             }
         )
     }
-
     if (showMemoryDialog) {
         DiskInfoBottomSheet(
             disks = state.diskDetails,
@@ -498,7 +501,8 @@ private fun LoadAveragesGrid(
     modifier: Modifier = Modifier,
     onCpuClick: () -> Unit,
     onMemoryClick: () -> Unit,
-    onLoadClick: () -> Unit
+    onLoadClick: () -> Unit,
+    onTempClick: () -> Unit
 ) {
     Column(modifier = modifier) {
         Text(
@@ -603,7 +607,7 @@ private fun LoadAveragesGrid(
                         icon = Icons.Default.Thermostat,
                         color = Color(0xFF2E7D32),
                         modifier = Modifier.weight(1f),
-                        onClick = null
+                        onClick = onTempClick
                     )
                 }
             }

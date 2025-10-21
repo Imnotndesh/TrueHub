@@ -28,6 +28,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import kotlinx.coroutines.delay
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -50,6 +51,12 @@ fun PerformanceBottomSheet(
     onDismiss: () -> Unit,
     onRefresh: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(10000)
+            onRefresh()
+        }
+    }
     val availableMetrics = mutableListOf<MetricType>()
     if (cpuData?.isNotEmpty() == true) availableMetrics.add(MetricType.CPU)
     if (memoryData?.isNotEmpty() == true) availableMetrics.add(MetricType.MEMORY)
@@ -83,7 +90,8 @@ fun PerformanceBottomSheet(
                 cpuData = cpuData?.firstOrNull(),
                 memoryData = memoryData?.firstOrNull(),
                 temperatureData = temperatureData?.firstOrNull(),
-                onDismiss = onDismiss
+                onDismiss = onDismiss,
+                isLoading = isLoading
             )
 
             // Tabs for metrics (only show if ALL type and more than one metric available)
@@ -152,32 +160,6 @@ private fun PerformanceDetailsContent(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Refresh button
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            OutlinedButton(
-                onClick = onRefresh,
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Refresh Data")
-            }
-        }
-
         when (metricType) {
             MetricType.CPU -> {
                 cpuData?.let { cpu ->
@@ -310,7 +292,8 @@ private fun PerformanceHeader(
     cpuData: System.ReportingGraphResponse?,
     memoryData: System.ReportingGraphResponse?,
     temperatureData: System.ReportingGraphResponse?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    isLoading: Boolean
 ) {
     // Create a data class to hold the metric information
     data class MetricInfo(
@@ -384,6 +367,19 @@ private fun PerformanceHeader(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            /**
+             * Loading icon triggered by refresh
+             */
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(16.dp)
+                        .size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    strokeWidth = 2.dp
                 )
             }
 
