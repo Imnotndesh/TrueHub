@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.background.WavyGradientBackground
+import com.example.truehub.ui.components.ToastManager
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.Description
 import com.github.mikephil.charting.components.XAxis
@@ -38,6 +39,12 @@ enum class MetricType {
     MEMORY,
     TEMPERATURE,
     ALL
+}
+private enum class TimeRange(val title: String, val durationSeconds: Long) {
+    FIVE_MINS("5m", 5 * 60),
+    TEN_MINS("10m", 10 * 60),
+    THIRTY_MINS("30m", 30 * 60),
+    ALL("All", Long.MAX_VALUE)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,9 +143,7 @@ fun PerformanceBottomSheet(
                 metricType = displayMetric,
                 cpuData = cpuData?.firstOrNull(),
                 memoryData = memoryData?.firstOrNull(),
-                temperatureData = temperatureData?.firstOrNull(),
-                isLoading = isLoading,
-                onRefresh = onRefresh
+                temperatureData = temperatureData?.firstOrNull()
             )
         }
     }
@@ -150,8 +155,6 @@ private fun PerformanceDetailsContent(
     cpuData: System.ReportingGraphResponse?,
     memoryData: System.ReportingGraphResponse?,
     temperatureData: System.ReportingGraphResponse?,
-    isLoading: Boolean,
-    onRefresh: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -194,13 +197,6 @@ private fun PerformanceDetailsContent(
                         color = MaterialTheme.colorScheme.primary,
                         unit = "%"
                     )
-
-                    // Statistics Section
-                    MetricStatsSection(
-                        title = "CPU Statistics",
-                        data = processedCpuData,
-                        unit = "%"
-                    )
                 }
             }
 
@@ -224,14 +220,6 @@ private fun PerformanceDetailsContent(
                         title = "Memory Usage Over Time",
                         data = memory,
                         color = MaterialTheme.colorScheme.secondary,
-                        unit = "GB",
-                        isMemory = true
-                    )
-
-                    // Statistics Section
-                    MetricStatsSection(
-                        title = "Memory Statistics",
-                        data = memory,
                         unit = "GB",
                         isMemory = true
                     )
@@ -269,12 +257,6 @@ private fun PerformanceDetailsContent(
                         unit = "°C"
                     )
 
-                    // Statistics Section
-                    MetricStatsSection(
-                        title = "Temperature Statistics",
-                        data = processedTempData,
-                        unit = "°C"
-                    )
                 }
             }
 
@@ -497,15 +479,47 @@ private fun MetricChartSection(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
+                var selectedRangeIndex by remember { mutableIntStateOf(0) }
+                val timeRanges = TimeRange.entries.toTypedArray()
+
+                // Filter buttons
+                SingleChoiceSegmentedButtonRow(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    timeRanges.forEachIndexed { index, timeRange ->
+                        SegmentedButton(
+                            selected = index == selectedRangeIndex,
+                            onClick = { selectedRangeIndex = index },
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = timeRanges.size,
+                                baseShape = SegmentedButtonDefaults.baseShape
+                            )
+                        ) {
+                            Text(timeRange.title)
+                        }
+                    }
+                }
+                val filteredData = remember(data, selectedRangeIndex) {
+                    val selectedRange = timeRanges[selectedRangeIndex]
+                    if (selectedRange == TimeRange.ALL) {
+                        data
+                    } else {
+                        val cutoffTimestamp = (java.lang.System.currentTimeMillis() / 1000) - selectedRange.durationSeconds
+                        val newPoints = data.data.filter {
+                            (it.getOrNull(0)?.toLong() ?: 0L) >= cutoffTimestamp
+                        }
+                        data.copy(data = newPoints)
+                    }
+                }
                 Text(
-                    text = "${data.data.size} data points • ${data.name}",
+                    text = "${filteredData.data.size} data points • ${filteredData.name}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-
                 LineChartView(
-                    data = data,
+                    data = filteredData,
                     color = color,
                     unit = unit,
                     isMemory = isMemory,
@@ -518,47 +532,6 @@ private fun MetricChartSection(
     }
 }
 
-@Composable
-private fun MetricStatsSection(
-    title: String,
-    data: System.ReportingGraphResponse,
-    unit: String,
-    isMemory: Boolean = false
-) {
-    MetricInfoSection(
-        title = title,
-        icon = Icons.Default.Analytics
-    ) {
-        val values = data.data.mapNotNull { it.getOrNull(1) }
-
-        if (values.isNotEmpty()) {
-            val average = values.average()
-            val min = values.minOrNull() ?: 0.0
-            val max = values.maxOrNull() ?: 0.0
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatCard(
-                    label = "Average",
-                    value = formatDataValue(average, unit, isMemory),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                StatCard(
-                    label = "Minimum",
-                    value = formatDataValue(min, unit, isMemory),
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                StatCard(
-                    label = "Maximum",
-                    value = formatDataValue(max, unit, isMemory),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun MetricInfoSection(
@@ -590,43 +563,12 @@ private fun MetricInfoSection(
 }
 
 @Composable
-private fun StatCard(
-    label: String,
-    value: String,
-    color: Color
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
-        ),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = color
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
 private fun LineChartView(
+    modifier: Modifier = Modifier,
     data: System.ReportingGraphResponse,
     color: Color,
     unit: String,
-    isMemory: Boolean = false,
-    modifier: Modifier = Modifier
+    isMemory: Boolean = false
 ) {
     AndroidView(
         factory = { context ->
@@ -650,7 +592,7 @@ private fun LineChartView(
                                 val timestamp = value.toLong()
                                 SimpleDateFormat("HH:mm", Locale.getDefault())
                                     .format(Date(timestamp * 1000))
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 value.toInt().toString()
                             }
                         }
@@ -679,7 +621,7 @@ private fun LineChartView(
                         val timestamp = point.getOrNull(0)?.toFloat() ?: return@mapNotNull null
                         val value = point.getOrNull(1)?.toFloat() ?: return@mapNotNull null
                         Entry(timestamp, value)
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         null
                     }
                 }
@@ -699,10 +641,13 @@ private fun LineChartView(
 
                     chart.data = LineData(dataSet)
                     chart.animateX(1000)
+                    chart.moveViewToX(entries.last().x)
+                }else {
+                    chart.clear()
                 }
                 chart.invalidate()
-            } catch (e: Exception) {
-                // Handle chart update errors gracefully
+            } catch (_: Exception) {
+                ToastManager.showError("Api error in fetching graph data")
             }
         },
         modifier = modifier
