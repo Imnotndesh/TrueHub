@@ -1,5 +1,10 @@
-package com.example.truehub.ui.services
+package com.example.truehub.ui.services.apps
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,14 +42,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -69,30 +69,22 @@ import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
-import com.example.truehub.ui.services.apps.UpgradeSummaryBottomSheet
-import com.example.truehub.ui.services.containers.ContainerScreen
-import com.example.truehub.ui.services.containers.ContainerScreenViewModel
-import com.example.truehub.ui.services.details.AppInfoDialog
-import com.example.truehub.ui.services.details.RollbackVersionDialog
-import com.example.truehub.ui.services.vm.VmScreen
-import com.example.truehub.ui.services.vm.VmScreenViewModel
+import com.example.truehub.ui.services.containers.ContainersScreen
+import com.example.truehub.ui.services.apps.details.AppInfoDialog
+import com.example.truehub.ui.services.apps.details.RollbackVersionDialog
+import com.example.truehub.ui.services.apps.details.UpgradeSummaryBottomSheet
+import com.example.truehub.ui.services.vm.VmsScreen
+import kotlin.collections.get
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServicesScreen(manager: TrueNASApiManager) {
-    val servicesViewModel: ServicesScreenViewModel = viewModel(
-        factory = ServicesScreenViewModel.ServicesViewModelFactory(manager)
-    )
-    val containerViewModel: ContainerScreenViewModel = viewModel(
-        factory = ContainerScreenViewModel.ContainerViewModelFactory(manager)
-    )
-    val vmViewModel: VmScreenViewModel = viewModel(
-        factory = VmScreenViewModel.VmViewModelFactory(manager)
+fun AppsScreen(manager: TrueNASApiManager) {
+    val servicesViewModel: AppsScreenViewModel = viewModel(
+        factory = AppsScreenViewModel.ServicesViewModelFactory(manager)
     )
     // Tracked App States
     val uiState by servicesViewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Apps", "Containers", "VMs")
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
     var showRollbackDialog by remember { mutableStateOf<String?>(null) }
 
@@ -130,13 +122,6 @@ fun ServicesScreen(manager: TrueNASApiManager) {
             }
         )
     }
-    LaunchedEffect(selectedTabIndex) {
-        when (selectedTabIndex) {
-            0 -> servicesViewModel.refresh()
-            1 -> containerViewModel.loadContainers()
-            2 -> vmViewModel.loadVms()
-        }
-    }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -170,12 +155,7 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = when (selectedTabIndex) {
-                            0 -> "${uiState.apps.size} containers"
-                            1 -> "0 containers"
-                            2 -> "0 virtual machines"
-                            else -> ""
-                        },
+                        text = "${uiState.apps.size} containers",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -197,41 +177,6 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
                             tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // Tab Row
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                        height = 3.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                },
-                divider = {},
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                    ) {
-                        Text(
-                            text = title,
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (selectedTabIndex == index)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -303,10 +248,10 @@ fun ServicesScreen(manager: TrueNASApiManager) {
                     }
                 }
                 1 -> {
-                    ContainerScreen(manager)
+                    ContainersScreen(manager)
                 }
                 2 -> {
-                    VmScreen(manager)
+                    VmsScreen(manager)
                 }
             }
         }
@@ -605,10 +550,10 @@ private fun ServiceCard(
                     )
                 }
             }
-            androidx.compose.animation.AnimatedVisibility(
+            AnimatedVisibility(
                 visible = showMoreOptions,
-                enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-                exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
                 Column(
                     modifier = Modifier.padding(top = 8.dp)

@@ -32,9 +32,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
@@ -42,6 +42,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,29 +51,131 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Virt
+import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.services.containers.details.ContainerInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContainerScreen(
+fun ContainersScreen(
     manager: TrueNASApiManager,
     viewModel: ContainerScreenViewModel = viewModel(
         factory = ContainerScreenViewModel.ContainerViewModelFactory(manager)
     )
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadContainers()
+    }
     val uiState by viewModel.uiState.collectAsState()
+    /**
+     * Header Section
+     */
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceContainer
+                    )
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Header Section - ALWAYS VISIBLE
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Containers",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${uiState.containers.size} containers",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-    // Content based on state
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AlertsBellButton(manager = manager)
+
+                    IconButton(
+                        onClick = { viewModel.loadContainers() },
+                        enabled = !uiState.isLoading && !uiState.isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // Error Message (if any)
+            uiState.error?.let { error ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { viewModel.clearError() }
+                        ) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+            }
+        }
+    }
     when {
         uiState.isLoading -> {
             LoadingScreen("Loading Containers")

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -36,6 +37,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
@@ -44,6 +46,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,28 +55,130 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
+import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.services.vm.details.VmInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VmScreen(
+fun VmsScreen(
     manager: TrueNASApiManager,
-    viewModel: VmScreenViewModel = viewModel(
-        factory = VmScreenViewModel.VmViewModelFactory(manager)
+    viewModel: VmsScreenViewModel = viewModel(
+        factory = VmsScreenViewModel.VmViewModelFactory(manager)
     )
 ) {
+    LaunchedEffect(Unit) {
+        viewModel.loadVms()
+    }
     val uiState by viewModel.uiState.collectAsState()
+    /**
+     * Header Section
+     */
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.surfaceContainer
+                    )
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Virtual Machines",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${uiState.vms.size} virtual machines",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AlertsBellButton(manager = manager)
+
+                    IconButton(
+                        onClick = { viewModel.loadVms() },
+                        enabled = !uiState.isLoading && !uiState.isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // Error Message (if any)
+            uiState.error?.let { error ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = { viewModel.clearError() }
+                        ) {
+                            Text("Dismiss")
+                        }
+                    }
+                }
+            }
+        }
+    }
     // Content based on state
     when {
         uiState.isLoading -> {

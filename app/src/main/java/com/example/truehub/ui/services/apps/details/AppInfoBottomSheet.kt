@@ -1,5 +1,5 @@
 // ServiceInfoDialog.kt
-package com.example.truehub.ui.services.details
+package com.example.truehub.ui.services.apps.details
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -363,7 +364,7 @@ private fun ServiceInfoRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
-            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            textAlign = TextAlign.End,
             modifier = Modifier.weight(1f)
         )
     }

@@ -1,4 +1,4 @@
-package com.example.truehub.ui.services.apps
+package com.example.truehub.ui.services.apps.details
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -164,19 +163,8 @@ private fun UpgradeSummaryContent(
             icon = Icons.Default.Info
         ) {
             UpgradeVersionCard(
-                label = "Current Version",
-                version = upgradeSummary.latest_human_version,
-                technicalVersion = upgradeSummary.latest_version,
-                isHighlight = false
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            UpgradeVersionCard(
-                label = "Upgrade To",
                 version = upgradeSummary.upgrade_human_version,
                 technicalVersion = upgradeSummary.upgrade_version,
-                isHighlight = true
             )
         }
 
@@ -264,18 +252,12 @@ private fun UpgradeInfoSection(
 
 @Composable
 private fun UpgradeVersionCard(
-    label: String,
     version: String,
     technicalVersion: String,
-    isHighlight: Boolean
 ) {
     Card(
         colors = CardDefaults.cardColors(
-            containerColor = if (isHighlight) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            }
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -288,43 +270,29 @@ private fun UpgradeVersionCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = label,
+                    text = "Upgrading to:",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Medium,
-                    color = if (isHighlight) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
                     text = version,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = if (isHighlight) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
                     text = technicalVersion,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (isHighlight) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    }
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                 )
             }
-            if (isHighlight) {
-                Icon(
-                    imageVector = Icons.Default.NewReleases,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.NewReleases,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(32.dp)
+            )
         }
     }
 }
