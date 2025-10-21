@@ -264,7 +264,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                             upgradeSummaryResult = result.data,
                             error = null
                         )
-                        ToastManager.showSuccess("Upgrade summary loaded")
                     }
                     is ApiResult.Error -> {
                         _uiState.value = _uiState.value.copy(
