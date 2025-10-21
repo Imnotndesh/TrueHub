@@ -82,124 +82,131 @@ fun VmsScreen(
         viewModel.loadVms()
     }
     val uiState by viewModel.uiState.collectAsState()
-    /**
-     * Header Section
-     */
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Virtual Machines",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${uiState.vms.size} virtual machines",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AlertsBellButton(manager = manager)
-
-                    IconButton(
-                        onClick = { viewModel.loadVms() },
-                        enabled = !uiState.isLoading && !uiState.isRefreshing
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+    Column {
+        VmsScreenHeader(
+            containerCount = uiState.vms.size,
+            isLoading = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
+            error = uiState.error,
+            onRefresh = { viewModel.loadVms() },
+            onDismissError = { viewModel.clearError() },
+            manager = manager
+        )
+        // Content based on state
+        when {
+            uiState.isLoading -> {
+                LoadingScreen("Loading Virtual Machines")
             }
-
-            // Error Message (if any)
-            uiState.error?.let { error ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = { viewModel.clearError() }
-                        ) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
+            uiState.vms.isEmpty() && !uiState.isLoading -> {
+                EmptyVmContent()
+            }
+            else -> {
+                VmsContent(
+                    vms = uiState.vms,
+                    isRefreshing = uiState.isRefreshing,
+                    onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
+                    onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
+                    onRestartVm = { id -> viewModel.restartVm(id) },
+                    onSuspendVm = { id -> viewModel.suspendVm(id) },
+                    onResumeVm = { id -> viewModel.resumeVm(id) },
+                    onPowerOffVm = { id -> viewModel.powerOffVm(id) },
+                    onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
+                    operationJob = uiState.operationJobs
+                )
             }
         }
     }
-    // Content based on state
-    when {
-        uiState.isLoading -> {
-            LoadingScreen("Loading Virtual Machines")
+}
+@Composable
+private fun VmsScreenHeader(
+    containerCount: Int,
+    isLoading: Boolean,
+    isRefreshing: Boolean,
+    error: String?,
+    onRefresh: () -> Unit,
+    onDismissError: () -> Unit,
+    manager: TrueNASApiManager
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        // Header Section - ALWAYS VISIBLE
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Virtual Machines",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "$containerCount VMs",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AlertsBellButton(manager = manager)
+
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading && !isRefreshing
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
-        uiState.vms.isEmpty() && !uiState.isLoading -> {
-            EmptyVmContent()
-        }
-        else -> {
-            VmsContent(
-                vms = uiState.vms,
-                isRefreshing = uiState.isRefreshing,
-                onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
-                onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
-                onRestartVm = { id -> viewModel.restartVm(id) },
-                onSuspendVm = { id -> viewModel.suspendVm(id) },
-                onResumeVm = { id -> viewModel.resumeVm(id) },
-                onPowerOffVm = { id -> viewModel.powerOffVm(id) },
-                onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
-                operationJob = uiState.operationJobs
-            )
+
+        // Error Message (if any)
+        error?.let {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = onDismissError
+                    ) {
+                        Text("Dismiss")
+                    }
+                }
+            }
         }
     }
 }
@@ -247,8 +254,7 @@ private fun VmsContent(
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)    ) {
         if (isRefreshing) {
             item {
                 LinearProgressIndicator(

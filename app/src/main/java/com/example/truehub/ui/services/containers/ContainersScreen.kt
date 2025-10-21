@@ -51,7 +51,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -78,121 +77,128 @@ fun ContainersScreen(
         viewModel.loadContainers()
     }
     val uiState by viewModel.uiState.collectAsState()
-    /**
-     * Header Section
-     */
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
+    Column {
+        ContainersHeader(
+            containerCount = uiState.containers.size,
+            isLoading = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
+            error = uiState.error,
+            onRefresh = { viewModel.loadContainers() },
+            onDismissError = { viewModel.clearError() },
+            manager = manager
+        )
+        when {
+            uiState.isLoading -> {
+                LoadingScreen("Loading Containers")
+            }
+            uiState.containers.isEmpty() && !uiState.isLoading -> {
+                EmptyContainerContent()
+            }
+            else -> {
+                ContainersContent(
+                    containers = uiState.containers,
+                    isRefreshing = uiState.isRefreshing,
+                    onStartContainer = { id -> viewModel.startContainer(id) },
+                    onStopContainer = { id -> viewModel.stopContainer(id) },
+                    onRestartContainer = { id -> viewModel.restartContainer(id) },
+                    onDeleteContainer = { id -> viewModel.deleteContainer(id) },
+                    operationJobs = uiState.operationJobs
                 )
-            )
+            }
+        }
+
+    }
+}
+@Composable
+private fun ContainersHeader(
+    containerCount: Int,
+    isLoading: Boolean,
+    isRefreshing: Boolean,
+    error: String?,
+    onRefresh: () -> Unit,
+    onDismissError: () -> Unit,
+    manager: TrueNASApiManager
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
     ) {
-        Column(
+        // Header Section - ALWAYS VISIBLE
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header Section - ALWAYS VISIBLE
+            Column {
+                Text(
+                    text = "Containers",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "$containerCount containers",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AlertsBellButton(manager = manager)
+
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading && !isRefreshing
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        // Error Message (if any)
+        error?.let {
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Containers",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${uiState.containers.size} containers",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    AlertsBellButton(manager = manager)
-
-                    IconButton(
-                        onClick = { viewModel.loadContainers() },
-                        enabled = !uiState.isLoading && !uiState.isRefreshing
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = onDismissError
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Text("Dismiss")
                     }
                 }
             }
-
-            // Error Message (if any)
-            uiState.error?.let { error ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = error,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = { viewModel.clearError() }
-                        ) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
-            }
-        }
-    }
-    when {
-        uiState.isLoading -> {
-            LoadingScreen("Loading Containers")
-        }
-        uiState.containers.isEmpty() && !uiState.isLoading -> {
-            EmptyContainerContent()
-        }
-        else -> {
-            ContainersContent(
-                containers = uiState.containers,
-                isRefreshing = uiState.isRefreshing,
-                onStartContainer = { id -> viewModel.startContainer(id) },
-                onStopContainer = { id -> viewModel.stopContainer(id) },
-                onRestartContainer = { id -> viewModel.restartContainer(id) },
-                onDeleteContainer = { id -> viewModel.deleteContainer(id) },
-                operationJobs = uiState.operationJobs
-            )
         }
     }
 }
@@ -237,7 +243,7 @@ private fun ContainersContent(
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
         if (isRefreshing) {
             item {
