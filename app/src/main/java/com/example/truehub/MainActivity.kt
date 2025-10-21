@@ -335,7 +335,7 @@ class MainActivity : ComponentActivity() {
                     SettingsScreen(
                         manager = manager,
                         onDummyAction = { settingAction ->
-                            ToastManager.showInfo(settingAction)
+                            ToastManager.showInfo("Work in progress for: $settingAction")
                         },
                         onNavigateToLogin = {
                             navController.navigate(Screen.Login.route) {
