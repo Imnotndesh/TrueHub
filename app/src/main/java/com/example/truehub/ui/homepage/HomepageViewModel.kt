@@ -35,6 +35,17 @@ sealed class HomeUiState {
     ) : HomeUiState()
 }
 
+sealed class LoadAveragesState {
+    object Loading : LoadAveragesState()
+    data class Success(
+        val cpuAverage: Double?,
+        val memoryAverage: Double?,
+        val loadAverage: Double?,
+        val tempAverage: Double?
+    ) : LoadAveragesState()
+    data class Error(val message: String) : LoadAveragesState()
+}
+
 class HomeViewModel(
     private val apiManager: TrueNASApiManager
 ) : ViewModel() {
@@ -51,9 +62,13 @@ class HomeViewModel(
     private val _connectionError = MutableStateFlow<String?>(null)
     val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
 
+    private val _loadAverages = MutableStateFlow<LoadAveragesState>(LoadAveragesState.Loading)
+    val loadAverages: StateFlow<LoadAveragesState> = _loadAverages.asStateFlow()
+
     init {
         startConnectivityMonitoring()
         loadDashboardData()
+        startLoadAveragesMonitoring()
     }
 
     private fun startConnectivityMonitoring() {
@@ -65,7 +80,99 @@ class HomeViewModel(
         }
 
     }
+    private fun startLoadAveragesMonitoring() {
+        viewModelScope.launch {
+            // Initial load
+            loadLoadAverages()
 
+            // Periodic updates every 10 seconds
+            while (true) {
+                delay(10000)
+                loadLoadAverages()
+            }
+        }
+    }
+
+    private fun loadLoadAverages() {
+        viewModelScope.launch {
+            try {
+                val currentState = _uiState.value
+                if (currentState !is HomeUiState.Success) return@launch
+
+                val systemInfo = currentState.systemInfo
+
+                // Fetch all metrics concurrently
+                val cpuDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.CPU))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                val memoryDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.MEMORY))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                val tempDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.CPUTEMP))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                val loadDeferred = async {
+                    val request = listOf(System.ReportingGraphRequest(System.ReportingGraphName.LOAD))
+                    val query = System.ReportingGraphQuery(unit = System.ReportingUnit.HOUR, aggregate = true)
+                    apiManager.system.getReportingDataWithResult(request, query)
+                }
+
+                // Await results
+                val cpuResult = cpuDeferred.await()
+                val memoryResult = memoryDeferred.await()
+                val tempResult = tempDeferred.await()
+                val loadResult = loadDeferred.await()
+
+                // Helper functions
+                fun calculateAverage(data: List<List<Double>>?): Double? {
+                    if (data.isNullOrEmpty()) return null
+                    val values = data.flatMap { row -> row.drop(1) }
+                    return if (values.isNotEmpty()) values.average() else null
+                }
+
+                fun calculateMemoryAverage(data: List<List<Double>>?): Double? {
+                    if (data.isNullOrEmpty()) return null
+                    val values = data.mapNotNull { row -> row.getOrNull(1) }
+                    if (values.isEmpty()) return null
+                    val avgBytes = values.average()
+                    val totalBytes = systemInfo.physmem.toDouble()
+                    return (avgBytes / totalBytes) * 100.0
+                }
+
+                val cpuAvg = calculateAverage(
+                    (cpuResult as? ApiResult.Success)?.data?.firstOrNull()?.data
+                )
+                val memoryAvg = calculateMemoryAverage(
+                    (memoryResult as? ApiResult.Success)?.data?.firstOrNull()?.data
+                )
+                val tempAvg = calculateAverage(
+                    (tempResult as? ApiResult.Success)?.data?.firstOrNull()?.data
+                )
+                val loadAvg = calculateAverage(
+                    (loadResult as? ApiResult.Success)?.data?.firstOrNull()?.data
+                )
+
+                _loadAverages.value = LoadAveragesState.Success(
+                    cpuAverage = cpuAvg,
+                    memoryAverage = memoryAvg,
+                    loadAverage = loadAvg,
+                    tempAverage = tempAvg
+                )
+
+            } catch (e: Exception) {
+                _loadAverages.value = LoadAveragesState.Error(e.message ?: "Failed to load averages")
+            }
+        }
+    }
     private suspend fun checkConnectivity() {
         try {
             val result = apiManager.system.getSystemInfoWithResult()
@@ -165,6 +272,9 @@ class HomeViewModel(
                 val cpuDataResult = cpuDataDeferred.await()
                 val memoryDataResult = memoryDataDeferred.await()
                 val tempDataResult = tempDataDeferred.await()
+
+
+
                 val pools = if (poolResult is ApiResult.Success) poolResult.data else emptyList()
                 val disks = if (diskResult is ApiResult.Success) diskResult.data else emptyList()
                 val smbShares = if (smbSharesResult is ApiResult.Success) smbSharesResult.data else emptyList()

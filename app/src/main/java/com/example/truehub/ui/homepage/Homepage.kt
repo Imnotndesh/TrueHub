@@ -1,6 +1,5 @@
 package com.example.truehub.ui.homepage
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -45,6 +44,7 @@ fun HomeScreen(
         factory = HomeViewModel.HomeViewModelFactory(manager)
     )
     val uiState by viewModel.uiState.collectAsState()
+    val loadAveragesState by viewModel.loadAverages.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
 
     Box(
@@ -84,7 +84,8 @@ fun HomeScreen(
                     onRefresh = { viewModel.refresh() },
                     onShutdown = { reason -> viewModel.shutdownSystem(reason) },
                     onRefreshGraph = { viewModel.loadPerformanceData() },
-                    isConnectedStatus = isConnected
+                    isConnectedStatus = isConnected,
+                    loadAveragesState = loadAveragesState
                 )
             }
         }
@@ -273,6 +274,7 @@ private fun ErrorScreen(
 private fun HomeContent(
     isConnectedStatus :Boolean,
     state: HomeUiState.Success,
+    loadAveragesState : LoadAveragesState,
     onRefresh: () -> Unit,
     onRefreshGraph: () -> Unit,
     onShutdown: (String) -> Unit,
@@ -294,13 +296,11 @@ private fun HomeContent(
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Quick Stats Grid
-        QuickStatsGrid(
-            systemInfo = state.systemInfo,
-            poolDetails = state.poolDetails.firstOrNull(),
-            diskCount = state.diskDetails.size,
+        // Load Averages Section
+        // Replace the LoadAveragesGrid call (around line 100) with:
+        LoadAveragesGrid(
+            loadAveragesState = loadAveragesState,
             modifier = Modifier.padding(bottom = 16.dp),
-            onDiskClick = { showMemoryDialog = true },
             onCpuClick = {
                 currentMetricType = MetricType.CPU
                 showPerformanceDialog = true
@@ -315,6 +315,14 @@ private fun HomeContent(
             }
         )
 
+        SystemStatsSection(
+            systemInfo = state.systemInfo,
+            poolDetails = state.poolDetails.firstOrNull(),
+            diskCount = state.diskDetails.size,
+            modifier = Modifier.padding(bottom = 16.dp),
+            onDiskClick = { showMemoryDialog = true }
+        )
+
         // Storage Information - show each pool
         if (state.poolDetails.isNotEmpty()) {
             state.poolDetails.forEach { pool ->
@@ -326,7 +334,6 @@ private fun HomeContent(
         } else {
             NoStorageCard(modifier = Modifier.padding(bottom = 16.dp))
         }
-        Log.e("Homescreen", "I have shares as: ${state.nfsShares}")
         // SMB Shares Section
         SharesCard(
             smbShares = state.smbShares,
@@ -472,7 +479,6 @@ fun String.toShortUptime(): String {
     if (lastColonIndex == -1) {
         return this
     }
-    val startOfSeconds = lastColonIndex + 1
     val commaIndex = this.indexOf(',')
 
     return if (commaIndex != -1) {
@@ -485,93 +491,161 @@ fun String.toShortUptime(): String {
         this.substring(0, lastColonIndex)
     }
 }
-
+// REPLACE the entire LoadAveragesGrid function with:
 @Composable
-private fun QuickStatsGrid(
-    systemInfo: System.SystemInfo,
-    poolDetails: System.Pool?,
-    diskCount: Int,
+private fun LoadAveragesGrid(
+    loadAveragesState: LoadAveragesState,
     modifier: Modifier = Modifier,
-    onDiskClick: () -> Unit,
     onCpuClick: () -> Unit,
     onMemoryClick: () -> Unit,
     onLoadClick: () -> Unit
 ) {
     Column(modifier = modifier) {
         Text(
-            text = "System Stats",
+            text = "Load Averages",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                title = "CPU Cores",
-                value = "${systemInfo.cores.toInt()}",
-                subtitle = "${systemInfo.physical_cores ?: 0} physical",
-                icon = Icons.Default.Memory,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-                onClick = onCpuClick
-            )
-            StatCard(
-                title = "Memory",
-                value = "${DecimalFormat("#.#").format(systemInfo.physmem / (1024.0 * 1024.0 * 1024.0))} GB",
-                subtitle = if (systemInfo.ecc_memory) "ECC" else "Non-ECC",
-                icon = Icons.Default.Storage,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.weight(1f),
-                onClick = onMemoryClick
-            )
-        }
+        when (loadAveragesState) {
+            is LoadAveragesState.Loading -> {
+                // Show loading cards
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    LoadingStatCard(
+                        title = "CPU",
+                        icon = Icons.Default.Memory,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    LoadingStatCard(
+                        title = "Memory",
+                        icon = Icons.Default.Storage,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    LoadingStatCard(
+                        title = "Load",
+                        icon = Icons.Default.Timeline,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    LoadingStatCard(
+                        title = "Temperature",
+                        icon = Icons.Default.Thermostat,
+                        color = Color(0xFF2E7D32),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            is LoadAveragesState.Success -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        title = "CPU",
+                        value = loadAveragesState.cpuAverage?.let {
+                            DecimalFormat("#.##").format(it) + "%"
+                        } ?: "N/A",
+                        subtitle = "Average usage",
+                        icon = Icons.Default.Memory,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onCpuClick
+                    )
+                    StatCard(
+                        title = "Memory",
+                        value = loadAveragesState.memoryAverage?.let {
+                            DecimalFormat("#.##").format(it) + "%"
+                        } ?: "N/A",
+                        subtitle = "Average usage",
+                        icon = Icons.Default.Storage,
+                        color = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onMemoryClick
+                    )
+                }
 
-        Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                title = "Load Avg",
-                value = DecimalFormat("#.##").format(systemInfo.loadavg.firstOrNull() ?: 0.0),
-                subtitle = "1 minute",
-                icon = Icons.Default.Timeline,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.weight(1f),
-                onClick = onLoadClick
-            )
-            StatCard(
-                title = "Disks",
-                value = diskCount.toString(),
-                subtitle = poolDetails?.let { if (it.healthy) "Healthy" else "Issues" } ?: "No pools",
-                icon = Icons.Default.Storage,
-                color = poolDetails?.let { pool ->
-                    if (pool.healthy) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
-                } ?: MaterialTheme.colorScheme.outline,
-                modifier = Modifier.weight(1f),
-                onClick = onDiskClick
-            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        title = "Load",
+                        value = loadAveragesState.loadAverage?.let {
+                            DecimalFormat("#.##").format(it)
+                        } ?: "N/A",
+                        subtitle = "System load",
+                        icon = Icons.Default.Timeline,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onLoadClick
+                    )
+                    StatCard(
+                        title = "Temperature",
+                        value = loadAveragesState.tempAverage?.let {
+                            DecimalFormat("#.#").format(it) + "°C"
+                        } ?: "N/A",
+                        subtitle = "CPU temp",
+                        icon = Icons.Default.Thermostat,
+                        color = Color(0xFF2E7D32),
+                        modifier = Modifier.weight(1f),
+                        onClick = null
+                    )
+                }
+            }
+            is LoadAveragesState.Error -> {
+                // Show error state
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "Failed to load averages",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun StatCard(
+private fun LoadingStatCard(
     title: String,
-    value: String,
-    subtitle: String,
     icon: ImageVector,
     color: Color,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     Card(
-        onClick = { onClick?.invoke() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
@@ -596,19 +670,123 @@ private fun StatCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+            Spacer(modifier = Modifier.height(4.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = color,
+                strokeWidth = 2.dp
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = subtitle,
+                text = "Loading...",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+private fun SystemStatsSection(
+    systemInfo: System.SystemInfo,
+    poolDetails: System.Pool?,
+    diskCount: Int,
+    modifier: Modifier = Modifier,
+    onDiskClick: () -> Unit,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "System Stats",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+        )
+
+        // Full width cards
+        StatCard(
+            title = "CPU Cores",
+            value = "${systemInfo.cores.toInt()} Total (${systemInfo.physical_cores ?: 0} Physical)",
+            icon = Icons.Default.Memory,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            subtitle = "Processing units"
+        )
+
+        StatCard(
+            title = "Memory",
+            value = "${DecimalFormat("#.#").format(systemInfo.physmem / (1024.0 * 1024.0 * 1024.0))} GB ${if (systemInfo.ecc_memory) "(ECC)" else "(Non-ECC)"}",
+            subtitle = "Total system memory",
+            icon = Icons.Default.Storage,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        )
+
+        StatCard(
+            title = "Disks",
+            value = "$diskCount ${if (diskCount == 1) "Disk" else "Disks"}",
+            subtitle = poolDetails?.let { if (it.healthy) "All pools healthy" else "Pool issues detected" } ?: "No pools configured",
+            icon = Icons.Default.Storage,
+            color = poolDetails?.let { pool ->
+                if (pool.healthy) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+            } ?: MaterialTheme.colorScheme.outline,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onDiskClick
+        )
+    }
+}
+
+@Composable
+private fun StatCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    Card(
+        onClick = { onClick?.invoke() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = modifier
+    ) {
+        Row(  // CHANGED FROM Column to Row for full-width support
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = color
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
