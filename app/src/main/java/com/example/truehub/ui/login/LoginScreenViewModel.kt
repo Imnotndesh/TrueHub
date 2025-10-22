@@ -112,7 +112,7 @@ class LoginScreenViewModel(
     private fun loadInitialAutoLoginState() {
         viewModelScope.launch {
             val isAutoLoginEnabled = EncryptedPrefs.getUseAutoLogin(application)
-            _uiState.update { it.copy(saveDetailsForAutoLogin = isAutoLoginEnabled) }
+            _uiState.update { it.copy(saveDetailsForAutoLogin = isAutoLoginEnabled!!) }
         }
     }
 
@@ -309,6 +309,7 @@ class LoginScreenViewModel(
      * Saved details Storage
      */
     private suspend fun saveDetailsForAutoLogin(context: Context,method :String,apiKey: String? = null,username :String? = null,password: String? = null){
+        EncryptedPrefs.saveUseAutoLogin(context)
         when (method){
             "password" ->{
                 if (!username.isNullOrEmpty() && !password.isNullOrEmpty()){

@@ -100,10 +100,10 @@ object EncryptedPrefs {
         val preferences = context.dataStore.data.first()
         return preferences[loginMethodPref]
     }
-    suspend fun getUseAutoLogin(context: Context): Boolean{
+    suspend fun getUseAutoLogin(context: Context): Boolean?{
         val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
         val prefs =  context.dataStore.data.first()
-        return prefs[autoLoginPref] == true
+        return prefs[autoLoginPref]
     }
     suspend fun saveUseAutoLogin(context: Context){
         val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
