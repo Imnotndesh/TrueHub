@@ -224,7 +224,7 @@ class MainActivity : ComponentActivity() {
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
                     EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
 
-                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)
+                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)?:false
 
                     if (autoLoginEnabled) {
                         onStateChange(AppState.AttemptingAutoLogin, localManager)
