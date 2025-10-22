@@ -55,7 +55,6 @@ fun NoInternetScreen(
                     tint = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
-
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(

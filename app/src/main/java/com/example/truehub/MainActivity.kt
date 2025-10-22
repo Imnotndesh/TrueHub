@@ -127,19 +127,21 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     is AppState.NoInternet ->{
-                        NoInternetScreen(
-                            message = "No internet connection.",
-                            onRetry = {
-                                lifecycleScope.launch {
-                                    initializeApp { state, newManager ->
-                                        appState = state
-                                        if (newManager != null) {
-                                            manager = newManager
+                        TrueHubAppTheme {
+                            NoInternetScreen(
+                                message = "No internet connection.",
+                                onRetry = {
+                                    lifecycleScope.launch {
+                                        initializeApp { state, newManager ->
+                                            appState = state
+                                            if (newManager != null) {
+                                                manager = newManager
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
 
