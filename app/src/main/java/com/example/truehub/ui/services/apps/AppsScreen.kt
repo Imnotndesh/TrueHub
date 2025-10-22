@@ -79,11 +79,11 @@ import kotlin.collections.get
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppsScreen(manager: TrueNASApiManager) {
-    val servicesViewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.ServicesViewModelFactory(manager)
+    val appsScreenViewModel: AppsScreenViewModel = viewModel(
+        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
     )
     // Tracked App States
-    val uiState by servicesViewModel.uiState.collectAsState()
+    val uiState by appsScreenViewModel.uiState.collectAsState()
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
     var showRollbackDialog by remember { mutableStateOf<String?>(null) }
@@ -93,12 +93,12 @@ fun AppsScreen(manager: TrueNASApiManager) {
             appName = appForUpgradeSummary!!,
             upgradeSummary = uiState.upgradeSummaryResult!!,
             onDismiss = {
-                servicesViewModel.clearUpgradeSummary()
+                appsScreenViewModel.clearUpgradeSummary()
                 appForUpgradeSummary = null
             },
             onConfirmUpgrade = {
-                servicesViewModel.upgradeApp(appForUpgradeSummary!!)
-                servicesViewModel.clearUpgradeSummary()
+                appsScreenViewModel.upgradeApp(appForUpgradeSummary!!)
+                appsScreenViewModel.clearUpgradeSummary()
                 appForUpgradeSummary = null
             },
             isUpgrading = uiState.upgradeJobs.containsKey(appForUpgradeSummary)
@@ -111,14 +111,14 @@ fun AppsScreen(manager: TrueNASApiManager) {
             isLoadingVersions = uiState.isLoadingRollbackVersions,
             rollbackJobState = uiState.rollbackJobs[showRollbackDialog],
             onDismiss = {
-                servicesViewModel.clearRollbackVersions()
+                appsScreenViewModel.clearRollbackVersions()
                 showRollbackDialog = null
             },
             onConfirmRollback = { version, rollbackSnapshot ->
-                servicesViewModel.rollbackApp(showRollbackDialog!!, version, rollbackSnapshot)
+                appsScreenViewModel.rollbackApp(showRollbackDialog!!, version, rollbackSnapshot)
             },
             onLoadVersions = {
-                servicesViewModel.loadRollbackVersions(showRollbackDialog!!)
+                appsScreenViewModel.loadRollbackVersions(showRollbackDialog!!)
             }
         )
     }
@@ -149,13 +149,13 @@ fun AppsScreen(manager: TrueNASApiManager) {
             ) {
                 Column {
                     Text(
-                        text = "Services",
+                        text = "Applications",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${uiState.apps.size} containers",
+                        text = "${uiState.apps.size} Applications",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -170,7 +170,7 @@ fun AppsScreen(manager: TrueNASApiManager) {
 
                     // Refresh Button
                     IconButton(
-                        onClick = { servicesViewModel.refresh() },
+                        onClick = { appsScreenViewModel.refresh() },
                         enabled = !uiState.isLoading && !uiState.isRefreshing
                     ) {
                         Icon(
@@ -211,7 +211,7 @@ fun AppsScreen(manager: TrueNASApiManager) {
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(
-                            onClick = { servicesViewModel.clearError() }
+                            onClick = { appsScreenViewModel.clearError() }
                         ) {
                             Text("Dismiss")
                         }
@@ -231,15 +231,15 @@ fun AppsScreen(manager: TrueNASApiManager) {
                             EmptyContent()
                         }
                         else -> {
-                            ServicesContent(
+                            AppsContent(
                                 apps = uiState.apps,
                                 isRefreshing = uiState.isRefreshing,
-                                onStartApp = {appName ->servicesViewModel.startApp(appName)},
+                                onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
                                 loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                                onStopApp = {appName -> servicesViewModel.stopApp(appName)},
+                                onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
                                 onShowUpgradeSummary = { appName ->
                                     appForUpgradeSummary = appName
-                                    servicesViewModel.loadUpgradeSummary(appName)
+                                    appsScreenViewModel.loadUpgradeSummary(appName)
                                 },
                                 upgradeJobs = uiState.upgradeJobs,
                                 onShowRollbackDialog = { appName -> showRollbackDialog = appName }
@@ -286,7 +286,7 @@ private fun EmptyContent() {
 }
 
 @Composable
-private fun ServicesContent(
+private fun AppsContent(
     apps: List<Apps.AppQueryResponse>,
     isRefreshing: Boolean,
     loadingSummaryForApp: String?,

@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class ServicesUiState(
+data class AppsScreenUiState(
     val isLoading: Boolean = false,
     val apps: List<Apps.AppQueryResponse> = emptyList(),
     val error: String? = null,
@@ -32,8 +32,8 @@ data class ServicesUiState(
 
 class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ServicesUiState(isLoading = true))
-    val uiState: StateFlow<ServicesUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(AppsScreenUiState(isLoading = true))
+    val uiState: StateFlow<AppsScreenUiState> = _uiState.asStateFlow()
 
     init {
         loadApps()
@@ -52,7 +52,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                 val apps = manager.apps.getInstalledAppsWithResult()
                 when(apps){
                     is ApiResult.Success -> {
-                        _uiState.value = ServicesUiState(
+                        _uiState.value = AppsScreenUiState(
                             isLoading = false,
                             apps = apps.data,
                             error = null,
@@ -60,7 +60,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         )
                     }
                     is ApiResult.Error -> {
-                        _uiState.value = ServicesUiState(
+                        _uiState.value = AppsScreenUiState(
                             isLoading = false,
                             apps = emptyList(),
                             error = apps.message,
@@ -68,7 +68,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         )
                     }
                     is ApiResult.Loading -> {
-                        _uiState.value = ServicesUiState(
+                        _uiState.value = AppsScreenUiState(
                             isLoading = true,
                             apps = emptyList(),
                             error = null,
@@ -448,7 +448,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    class ServicesViewModelFactory(
+    class AppsScreenViewModelFactory(
         private val manager: TrueNASApiManager
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
