@@ -8,12 +8,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -22,10 +33,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -36,26 +47,23 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.truehub.data.api.TrueNASApiManager
-import com.example.truehub.ui.components.LoadingScreen
 import com.example.truehub.ui.settings.sheets.ChangePasswordBottomSheet
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -66,8 +74,21 @@ fun SettingsScreen(
     val viewModel : SettingsScreenViewModel = viewModel(
         factory = SettingsScreenViewModel.SettingsViewModelFactory(manager, LocalContext.current.applicationContext as Application)
     )
+    val scope = rememberCoroutineScope()
+    var isAutoLoginChecked by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        isAutoLoginChecked = viewModel.getUseAutoLogin() ?: false
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     var showPassChangeDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isLoading, uiState.isAutoLoginSaving, uiState.showAutoLoginDialog) {
+        if (!uiState.isLoading && !uiState.isAutoLoginSaving && !uiState.showAutoLoginDialog) {
+            isAutoLoginChecked = viewModel.getUseAutoLogin() ?: false
+        }
+    }
 
     LaunchedEffect(uiState.logoutSuccess) {
         if (uiState.logoutSuccess) {
@@ -170,12 +191,17 @@ fun SettingsScreen(
                 items = listOf(
                     SettingItem(
                         icon = Icons.Default.Timer,
-                        name = "Session Timeout",
-                        description = "Configure auto logout time",
-                        onClick = { onDummyAction("Session Timeout") }
+                        name = "Auto Login",
+                        description = "Automatically log in with saved credentials.",
+                        onClick = {},
+                        isLoading = uiState.isLoading,
+                        onToggle = { newValue ->
+                            viewModel.handleEvent(SettingsEvent.ToggleAutoLogin(newValue))
+                        },
+                        isChecked = isAutoLoginChecked,
                     ),
                     SettingItem(
-                        icon = Icons.Default.Logout,
+                        icon = Icons.AutoMirrored.Filled.Logout,
                         name = "Log Out",
                         description = "Sign out of your account",
                         onClick = { viewModel.handleEvent(SettingsEvent.Logout) },
@@ -196,6 +222,30 @@ fun SettingsScreen(
                             )
                         )
                         showPassChangeDialog = false
+                    }
+                )
+            }
+            if (uiState.showAutoLoginDialog) {
+                AutoLoginConfigDialog(
+                    dialogType = uiState.autoLoginDialogType,
+                    isSaving = uiState.isAutoLoginSaving,
+                    onConfirmToggle = { apiKey, username, userPass ->
+                        viewModel.handleEvent(
+                            SettingsEvent.SaveAutoLoginCredentials(
+                                apiKey = apiKey,
+                                username = username,
+                                userPass = userPass
+                            )
+                        )
+                    },
+                    onCancel = {
+                        viewModel.handleEvent(SettingsEvent.DismissAutoLoginDialog)
+                    },
+                    onClearAutoLogin = {
+                        scope.launch {
+                            viewModel.clearUseAutoLogin()
+                            viewModel.handleEvent(SettingsEvent.DismissAutoLoginDialog)
+                        }
                     }
                 )
             }
@@ -233,6 +283,8 @@ private fun SettingsSection(
 
 @Composable
 private fun SettingCard(item: SettingItem) {
+    val showSwitch = item.onToggle != null && item.isChecked != null
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -244,11 +296,10 @@ private fun SettingCard(item: SettingItem) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !item.isLoading) { item.onClick() }
+                .clickable(enabled = !item.isLoading && !showSwitch) { item.onClick() }
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon Circle
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -274,7 +325,6 @@ private fun SettingCard(item: SettingItem) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Text Content
             Column(
                 modifier = Modifier.weight(1f)
             ) {
@@ -291,24 +341,146 @@ private fun SettingCard(item: SettingItem) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            // Chevron Icon (hidden when loading)
             if (!item.isLoading) {
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp)
+                if (showSwitch) {
+                    Switch(
+                        checked = item.isChecked,
+                        onCheckedChange = item.onToggle,
+                        modifier = Modifier.clickable(enabled = false) { }
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun AutoLoginConfigDialog(
+    dialogType: AutoLoginDialogType,
+    isSaving: Boolean,
+    onConfirmToggle: (apiKey: String?, username: String?, userPass: String?) -> Unit,
+    onCancel: () -> Unit,
+    onClearAutoLogin: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = {
+            Text(
+                text = when (dialogType) {
+                    AutoLoginDialogType.OFF_WARNING -> "Disable Auto Login?"
+                    AutoLoginDialogType.PROMPT_API_KEY -> "Save API Key for Auto Login"
+                    AutoLoginDialogType.PROMPT_PASSWORD -> "Save Credentials for Auto Login"
+                }
+            )
+        },
+        text = {
+            AutoLoginDialogContent(
+                dialogType = dialogType,
+                isSaving = isSaving,
+                onConfirmToggle = onConfirmToggle,
+                onClearAutoLogin = onClearAutoLogin,
+                onCancel = onCancel
+            )
+        },
+        confirmButton = {},
+        dismissButton = {}
+    )
+}
+
+@Composable
+private fun AutoLoginDialogContent(
+    dialogType: AutoLoginDialogType,
+    isSaving: Boolean,
+    onConfirmToggle: (apiKey: String?, username: String?, userPass: String?) -> Unit,
+    onClearAutoLogin: () -> Unit,
+    onCancel : () -> Unit
+) {
+    var apiKey by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        when (dialogType) {
+            AutoLoginDialogType.OFF_WARNING -> {
+                Text("Your login credentials (username/password or API key) will remain persistent in the app until you explicitly log out. They will be cleared upon successful logout.")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onCancel) { Text("Cancel") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = onClearAutoLogin) { Text("Disable") }
+                }
+            }
+            AutoLoginDialogType.PROMPT_API_KEY -> {
+                Text("Please provide your API key to enable auto login.")
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    label = { Text("API Key") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
                 )
+                // Buttons are now exclusively here
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCancel) { Text("Cancel") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onConfirmToggle(apiKey, null, null) },
+                        enabled = !isSaving && apiKey.isNotBlank()
+                    ) {
+                        Text(if (isSaving) "Saving..." else "Submit")
+                    }
+                }
+            }
+            AutoLoginDialogType.PROMPT_PASSWORD -> {
+                Text("Please provide your username and password to enable auto login.")
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = { Text("Username") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSaving
+                )
+                // Buttons are now exclusively here
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCancel) { Text("Cancel") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onConfirmToggle(null, username, password) },
+                        enabled = !isSaving && username.isNotBlank() && password.isNotBlank()
+                    ) {
+                        Text(if (isSaving) "Saving..." else "Submit")
+                    }
+                }
             }
         }
     }
 }
 
 data class SettingItem(
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val icon: ImageVector,
     val name: String,
     val description: String,
     val onClick: () -> Unit,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val onToggle: ((Boolean) -> Unit)? = null,
+    val isChecked: Boolean? = null
 )

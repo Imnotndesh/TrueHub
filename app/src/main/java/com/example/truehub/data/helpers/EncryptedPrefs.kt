@@ -143,6 +143,9 @@ object EncryptedPrefs {
             it[passPref] = userPass
         }
     }
+    suspend fun getUserPass(context: Context):String?{
+        return context.dataStore.data.first()[passPref]
+    }
 
     suspend fun clearUserPass(context: Context){
         context.dataStore.edit {
@@ -150,7 +153,4 @@ object EncryptedPrefs {
         }
     }
 
-    suspend fun getUserPass(context: Context):String?{
-        return context.dataStore.data.first()[passPref]
-    }
 }
