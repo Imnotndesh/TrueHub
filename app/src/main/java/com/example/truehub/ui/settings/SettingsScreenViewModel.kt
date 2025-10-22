@@ -56,8 +56,18 @@ class SettingsScreenViewModel(
         viewModelScope.launch {
             try {
                 EncryptedPrefs.clearAuthToken(application)
-                EncryptedPrefs.clearApiKey(application)
                 EncryptedPrefs.clearIsLoggedIn(application)
+                if (EncryptedPrefs.getUseAutoLogin(application)?: false){
+                    when (EncryptedPrefs.getLoginMethod(application)){
+                        "api_key" -> {
+                            EncryptedPrefs.clearApiKey(application)
+                        }
+                        "password" ->{
+                            EncryptedPrefs.clearUsername(application)
+                            EncryptedPrefs.clearUserPass(application)
+                        }
+                    }
+                }
                 manager?.disconnect()
 
                 _uiState.value = _uiState.value.copy(

@@ -28,7 +28,7 @@ data class LoginUiState(
     val connectionStatus: ConnectionStatus = ConnectionStatus.Unknown,
     val isLoginSuccessful: Boolean = false,
     val isApiKeyVisible: Boolean = false,
-    val saveApiKeyForAutoLogin: Boolean = false
+    val saveDetailsForAutoLogin: Boolean = false
 )
 sealed class ConnectionStatus {
     object Unknown : ConnectionStatus()
@@ -105,16 +105,14 @@ class LoginScreenViewModel(
                 _uiState.update { it.copy(isApiKeyVisible = !it.isApiKeyVisible) }
             }
             is LoginEvent.UpdateSaveApiKey -> {
-                _uiState.update { it.copy(saveApiKeyForAutoLogin = event.enabled) }
+                _uiState.update { it.copy(saveDetailsForAutoLogin = event.enabled) }
             }
         }
     }
     private fun loadInitialAutoLoginState() {
         viewModelScope.launch {
-            // Get the saved preference
             val isAutoLoginEnabled = EncryptedPrefs.getUseAutoLogin(application)
-            // Update the UI state to reflect it
-            _uiState.update { it.copy(saveApiKeyForAutoLogin = isAutoLoginEnabled) }
+            _uiState.update { it.copy(saveDetailsForAutoLogin = isAutoLoginEnabled!!) }
         }
     }
 
@@ -143,19 +141,15 @@ class LoginScreenViewModel(
     private fun performLogin(context: Context) {
         val currentState = _uiState.value
 
-        // Check if manager is available
         if (manager == null) {
             ToastManager.showError("Connection not ready. Please check server configuration.")
             return
         }
 
-        // Check connection first
         if (currentState.connectionStatus !is ConnectionStatus.Connected) {
             ToastManager.showWarning("Not connected to server")
             return
         }
-
-        // Input validation
         when (currentState.loginMode) {
             LoginMode.PASSWORD -> {
                 if (currentState.username.isBlank() || currentState.password.isBlank()) {
@@ -195,13 +189,14 @@ class LoginScreenViewModel(
                 when (loginResult) {
                     is ApiResult.Success -> {
                         if (loginResult.data) {
-                            ToastManager.showInfo("Generating secure token...")
 
                             val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
-                                    savePasswordLoginCredentials(context, state.username, tokenResult.data)
-                                    ToastManager.showSuccess("Login successful!")
+                                    saveBaseInfo(context,tokenResult.data)
+                                    if (state.saveDetailsForAutoLogin){
+                                        saveDetailsForAutoLogin(context,"password",null,state.username,state.password)
+                                    }
                                     _uiState.update { it.copy(
                                         isLoading = false,
                                         isLoginSuccessful = true
@@ -253,8 +248,24 @@ class LoginScreenViewModel(
                 when (loginResult) {
                     is ApiResult.Success -> {
                         if (loginResult.data) {
-                            saveApiKeyLoginCredentials(context, state.apiKey)
-                            ToastManager.showSuccess("API key validated successfully!")
+                            val tokenResult = manager!!.auth.generateTokenWithResult()
+                            when (tokenResult) {
+                                is ApiResult.Success -> {
+                                    saveBaseInfo(context,tokenResult.data)
+                                    saveDetailsForAutoLogin(context,"api_key",state.apiKey,null,null)
+                                    _uiState.update { it.copy(
+                                        isLoading = false,
+                                        isLoginSuccessful = true
+                                    ) }
+                                }
+                                is ApiResult.Error -> {
+                                    _uiState.update { it.copy(isLoading = false) }
+                                    ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
+                                }
+                                is ApiResult.Loading -> {
+                                    _uiState.update { it.copy(isLoading = true) }
+                                }
+                            }
                             _uiState.update { it.copy(
                                 isLoading = false,
                                 isLoginSuccessful = true
@@ -286,16 +297,34 @@ class LoginScreenViewModel(
         }
     }
 
-    private suspend fun savePasswordLoginCredentials(context: Context, username: String, token: String) {
-        EncryptedPrefs.saveAuthToken(context, token)
-        EncryptedPrefs.saveIsLoggedIn(context, true)
-        EncryptedPrefs.saveLoginMethod(context, "password")
+    /**
+     * Token Storage and IsLoggedIn Status only
+     */
+    private suspend fun saveBaseInfo(context: Context,token: String){
+        EncryptedPrefs.saveAuthToken(context,token)
+        EncryptedPrefs.saveIsLoggedIn(context)
     }
 
-    private suspend fun saveApiKeyLoginCredentials(context: Context, apiKey: String) {
-        EncryptedPrefs.saveIsLoggedIn(context, true)
-        EncryptedPrefs.saveApiKey(context, apiKey)
-        EncryptedPrefs.saveLoginMethod(context, "api_key")
+    /**
+     * Saved details Storage
+     */
+    private suspend fun saveDetailsForAutoLogin(context: Context,method :String,apiKey: String? = null,username :String? = null,password: String? = null){
+        EncryptedPrefs.saveUseAutoLogin(context)
+        when (method){
+            "password" ->{
+                if (!username.isNullOrEmpty() && !password.isNullOrEmpty()){
+                    EncryptedPrefs.saveLoginMethod(context, "password")
+                    EncryptedPrefs.saveUsername(context,username)
+                    EncryptedPrefs.saveUserPass(context,password)
+                }
+            }
+            "api_key" ->{
+                if (!apiKey.isNullOrEmpty()){
+                    EncryptedPrefs.saveApiKey(context, apiKey)
+                    EncryptedPrefs.saveLoginMethod(context, "api_key")
+                }
+            }
+        }
     }
 }
 class LoginViewModelFactory(

@@ -1,10 +1,12 @@
 package com.example.truehub.ui.homepage
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Shares
 import com.example.truehub.ui.components.ToastManager
@@ -47,7 +49,8 @@ sealed class LoadAveragesState {
 }
 
 class HomeViewModel(
-    private val apiManager: TrueNASApiManager
+    private val apiManager: TrueNASApiManager,
+    private val applicationContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -68,6 +71,7 @@ class HomeViewModel(
     init {
         startConnectivityMonitoring()
         loadDashboardData()
+        loadUserData()
         startLoadAveragesMonitoring()
     }
 
@@ -332,6 +336,35 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Load user info for other uses later and to fill username in case of api login
+     */
+    fun loadUserData(){
+        viewModelScope.launch {
+            try {
+                val res = apiManager.auth.getUserDetailsWithResult()
+                when (res){
+                    is ApiResult.Error ->{
+                        ToastManager.showWarning("Failed to get user information")
+                    }
+                    ApiResult.Loading ->{
+                        /**
+                         * Nothing to show really since it is a background process
+                         */
+                    }
+                    is ApiResult.Success ->{
+                        EncryptedPrefs.saveUsername(applicationContext,res.data.pw_name.toString())
+                    }
+                }
+            }catch (_: Exception){
+                /**
+                 * Fail silently
+                 */
+                ToastManager.showWarning("Failed to get user information")
+            }
+        }
+    }
+
     fun loadPerformanceData(): Triple<List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?, List<System.ReportingGraphResponse>?> {
         var cpuData: List<System.ReportingGraphResponse>? = null
         var memoryData: List<System.ReportingGraphResponse>? = null
@@ -382,12 +415,13 @@ class HomeViewModel(
     }
 
     class HomeViewModelFactory(
-        private val apiManager: TrueNASApiManager
+        private val apiManager: TrueNASApiManager,
+        private val context: Context
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                return HomeViewModel(apiManager) as T
+                return HomeViewModel(apiManager,context) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

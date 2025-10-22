@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,7 +42,7 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit = {},
 ) {
     val viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.HomeViewModelFactory(manager)
+        factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
     )
     val uiState by viewModel.uiState.collectAsState()
     val loadAveragesState by viewModel.loadAverages.collectAsState()

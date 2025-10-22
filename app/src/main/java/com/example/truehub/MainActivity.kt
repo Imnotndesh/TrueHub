@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.truehub.data.ApiResult
 import com.example.truehub.data.TrueNASClient
+import com.example.truehub.data.api.AuthService
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.EncryptedPrefs
 import com.example.truehub.data.helpers.NetworkConnectivityObserver
@@ -210,48 +211,53 @@ class MainActivity : ComponentActivity() {
                 }
 
                 if (isValid) {
-                    /**
-                     * Clear previous token and generate new one
-                     */
-                    val result = withTimeoutOrNull(1000L){
+                    val result = withTimeoutOrNull(1000L) {
                         localManager.auth.generateTokenWithResult()
                     }
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
-                    EncryptedPrefs.saveAuthToken(this@MainActivity, (result as ApiResult.Success).data)
+                    EncryptedPrefs.saveAuthToken(
+                        this@MainActivity,
+                        (result as ApiResult.Success).data
+                    )
                     onStateChange(AppState.Ready(Screen.Main.route), localManager)
-                } else if (loginMethod == "api_key" ) {
+                } else {
                     EncryptedPrefs.clearAuthToken(this@MainActivity)
                     EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
-                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)
-                    var autoLoginSuccessful = false
+
+                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)?:false
 
                     if (autoLoginEnabled) {
                         onStateChange(AppState.AttemptingAutoLogin, localManager)
-                        autoLoginSuccessful = attemptAutoLogin(localManager)
-                    }
+                        val autoLoginSuccessful = attemptAutoLogin(localManager, loginMethod)
 
-                    if (autoLoginSuccessful) {
-                        onStateChange(AppState.Ready(Screen.Main.route), localManager)
+                        if (autoLoginSuccessful) {
+                            val result = withTimeoutOrNull(1000L) {
+                                localManager.auth.generateTokenWithResult()
+                            }
+                            EncryptedPrefs.clearAuthToken(this@MainActivity)
+                            EncryptedPrefs.saveAuthToken(
+                                this@MainActivity,
+                                (result as ApiResult.Success).data
+                            )
+                            EncryptedPrefs.saveIsLoggedIn(this@MainActivity)
+                            onStateChange(AppState.Ready(Screen.Main.route), localManager)
+                        } else {
+                            EncryptedPrefs.clearApiKey(this@MainActivity)
+                            onStateChange(
+                                AppState.Error(
+                                    "Auto login failed",
+                                    Screen.Login.route
+                                ), localManager
+                            )
+                        }
                     } else {
-                        EncryptedPrefs.clearAuthToken(this@MainActivity)
-                        EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
-                        EncryptedPrefs.clearApiKey(this@MainActivity)
                         onStateChange(
                             AppState.Error(
-                                "Auto Login Failed: Check API Key",
+                                "Session expired",
                                 Screen.Login.route
                             ), localManager
                         )
                     }
-                }else{
-                    EncryptedPrefs.clearAuthToken(this@MainActivity)
-                    EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
-                    onStateChange(
-                        AppState.Error(
-                            "Session Expired, Login Again",
-                            Screen.Login.route
-                        ), localManager
-                    )
                 }
 
             } catch (e: Exception) {
@@ -265,18 +271,34 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private suspend fun attemptAutoLogin(manager: TrueNASApiManager): Boolean {
+    private suspend fun attemptAutoLogin(manager: TrueNASApiManager, loginMethod: String?): Boolean {
         return try {
-            val tokenResult = withTimeoutOrNull(10000L){
-                manager.auth.generateTokenWithResult()
-            }
-            if (tokenResult is ApiResult.Success && tokenResult.data.isNotBlank()) {
-                val newToken = tokenResult.data
-                EncryptedPrefs.saveAuthToken(this, newToken)
-                EncryptedPrefs.saveIsLoggedIn(this, true)
-                true
-            } else {
-                false
+            when (loginMethod) {
+                "api_key" -> {
+                    val apiKey = EncryptedPrefs.getApiKey(this)
+                    if (apiKey != null){
+                        val loginResult = withTimeoutOrNull(10000L) {
+                            manager.auth.loginWithApiKeyWithResult(apiKey)
+                        }
+                        loginResult is ApiResult.Success && loginResult.data
+                    }else{
+                        false
+                    }
+                }
+                "password" -> {
+                    val username = EncryptedPrefs.getUsername(this)
+                    val password = EncryptedPrefs.getUserPass(this)
+
+                    if (username != null && password != null) {
+                        val loginResult = withTimeoutOrNull(10000L) {
+                            manager.auth.loginUserWithResult(AuthService.DefaultAuth(username,password))
+                        }
+                        loginResult is ApiResult.Success && loginResult.data
+                    } else {
+                        false
+                    }
+                }
+                else -> false
             }
         } catch (_: Exception) {
             false

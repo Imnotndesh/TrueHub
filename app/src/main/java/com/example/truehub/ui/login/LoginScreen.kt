@@ -77,7 +77,6 @@ import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Auth.LoginMode
 import com.example.truehub.data.models.Config
-import com.example.truehub.ui.Screen
 import com.example.truehub.ui.background.AnimatedWavyGradientBackground
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.setup.ServerConfigBottomSheet
@@ -156,10 +155,8 @@ fun LoginScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Main login UI or connection setup
         when {
             localManager != null -> {
-                // We have a manager - show normal login UI
                 LoginContent(
                     manager = localManager!!,
                     viewModel = viewModel,
@@ -169,13 +166,12 @@ fun LoginScreen(
                     onApiKeyChange = { newApikey -> viewModel.handleEvent(LoginEvent.UpdateApiKey(newApikey)) },
                     isApiKeyVisible = uiState.isApiKeyVisible,
                     onToggleVisibilityClick = { viewModel.handleEvent(LoginEvent.ToggleApiKeyVisibility) },
-                    saveForAutoLogin = uiState.saveApiKeyForAutoLogin,
+                    saveForAutoLogin = uiState.saveDetailsForAutoLogin,
                     onSaveForAutoLoginChange = {change -> viewModel.handleEvent(LoginEvent.UpdateSaveApiKey(change,application)) },
                     isLoading = uiState.isLoading,
                 )
             }
             savedUrl != null -> {
-                // We have a saved URL but manager is not initialized - show loading
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -197,7 +193,6 @@ fun LoginScreen(
             }
         }
     }
-        // Setup Bottom Sheet
         if (showSetupSheet) {
             ServerConfigBottomSheet(
                 onDismiss = {
@@ -311,15 +306,10 @@ private fun LoginContent(
                         modifier = Modifier.padding(bottom = 32.dp)
                     )
                 }
-
-                // Connection Status Indicator
                 ConnectionStatusCard(uiState.connectionStatus) {
                     viewModel.handleEvent(LoginEvent.CheckConnection)
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Login Method Selection
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -344,8 +334,6 @@ private fun LoginContent(
                         }
                     )
                 }
-
-                // Input Fields Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -357,7 +345,6 @@ private fun LoginContent(
                     ) {
                         when (uiState.loginMode) {
                             LoginMode.PASSWORD -> {
-                                // Username Field
                                 OutlinedTextField(
                                     value = uiState.username,
                                     onValueChange = {
@@ -378,8 +365,6 @@ private fun LoginContent(
                                     ),
                                     enabled = !uiState.isLoading
                                 )
-
-                                // Password Field
                                 OutlinedTextField(
                                     value = uiState.password,
                                     onValueChange = {
@@ -425,13 +410,30 @@ private fun LoginContent(
                                     ),
                                     enabled = !uiState.isLoading
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Save details for autologin?",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Switch(
+                                        checked = saveForAutoLogin,
+                                        onCheckedChange = onSaveForAutoLoginChange,
+                                        enabled = !isLoading
+                                    )
+                                }
                             }
 
                             LoginMode.API_KEY -> {
-                                // API Key Field
                                 OutlinedTextField(
                                     value = apiKey,
-                                    onValueChange = onApiKeyChange, // Use the callback
+                                    onValueChange = onApiKeyChange,
                                     label = { Text("Paste your TrueNAS API key here") },
                                     leadingIcon = {
                                         Icon(
@@ -440,7 +442,7 @@ private fun LoginContent(
                                         )
                                     },
                                     trailingIcon = {
-                                        IconButton(onClick = onToggleVisibilityClick) { // Use the callback
+                                        IconButton(onClick = onToggleVisibilityClick) {
                                             Icon(
                                                 imageVector = if (isApiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                                 contentDescription = if (isApiKeyVisible) "Hide API Key" else "Show API Key"
@@ -458,10 +460,7 @@ private fun LoginContent(
                                     maxLines = 4,
                                     enabled = !isLoading
                                 )
-
                                 Spacer(modifier = Modifier.height(2.dp))
-
-                                // Switch for auto-login
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
@@ -485,8 +484,6 @@ private fun LoginContent(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
-
-                // Login Button
                 Button(
                     onClick = {
                         viewModel.handleEvent(LoginEvent.Login(context))
@@ -520,8 +517,6 @@ private fun LoginContent(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Help Text
                 Text(
                     text = "Need help accessing your ${if (uiState.loginMode == LoginMode.PASSWORD) "account" else "API key"}?",
                     style = MaterialTheme.typography.bodyMedium,
@@ -743,10 +738,7 @@ private fun ServerConfigurationPrompt(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
-
             Spacer(modifier = Modifier.height(40.dp))
-
-            // Info Cards
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
@@ -786,10 +778,7 @@ private fun ServerConfigurationPrompt(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(32.dp))
-
-            // Configure Button with gradient background
             Button(
                 onClick = onConfigureClick,
                 modifier = Modifier
@@ -819,8 +808,6 @@ private fun ServerConfigurationPrompt(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Help text
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
