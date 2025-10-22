@@ -47,10 +47,10 @@ object EncryptedPrefs {
         }
     }
 
-    suspend fun saveIsLoggedIn(context: Context,isLoggedIn : Boolean){
+    suspend fun saveIsLoggedIn(context: Context){
         val isLoggedInPref = booleanPreferencesKey(IS_LOGGED_IN)
         context.dataStore.edit {
-            it[isLoggedInPref] = isLoggedIn
+            it[isLoggedInPref] = true
         }
     }
     suspend fun getIsLoggedIn(context: Context): Boolean{
