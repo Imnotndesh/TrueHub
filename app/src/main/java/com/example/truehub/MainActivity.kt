@@ -130,7 +130,14 @@ class MainActivity : ComponentActivity() {
                         NoInternetScreen(
                             message = "No internet connection.",
                             onRetry = {
-                                appState = AppState.Initializing
+                                lifecycleScope.launch {
+                                    initializeApp { state, newManager ->
+                                        appState = state
+                                        if (newManager != null) {
+                                            manager = newManager
+                                        }
+                                    }
+                                }
                             }
                         )
                     }
@@ -152,21 +159,17 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 onStateChange(AppState.Initializing, null)
+                val networkUtils = NetworkConnectivityObserver(this@MainActivity)
+                if (!networkUtils.isNetworkAvailable()) {
+                    onStateChange(AppState.NoInternet, null)
+                    return@launch
+                }
                 val (savedUrl, savedInsecure) = Prefs.load(this@MainActivity)
 
                 if (savedUrl == null) {
                     onStateChange(AppState.Ready(Screen.Login.route), null)
                     return@launch
                 }
-
-                onStateChange(AppState.CheckingConnection, null)
-
-                val networkUtils = NetworkConnectivityObserver(this@MainActivity)
-                if (!networkUtils.isNetworkAvailable()) {
-                    onStateChange(AppState.NoInternet,null)
-                    return@launch
-                }
-
                 // Initialize connection
                 val config = ClientConfig(
                     serverUrl = savedUrl,
