@@ -31,7 +31,6 @@ class ProfileViewModel(
             try {
                 val user = manager.auth.getUserDetailsWithResult()
                 val system = manager.system.getSystemInfoWithResult()
-                Log.e("ProfileViewModel", "User: $user, System: $system")
                 if (user is ApiResult.Success && system is ApiResult.Success) {
                     EncryptedPrefs.saveUsername(application, user.data.pw_name.toString())
                     _uiState.value = UiState.Success(user.data, system.data)

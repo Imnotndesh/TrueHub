@@ -17,6 +17,8 @@ private const val USERNAME_PREF = "username"
 private const val AUTH_TOKEN_PREF = "auth_token"
 private const val LOGIN_METHOD_PREF = "login_method"
 private const val AUTO_LOGIN_PREF = "auto_login"
+
+private const val PASSWORD_PREF = "passkey"
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name ="secure_preferences")
 object EncryptedPrefs {
     suspend fun saveApiKey(context: Context,apiKey : String){
@@ -112,7 +114,7 @@ object EncryptedPrefs {
     suspend fun revokeUseAutoLogin(context: Context){
         val autoLoginPref = booleanPreferencesKey(AUTO_LOGIN_PREF)
         context.dataStore.edit {
-            it[autoLoginPref] = true
+            it[autoLoginPref] = false
         }
     }
 
@@ -132,5 +134,23 @@ object EncryptedPrefs {
         context.dataStore.edit {
             it.remove(usernamePref)
         }
+    }
+
+    // Password storage functions
+    val passPref = stringPreferencesKey(PASSWORD_PREF)
+    suspend fun saveUserPass(context: Context,userPass : String){
+        context.dataStore.edit {
+            it[passPref] = userPass
+        }
+    }
+
+    suspend fun clearUserPass(context: Context){
+        context.dataStore.edit {
+            it.remove(passPref)
+        }
+    }
+
+    suspend fun getUserPass(context: Context):String?{
+        return context.dataStore.data.first()[passPref]
     }
 }
