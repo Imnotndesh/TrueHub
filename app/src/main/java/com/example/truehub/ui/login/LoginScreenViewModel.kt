@@ -189,11 +189,10 @@ class LoginScreenViewModel(
                 when (loginResult) {
                     is ApiResult.Success -> {
                         if (loginResult.data) {
-
                             val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
-                                    saveBaseInfo(context,tokenResult.data)
+                                    saveBaseInfo(context,tokenResult.data,"password")
                                     if (state.saveDetailsForAutoLogin){
                                         saveDetailsForAutoLogin(context,"password",null,state.username,state.password)
                                     }
@@ -251,7 +250,7 @@ class LoginScreenViewModel(
                             val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
-                                    saveBaseInfo(context,tokenResult.data)
+                                    saveBaseInfo(context,tokenResult.data,"api_key")
                                     saveDetailsForAutoLogin(context,"api_key",state.apiKey,null,null)
                                     _uiState.update { it.copy(
                                         isLoading = false,
@@ -300,9 +299,10 @@ class LoginScreenViewModel(
     /**
      * Token Storage and IsLoggedIn Status only
      */
-    private suspend fun saveBaseInfo(context: Context,token: String){
+    private suspend fun saveBaseInfo(context: Context,token: String,method: String){
         EncryptedPrefs.saveAuthToken(context,token)
         EncryptedPrefs.saveIsLoggedIn(context)
+        EncryptedPrefs.saveLoginMethod(context,method)
     }
 
     /**
@@ -313,7 +313,6 @@ class LoginScreenViewModel(
         when (method){
             "password" ->{
                 if (!username.isNullOrEmpty() && !password.isNullOrEmpty()){
-                    EncryptedPrefs.saveLoginMethod(context, "password")
                     EncryptedPrefs.saveUsername(context,username)
                     EncryptedPrefs.saveUserPass(context,password)
                 }
@@ -321,7 +320,6 @@ class LoginScreenViewModel(
             "api_key" ->{
                 if (!apiKey.isNullOrEmpty()){
                     EncryptedPrefs.saveApiKey(context, apiKey)
-                    EncryptedPrefs.saveLoginMethod(context, "api_key")
                 }
             }
         }
