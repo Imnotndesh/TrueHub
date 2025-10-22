@@ -142,6 +142,7 @@ class SettingsScreenViewModel(
             try {
                 EncryptedPrefs.clearAuthToken(application)
                 EncryptedPrefs.clearIsLoggedIn(application)
+                EncryptedPrefs.revokeUseAutoLogin(application)
                 if (EncryptedPrefs.getUseAutoLogin(application)?: false){
                     when (EncryptedPrefs.getLoginMethod(application)){
                         "api_key" -> {
