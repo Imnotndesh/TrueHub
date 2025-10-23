@@ -22,10 +22,6 @@ class AppsService(val manager: TrueNASApiManager) {
         )
     }
 
-    suspend fun startApp(appName: String) {
-
-    }
-
     // Start an app
     suspend fun startAppWithResult(appName: String): ApiResult<Any> {
         return manager.callWithResult<Any>(

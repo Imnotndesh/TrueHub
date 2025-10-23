@@ -15,17 +15,15 @@ class TrueNASApiManager(
     private val client: TrueNASClient,
     private val context: Context // Use ApplicationContext here
 ) {
-    // These helpers are private to the manager.
     private val connectivityObserver = NetworkConnectivityObserver(context)
     private val encryptedPrefs = EncryptedPrefs
 
-    // --- SERVICE INITIALIZATION (Simple constructors) ---
     val auth: AuthService by lazy { AuthService(this) }
     val system: SystemService by lazy { SystemService(this) }
-    val vmService: VmService by lazy { VmService(client) }
+    val vmService: VmService by lazy { VmService(this) }
     val apps: AppsService by lazy { AppsService(this) }
-    val virtService: VirtService by lazy { VirtService(client) }
-    val sharing: SharingService by lazy { SharingService(client) }
+    val virtService: VirtService by lazy { VirtService(this) }
+    val sharing: SharingService by lazy { SharingService(this) }
     val connection : ConnectionService by lazy { ConnectionService(this) }
     val user : UserService by lazy { UserService(client) }
 
