@@ -133,7 +133,6 @@ class SystemService(val manager: TrueNASApiManager){
 
     /**
      * List all alert policies from server
-     * @see listAlertPolicies
      * @return ArrayOf(String)
      * @param none
      */
@@ -148,7 +147,6 @@ class SystemService(val manager: TrueNASApiManager){
     /**
      * Restore alerts based on their `uuid`
      * @param uuid
-     * @see restoreAlert
      * @see ApiMethods.System.RESTORE_ALERTS
      * @return null
      */

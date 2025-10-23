@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
                     insecure = savedInsecure,
                     connectionTimeoutMs = 10000,
                     enablePing = false,
-                    enableDebugLogging = true
+                    enableDebugLogging = false
                 )
 
                 val localTrueNasClient = TrueNASClient(config)

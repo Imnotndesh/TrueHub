@@ -343,7 +343,7 @@ object System {
     data class AlertCategoriesResponse(
         val id : String,
         val title : String,
-        val classes : AlertCategoriesClasses,
+        val classes : List<AlertCategoriesClasses>,
     )
     @JsonClass(generateAdapter = true)
     @Suppress("PropertyName")

@@ -76,7 +76,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     super.onMessage(webSocket, text)
-                    Log.e("TrueNASClient", "Received message: $text")
+                    logDebug("Received message: $text")
                     handleMessage(text)
                 }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
@@ -222,7 +222,7 @@ class TrueNASClient(private val config: ClientConfig) {
             val result = call<T>(method, params, resultType)
             ApiResult.Success(result)
         } catch (e: Exception) {
-            logError("API call failed: $method", e)
+            logDebug("API call failed: $method -> $e")
             ApiResult.Error(e.message ?: "Unknown error", e)
         } finally {
             _isLoading.value = false
@@ -270,6 +270,5 @@ class TrueNASClient(private val config: ClientConfig) {
     }
 
     // Check connection status
-    fun isConnected(): Boolean = _connectionState.value is ConnectionState.Connected
     fun getCurrentConnectionState(): ConnectionState = _connectionState.value
 }
