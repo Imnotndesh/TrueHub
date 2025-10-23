@@ -210,7 +210,7 @@ class HomeViewModel(
 
                 if (systemInfoResult !is ApiResult.Success) {
                     _uiState.value = HomeUiState.Error("Failed to load system information")
-                    ToastManager.showError("Unable to connect to TrueNAS system")
+
                     _isConnected.value = false
                     return@launch
                 }
@@ -300,7 +300,7 @@ class HomeViewModel(
                     message = e.message ?: "Unknown error occurred",
                     canRetry = true
                 )
-                ToastManager.showError("Failed to load dashboard: ${e.message}")
+
                 _isConnected.value = false
             }
         }
@@ -317,14 +317,14 @@ class HomeViewModel(
                         ToastManager.showSuccess("System shutdown initiated successfully")
                     }
                     is ApiResult.Error -> {
-                        ToastManager.showError("Failed to shutdown system: ${result.message}")
+
                     }
                     ApiResult.Loading -> {
                         ToastManager.showInfo("Initiating system shutdown...")
                     }
                 }
             } catch (e: Exception) {
-                ToastManager.showError("Shutdown failed: ${e.message}")
+
             }
         }
     }
@@ -404,8 +404,8 @@ class HomeViewModel(
                 memoryData = if (memoryResult is ApiResult.Success) memoryResult.data else null
                 temperatureData = if (tempResult is ApiResult.Success) tempResult.data else null
 
-            } catch (e: Exception) {
-                ToastManager.showError("Failed to load performance data: ${e.message}")
+            } catch (_: Exception) {
+
             } finally {
                 _performanceDataLoading.value = false
             }
