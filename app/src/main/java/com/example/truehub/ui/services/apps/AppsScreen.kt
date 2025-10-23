@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
@@ -69,6 +71,7 @@ import com.example.truehub.data.models.Apps
 import com.example.truehub.data.models.System
 import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.components.UnifiedScreenHeader
 import com.example.truehub.ui.services.containers.ContainersScreen
 import com.example.truehub.ui.services.apps.details.AppInfoDialog
 import com.example.truehub.ui.services.apps.details.RollbackVersionDialog
@@ -84,7 +87,6 @@ fun AppsScreen(manager: TrueNASApiManager) {
     )
     // Tracked App States
     val uiState by appsScreenViewModel.uiState.collectAsState()
-    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
     var showRollbackDialog by remember { mutableStateOf<String?>(null) }
 
@@ -122,137 +124,37 @@ fun AppsScreen(manager: TrueNASApiManager) {
             }
         )
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
+    Column{
+        UnifiedScreenHeader(
+            title = "Applications",
+            subtitle = "${uiState.apps.size} Applications",
+            isLoading = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
+            error = uiState.error,
+            onRefresh = { appsScreenViewModel.refresh() },
+            onDismissError = { appsScreenViewModel.clearError() },
+            manager = manager
+        )
+        when {
+            uiState.isLoading -> {
+                LoadingScreen("Loading Apps")
+            }
+            uiState.apps.isEmpty() && !uiState.isLoading -> {
+                EmptyContent()
+            }
+            else -> {
+                AppsContent(
+                    apps = uiState.apps,
+                    onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
+                    loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                    onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
+                    onShowUpgradeSummary = { appName ->
+                        appForUpgradeSummary = appName
+                        appsScreenViewModel.loadUpgradeSummary(appName)
+                    },
+                    upgradeJobs = uiState.upgradeJobs,
+                    onShowRollbackDialog = { appName -> showRollbackDialog = appName }
                 )
-            )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            // Header Section
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Applications",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${uiState.apps.size} Applications",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Actions button
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Alerts Bell Button
-                    AlertsBellButton(manager = manager)
-
-                    // Refresh Button
-                    IconButton(
-                        onClick = { appsScreenViewModel.refresh() },
-                        enabled = !uiState.isLoading && !uiState.isRefreshing
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // Error Message
-            if (uiState.error != null) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = uiState.error!!,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = { appsScreenViewModel.clearError() }
-                        ) {
-                            Text("Dismiss")
-                        }
-                    }
-                }
-            }
-
-            // Content based on selected tab
-            when (selectedTabIndex) {
-                0 -> {
-                    // Apps Tab
-                    when {
-                        uiState.isLoading -> {
-                            LoadingScreen("Loading Apps")
-                        }
-                        uiState.apps.isEmpty() && !uiState.isLoading -> {
-                            EmptyContent()
-                        }
-                        else -> {
-                            AppsContent(
-                                apps = uiState.apps,
-                                isRefreshing = uiState.isRefreshing,
-                                onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
-                                loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                                onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
-                                onShowUpgradeSummary = { appName ->
-                                    appForUpgradeSummary = appName
-                                    appsScreenViewModel.loadUpgradeSummary(appName)
-                                },
-                                upgradeJobs = uiState.upgradeJobs,
-                                onShowRollbackDialog = { appName -> showRollbackDialog = appName }
-                            )
-                        }
-                    }
-                }
-                1 -> {
-                    ContainersScreen(manager)
-                }
-                2 -> {
-                    VmsScreen(manager)
-                }
             }
         }
     }
@@ -288,7 +190,6 @@ private fun EmptyContent() {
 @Composable
 private fun AppsContent(
     apps: List<Apps.AppQueryResponse>,
-    isRefreshing: Boolean,
     loadingSummaryForApp: String?,
     onStartApp: (String) -> Unit,
     onStopApp: (String) -> Unit,
@@ -298,21 +199,10 @@ private fun AppsContent(
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 8.dp)
+        modifier = Modifier
+            .fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        if (isRefreshing) {
-            item {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-        }
-
         items(apps) { app ->
             ServiceCard(
                 app = app,

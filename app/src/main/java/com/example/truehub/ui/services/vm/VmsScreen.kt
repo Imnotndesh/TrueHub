@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
@@ -68,6 +70,7 @@ import com.example.truehub.data.models.System
 import com.example.truehub.data.models.Vm
 import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.components.UnifiedScreenHeader
 import com.example.truehub.ui.services.vm.details.VmInfoBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,8 +86,9 @@ fun VmsScreen(
     }
     val uiState by viewModel.uiState.collectAsState()
     Column {
-        VmsScreenHeader(
-            containerCount = uiState.vms.size,
+        UnifiedScreenHeader(
+            title = "Virtual Machines",
+            subtitle = "${uiState.vms.size} VMs",
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
             error = uiState.error,
@@ -117,100 +121,6 @@ fun VmsScreen(
         }
     }
 }
-@Composable
-private fun VmsScreenHeader(
-    containerCount: Int,
-    isLoading: Boolean,
-    isRefreshing: Boolean,
-    error: String?,
-    onRefresh: () -> Unit,
-    onDismissError: () -> Unit,
-    manager: TrueNASApiManager
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        // Header Section - ALWAYS VISIBLE
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Virtual Machines",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "$containerCount VMs",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AlertsBellButton(manager = manager)
-
-                IconButton(
-                    onClick = onRefresh,
-                    enabled = !isLoading && !isRefreshing
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        // Error Message (if any)
-        error?.let {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Error,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(
-                        onClick = onDismissError
-                    ) {
-                        Text("Dismiss")
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun EmptyVmContent() {
     Column(
@@ -253,7 +163,8 @@ private fun VmsContent(
 ) {
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)    ) {
         if (isRefreshing) {
             item {
