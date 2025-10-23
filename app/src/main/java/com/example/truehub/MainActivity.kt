@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
                             val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
 
                             if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
-                                mgr.connection.pingConnection()
+                                mgr.connection.pingConnectionWithResult()
                             }
                         } catch (_: Exception) {
                             // Connection lost - this is normal if not authenticated
@@ -182,7 +182,7 @@ class MainActivity : ComponentActivity() {
                 )
 
                 val localTrueNasClient = TrueNASClient(config)
-                val localManager = TrueNASApiManager(localTrueNasClient)
+                val localManager = TrueNASApiManager(localTrueNasClient,this@MainActivity)
 
                 val connectionResult = try {
                     localManager.connect()

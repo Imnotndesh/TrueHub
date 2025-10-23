@@ -173,7 +173,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
-                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
                             when (jobResult) {
                                 is ApiResult.Success -> {
                                     val job = jobResult.data
@@ -358,7 +358,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
-                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
                             when (jobResult) {
                                 is ApiResult.Success -> {
                                     val job = jobResult.data

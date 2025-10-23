@@ -7,6 +7,7 @@ import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.api.TrueNASApiManager
 import com.example.truehub.data.helpers.Prefs
 import com.example.truehub.data.models.Config.ClientConfig
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -92,7 +93,7 @@ class SetupScreenViewModel : ViewModel() {
                     )
 
                     val client = TrueNASClient(config)
-                    tempApiManager = TrueNASApiManager(client)
+                    tempApiManager = TrueNASApiManager(client,context)
 
                     // Test connection
                     tempApiManager?.connect()
@@ -145,7 +146,9 @@ class SetupScreenViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        tempApiManager?.disconnect()
+        viewModelScope.launch {
+            tempApiManager?.disconnect()
+        }
         tempApiManager = null
     }
 }

@@ -8,97 +8,54 @@ import com.example.truehub.data.api.ApiMethods.System.GET_POOL_DETAILS
 import com.example.truehub.data.models.System
 import com.squareup.moshi.Types
 
-class SystemService(client: TrueNASClient): BaseApiService(client) {
-    suspend fun getSystemInfo(): System.SystemInfo {
-        return client.call(
+class SystemService(val manager: TrueNASApiManager){
+    suspend fun getSystemInfoWithResult(): ApiResult<System.SystemInfo> {
+        return manager.callWithResult(
             method = ApiMethods.System.SYSTEM_INFO,
             params = listOf(),
             resultType = System.SystemInfo::class.java
         )
     }
-    suspend fun getSystemInfoWithResult(): ApiResult<System.SystemInfo> {
-        return try {
-            val result = getSystemInfo()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get system info: ${e.message}", e)
-        }
-    }
     // Shutdown Call
-    suspend fun shutdownSystem(reason:String){
-        client.call<Any?>(
+    suspend fun shutdownSystemWithResult(reason: String): ApiResult<Any>{
+        return manager.callWithResult(
             method = ApiMethods.System.SHUTDOWN,
             params = listOf(reason),
             resultType = Any::class.java
         )
     }
-    suspend fun shutdownSystemWithResult(reason: String): ApiResult<Any>{
-        return try {
-            val result = shutdownSystem(reason)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to shutdown system: ${e.message}", e)
-        }
-    }
     // Getting Disk Details
-    suspend fun getPools(): List<System.Pool> {
-        return client.call(
+    suspend fun getPoolsWithResult(): ApiResult<List<System.Pool>> {
+        return manager.callWithResult(
             method = GET_POOL_DETAILS,
             params = listOf(),
             resultType = Types.newParameterizedType(List::class.java, System.Pool::class.java)
         )
     }
 
-    suspend fun getPoolsWithResult(): ApiResult<List<System.Pool>> {
-        return try {
-            val result = getPools()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get pools: ${e.message}", e)
-        }
-    }
-
-    suspend fun getDisks(): List<System.DiskDetails> {
-        return client.call(
+    // Get Disk Info
+    suspend fun getDisksWithResult(): ApiResult<List<System.DiskDetails>> {
+        return manager.callWithResult(
             method = ApiMethods.System.GET_DISK_DETAILS,
             params = listOf(),
             resultType = Types.newParameterizedType(List::class.java, System.DiskDetails::class.java)
         )
     }
 
-    suspend fun getDisksWithResult(): ApiResult<List<System.DiskDetails>> {
-        return try {
-            val result = getDisks()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get disks: ${e.message}", e)
-        }
-    }
-
-    // Get all possible results
-    suspend fun getPossibleGraphs(): System.GraphResult{
-        return client.call(
+    // Get all possible graph types
+    suspend fun getPossibleGraphsWithResult(): ApiResult<System.GraphResult>{
+        return manager.callWithResult(
             method = ApiMethods.System.GET_GRAPHS,
             params = listOf(),
             resultType = System.GraphResult::class.java
         )
     }
 
-    suspend fun getPossibleGraphsWithResult(): ApiResult<System.GraphResult>{
-        return try {
-            val result = getPossibleGraphs()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get possible graphs: ${e.message}", e)
-        }
-    }
-
-    // Actual reporting data
-    suspend fun getReportingData(
+    // Get actual graph reporting data
+    suspend fun getReportingDataWithResult(
         graphs: List<System.ReportingGraphRequest>,
-        query: System.ReportingGraphQuery? = null
-    ): List<System.ReportingGraphResponse> {
-        return client.call(
+        query: System.ReportingGraphQuery? = null): ApiResult<List<System.ReportingGraphResponse>> {
+        return manager.callWithResult(
             method = GET_GRAPH_DATA,
             params = listOf(graphs, query),
             resultType = Types.newParameterizedType(
@@ -107,69 +64,41 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
             )
         )
     }
-    suspend fun getReportingDataWithResult(
-        graphs: List<System.ReportingGraphRequest>,
-        query: System.ReportingGraphQuery? = null): ApiResult<List<System.ReportingGraphResponse>> {
-        return try {
-            val result = getReportingData(graphs, query)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get reporting data: ${e.message}", e)
-        }
-    }
-    suspend fun getJobInfo(jobId: Int): System.Job {
-        val filters = listOf(
-            listOf("id", "=", jobId)
-        )
-        val jobs = client.call<Array<System.Job>>(
+
+    // Get latest job info
+    suspend fun getJobInfoJobWithResult(jobId: Int): ApiResult<System.Job> {
+        val filters = listOf(listOf("id", "=", jobId))
+        val arrayResult = manager.callWithResult<Array<System.Job>>(
             method = ApiMethods.System.GET_JOB_STATUS,
             params = listOf(filters),
             resultType = Array<System.Job>::class.java
         )
-        return jobs.first()
-    }
-
-    suspend fun getJobInfoJobWithResult(jobId: Int): ApiResult<System.Job> {
-        return try {
-            val result = getJobInfo(jobId)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            Log.e("TrueNAS-API", "Cannot fetch Job Info: ${e.message}", e)
-            ApiResult.Error("Cannot fetch Job Info: ${e.message}", e)
+        return when (arrayResult) {
+            is ApiResult.Success -> {
+                val job = arrayResult.data.firstOrNull()
+                if (job != null) {
+                    ApiResult.Success(job)
+                } else {
+                    ApiResult.Error("Job with ID $jobId not found.")
+                }
+            }
+            is ApiResult.Error -> {
+                arrayResult
+            }
+            is ApiResult.Loading -> {
+                arrayResult
+            }
         }
     }
+
 
 
     // Alerts Info
-    suspend fun dismissAlert(uuid: String){
-        return client.call(
+    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Any>{
+        return manager.callWithResult(
             method = ApiMethods.System.DISMISS_ALERT,
             params = listOf(uuid),
             resultType = Any::class.java
-        )
-    }
-
-    /**
-     * Modelled after method:
-     * @param uuid
-     * @see dismissAlert
-     * @return null
-     */
-    suspend fun dismissAlertWithResult(uuid: String): ApiResult<Any>{
-        return try {
-            val res = dismissAlert(uuid)
-            ApiResult.Success(res)
-        }catch (e : Exception){
-            ApiResult.Error("Cannot dismiss alert with error: ${e.message}",e)
-        }
-    }
-
-    suspend fun listAlerts():List<System.AlertResponse>{
-        val type = Types.newParameterizedType(List::class.java, System.AlertResponse::class.java)
-        return client.call(
-            method = ApiMethods.System.LIST_ALERTS,
-            params = listOf(),
-            resultType = type
         )
     }
 
@@ -179,18 +108,9 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @see ApiMethods.System.LIST_ALERTS
      */
     suspend fun listAlertsWithResult(): ApiResult<List<System.AlertResponse>>{
-        return try{
-            val result = listAlerts()
-            ApiResult.Success(result)
-        }catch (e: Exception){
-            ApiResult.Error("Cannot fetch alerts: ${e.message}",e)
-        }
-    }
-
-    suspend fun listCategories():List<System.AlertCategoriesResponse>{
-        val type = Types.newParameterizedType(List::class.java, System.AlertCategoriesResponse::class.java)
-        return client.call(
-            method = ApiMethods.System.LIST_CATEGORIES,
+        val type = Types.newParameterizedType(List::class.java, System.AlertResponse::class.java)
+        return manager.callWithResult(
+            method = ApiMethods.System.LIST_ALERTS,
             params = listOf(),
             resultType = type
         )
@@ -203,18 +123,9 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      */
 
     suspend fun listCategoriesWithResult(): ApiResult<List<System.AlertCategoriesResponse>>{
-        return try {
-            val result = listCategories()
-            ApiResult.Success(result)
-        }catch (e : Exception){
-            ApiResult.Error("Cannot fetch categories : ${e.message}",e)
-        }
-    }
-
-    suspend fun listAlertPolicies(): List<String>{
-        val type  = Types.newParameterizedType(List::class.java,String::class.java)
-        return client.call(
-            method = ApiMethods.System.LIST_POLICIES,
+        val type = Types.newParameterizedType(List::class.java, System.AlertCategoriesResponse::class.java)
+        return manager.callWithResult(
+            method = ApiMethods.System.LIST_CATEGORIES,
             params = listOf(),
             resultType = type
         )
@@ -227,22 +138,13 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @param none
      */
     suspend fun listAlertPoliciesWithResult(): ApiResult<List<String>>{
-        return try{
-            val result = listAlertPolicies()
-            ApiResult.Success(result)
-        }catch (e : Exception){
-            ApiResult.Error("Cannot fetch alert policies : ${e.message}",e)
-        }
-    }
-
-    suspend fun restoreAlert(uuid :String){
-        return client.call(
-            method = ApiMethods.System.RESTORE_ALERTS,
-            params = listOf(uuid),
-            resultType = Any::class.java
+        val type  = Types.newParameterizedType(List::class.java,String::class.java)
+        return manager.callWithResult(
+            method = ApiMethods.System.LIST_POLICIES,
+            params = listOf(),
+            resultType = type
         )
     }
-
     /**
      * Restore alerts based on their `uuid`
      * @param uuid
@@ -251,11 +153,10 @@ class SystemService(client: TrueNASClient): BaseApiService(client) {
      * @return null
      */
     suspend fun restoreAlertWithResult(uuid:String): ApiResult<Any>{
-        return try {
-            val response = restoreAlert(uuid)
-            ApiResult.Success(response)
-        }catch (e : Exception){
-            ApiResult.Error("Cannot Restore Alert : ${e.message}",e)
-        }
+        return manager.callWithResult(
+            method = ApiMethods.System.RESTORE_ALERTS,
+            params = listOf(uuid),
+            resultType = Any::class.java
+        )
     }
 }
