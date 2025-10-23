@@ -28,6 +28,7 @@ import com.example.truehub.data.models.Shares
 import com.example.truehub.ui.alerts.AlertsBellButton
 import com.example.truehub.ui.background.WavyGradientBackground
 import com.example.truehub.ui.components.LoadingScreen
+import com.example.truehub.ui.components.UnifiedScreenHeader
 import com.example.truehub.ui.homepage.details.DiskInfoBottomSheet
 import com.example.truehub.ui.homepage.details.MetricType
 import com.example.truehub.ui.homepage.details.PerformanceBottomSheet
@@ -44,9 +45,12 @@ fun HomeScreen(
     val viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
     )
+
+    // Remember states
     val uiState by viewModel.uiState.collectAsState()
     val loadAveragesState by viewModel.loadAverages.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
+    var showShutdownDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -61,13 +65,17 @@ fun HomeScreen(
             )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header is always visible
-            HeaderSection(
-                manager = manager,
-                onRefresh = { viewModel.refresh() },
-                onShutdown = { viewModel.shutdownSystem(it) },
+            UnifiedScreenHeader(
+                title = "Dashboard",
+                subtitle = "Welcome back",
+                isLoading = uiState is HomeUiState.Loading ,
                 isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
-                onNavigateToSettings = onNavigateToSettings
+                error = null,
+                onRefresh = { viewModel.refresh() },
+                onDismissError = { viewModel.refresh() },
+                manager = manager,
+                onNavigateToSettings = onNavigateToSettings,
+                onShutdownInvoke = {showShutdownDialog = true}
             )
 
             when (val state = uiState) {
@@ -91,103 +99,10 @@ fun HomeScreen(
             }
         }
     }
-}
-
-@Composable
-private fun HeaderSection(
-    onRefresh: () -> Unit,
-    onNavigateToSettings : () -> Unit,
-    onShutdown: (String) -> Unit,
-    manager : TrueNASApiManager,
-    isRefreshing: Boolean
-) {
-    var showShutdownDialog by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Dashboard",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Welcome back",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    // Connection status indicator
-                }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                AlertsBellButton(manager = manager)
-                // Refresh Button
-                IconButton(
-                    onClick = onRefresh,
-                    enabled = !isRefreshing
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                IconButton(
-                    onClick = onNavigateToSettings
-                ){
-                    Icon(
-                        imageVector = Icons.Filled.Settings,
-                        contentDescription = "Settings",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-
-                // Power Menu
-                IconButton(
-                    onClick = { showShutdownDialog = true }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = "Power",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-        }
-
-        // Refresh Progress Indicator
-        if (isRefreshing) {
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-    }
-
-    // Shutdown Dialog
     if (showShutdownDialog) {
         ShutdownDialog(
             onConfirm = { reason ->
-                onShutdown(reason)
+                viewModel.shutdownSystem(reason)
                 showShutdownDialog = false
             },
             onDismiss = { showShutdownDialog = false }
@@ -290,15 +205,11 @@ private fun HomeContent(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // System Overview Card
         SystemOverviewCard(
             isConnectedStatus = isConnectedStatus,
             systemInfo = state.systemInfo,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-
-        // Load Averages Section
-        // Replace the LoadAveragesGrid call (around line 100) with:
         LoadAveragesGrid(
             loadAveragesState = loadAveragesState,
             modifier = Modifier.padding(bottom = 16.dp),
