@@ -47,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -92,31 +93,35 @@ fun VmsScreen(
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
             error = uiState.error,
-            onRefresh = { viewModel.loadVms() },
+            onRefresh = { viewModel.refresh() },
             onDismissError = { viewModel.clearError() },
             manager = manager
         )
-        // Content based on state
-        when {
-            uiState.isLoading -> {
-                LoadingScreen("Loading Virtual Machines")
-            }
-            uiState.vms.isEmpty() && !uiState.isLoading -> {
-                EmptyVmContent()
-            }
-            else -> {
-                VmsContent(
-                    vms = uiState.vms,
-                    isRefreshing = uiState.isRefreshing,
-                    onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
-                    onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
-                    onRestartVm = { id -> viewModel.restartVm(id) },
-                    onSuspendVm = { id -> viewModel.suspendVm(id) },
-                    onResumeVm = { id -> viewModel.resumeVm(id) },
-                    onPowerOffVm = { id -> viewModel.powerOffVm(id) },
-                    onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
-                    operationJob = uiState.operationJobs
-                )
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = {viewModel.refresh()}
+        ) {
+            when {
+                uiState.isLoading -> {
+                    LoadingScreen("Loading Virtual Machines")
+                }
+                uiState.vms.isEmpty() && !uiState.isLoading -> {
+                    EmptyVmContent()
+                }
+                else -> {
+                    VmsContent(
+                        vms = uiState.vms,
+                        isRefreshing = uiState.isRefreshing,
+                        onStartVm = { id,overcommit -> viewModel.startVm(id,overcommit) },
+                        onStopVm = { id,force,timeout -> viewModel.stopVm(id, force,timeout) },
+                        onRestartVm = { id -> viewModel.restartVm(id) },
+                        onSuspendVm = { id -> viewModel.suspendVm(id) },
+                        onResumeVm = { id -> viewModel.resumeVm(id) },
+                        onPowerOffVm = { id -> viewModel.powerOffVm(id) },
+                        onDeleteVm = { id,deleteZvols,forceDelete -> viewModel.deleteVm(id,deleteZvols,forceDelete) },
+                        operationJob = uiState.operationJobs
+                    )
+                }
             }
         }
     }
