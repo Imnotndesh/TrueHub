@@ -1,5 +1,9 @@
 package com.example.truehub.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
@@ -60,7 +64,31 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
         NavHost(
             navController,
             startDestination = Screen.Home.route,
-            Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(300)
+                )
+            }
         ) {
 
             /**

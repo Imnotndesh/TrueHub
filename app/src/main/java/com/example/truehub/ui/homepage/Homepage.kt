@@ -8,11 +8,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -50,33 +52,27 @@ fun HomeScreen(
     val loadAveragesState by viewModel.loadAverages.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
     var showShutdownDialog by remember { mutableStateOf(false) }
+    val isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false
+    val pullRefreshState = rememberPullToRefreshState()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            UnifiedScreenHeader(
-                title = "Dashboard",
-                subtitle = "Welcome back",
-                isLoading = uiState is HomeUiState.Loading ,
-                isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
-                error = null,
-                onRefresh = { viewModel.refresh() },
-                onDismissError = { viewModel.refresh() },
-                manager = manager,
-                onNavigateToSettings = onNavigateToSettings,
-                onShutdownInvoke = {showShutdownDialog = true}
-            )
-
+    Column(modifier = Modifier.fillMaxSize()) {
+        UnifiedScreenHeader(
+            title = "Dashboard",
+            subtitle = "Welcome back",
+            isLoading = uiState is HomeUiState.Loading ,
+            isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
+            error = null,
+            onRefresh = { viewModel.refresh() },
+            onDismissError = { viewModel.refresh() },
+            manager = manager,
+            onNavigateToSettings = onNavigateToSettings,
+            onShutdownInvoke = {showShutdownDialog = true}
+        )
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {viewModel.refresh()}
+        )
+        {
             when (val state = uiState) {
                 is HomeUiState.Loading -> {
                     LoadingScreen("Loading Homescreen")
@@ -97,6 +93,7 @@ fun HomeScreen(
                 )
             }
         }
+
     }
     if (showShutdownDialog) {
         ShutdownDialog(
@@ -295,17 +292,17 @@ private fun SystemOverviewCard(
     systemInfo: System.SystemInfo,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
-    ) {
-        WavyGradientBackground {
+    WavyGradientBackground {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -380,6 +377,7 @@ private fun SystemOverviewCard(
                     }
                 }
             }
+
         }
     }
 }

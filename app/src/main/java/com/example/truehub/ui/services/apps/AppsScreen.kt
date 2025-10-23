@@ -46,6 +46,7 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -135,26 +136,32 @@ fun AppsScreen(manager: TrueNASApiManager) {
             onDismissError = { appsScreenViewModel.clearError() },
             manager = manager
         )
-        when {
-            uiState.apps.isEmpty() && uiState.isLoading -> {
-                LoadingScreen("Loading Apps")
-            }
-            uiState.apps.isEmpty() && !uiState.isLoading -> {
-                EmptyContent()
-            }
-            else -> {
-                AppsContent(
-                    apps = uiState.apps,
-                    onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
-                    loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                    onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
-                    onShowUpgradeSummary = { appName ->
-                        appForUpgradeSummary = appName
-                        appsScreenViewModel.loadUpgradeSummary(appName)
-                    },
-                    upgradeJobs = uiState.upgradeJobs,
-                    onShowRollbackDialog = { appName -> showRollbackDialog = appName }
-                )
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { appsScreenViewModel.refresh() }
+
+        ) {
+            when {
+                uiState.apps.isEmpty() && uiState.isLoading -> {
+                    LoadingScreen("Loading Apps")
+                }
+                uiState.apps.isEmpty() && !uiState.isLoading -> {
+                    EmptyContent()
+                }
+                else -> {
+                    AppsContent(
+                        apps = uiState.apps,
+                        onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
+                        loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                        onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
+                        onShowUpgradeSummary = { appName ->
+                            appForUpgradeSummary = appName
+                            appsScreenViewModel.loadUpgradeSummary(appName)
+                        },
+                        upgradeJobs = uiState.upgradeJobs,
+                        onShowRollbackDialog = { appName -> showRollbackDialog = appName }
+                    )
+                }
             }
         }
     }

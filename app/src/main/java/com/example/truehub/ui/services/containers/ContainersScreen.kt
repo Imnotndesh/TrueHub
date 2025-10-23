@@ -43,6 +43,7 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -91,23 +92,28 @@ fun ContainersScreen(
             onDismissError = { viewModel.clearError() },
             manager = manager
         )
-        when {
-            uiState.isLoading -> {
-                LoadingScreen("Loading Containers")
-            }
-            uiState.containers.isEmpty() && !uiState.isLoading -> {
-                EmptyContainerContent()
-            }
-            else -> {
-                ContainersContent(
-                    containers = uiState.containers,
-                    isRefreshing = uiState.isRefreshing,
-                    onStartContainer = { id -> viewModel.startContainer(id) },
-                    onStopContainer = { id -> viewModel.stopContainer(id) },
-                    onRestartContainer = { id -> viewModel.restartContainer(id) },
-                    onDeleteContainer = { id -> viewModel.deleteContainer(id) },
-                    operationJobs = uiState.operationJobs
-                )
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.loadContainers() },
+        ) {
+            when {
+                uiState.isLoading -> {
+                    LoadingScreen("Loading Containers")
+                }
+                uiState.containers.isEmpty() && !uiState.isLoading -> {
+                    EmptyContainerContent()
+                }
+                else -> {
+                    ContainersContent(
+                        containers = uiState.containers,
+                        isRefreshing = uiState.isRefreshing,
+                        onStartContainer = { id -> viewModel.startContainer(id) },
+                        onStopContainer = { id -> viewModel.stopContainer(id) },
+                        onRestartContainer = { id -> viewModel.restartContainer(id) },
+                        onDeleteContainer = { id -> viewModel.deleteContainer(id) },
+                        operationJobs = uiState.operationJobs
+                    )
+                }
             }
         }
 
