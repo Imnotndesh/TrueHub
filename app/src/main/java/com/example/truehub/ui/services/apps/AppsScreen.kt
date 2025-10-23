@@ -136,7 +136,7 @@ fun AppsScreen(manager: TrueNASApiManager) {
             manager = manager
         )
         when {
-            uiState.isLoading -> {
+            uiState.apps.isEmpty() && uiState.isLoading -> {
                 LoadingScreen("Loading Apps")
             }
             uiState.apps.isEmpty() && !uiState.isLoading -> {
@@ -400,8 +400,6 @@ private fun ServiceCard(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
-
-// More Options expandable section
             Surface(
                 onClick = { showMoreOptions = !showMoreOptions },
                 shape = RoundedCornerShape(12.dp),

@@ -2,6 +2,7 @@
 package com.example.truehub.ui.services.apps
 
 import android.util.Log
+import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class AppsScreenUiState(
@@ -32,7 +34,7 @@ data class AppsScreenUiState(
 
 class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AppsScreenUiState(isLoading = true))
+    private val _uiState = MutableStateFlow(AppsScreenUiState())
     val uiState: StateFlow<AppsScreenUiState> = _uiState.asStateFlow()
 
     init {
@@ -40,54 +42,52 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     }
 
     fun loadApps() {
-        // Only set loading if we don't have data yet
-        if (_uiState.value.apps.isEmpty()) {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-        } else {
-            _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
-        }
-
         viewModelScope.launch {
+            if (_uiState.value.apps.isEmpty()){
+                _uiState.update { it.copy(isLoading = true) }
+            }
             try {
-                val apps = manager.apps.getInstalledAppsWithResult()
-                when(apps){
+                when(val result = manager.apps.getInstalledAppsWithResult()) {
                     is ApiResult.Success -> {
-                        _uiState.value = AppsScreenUiState(
-                            isLoading = false,
-                            apps = apps.data,
-                            error = null,
-                            isRefreshing = false,
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isRefreshing = false,
+                                apps = result.data,
+                                error = null
+                            )
+                        }
                     }
                     is ApiResult.Error -> {
-                        _uiState.value = AppsScreenUiState(
-                            isLoading = false,
-                            apps = emptyList(),
-                            error = apps.message,
-                            isRefreshing = false
-                        )
+                        ToastManager.showError("Unable to load Apps")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isRefreshing = false,
+                                error = result.message
+                            )
+                        }
                     }
                     is ApiResult.Loading -> {
-                        _uiState.value = AppsScreenUiState(
-                            isLoading = true,
-                            apps = emptyList(),
-                            error = null,
-                            isRefreshing = false
-                        )
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isRefreshing = false,
-                    error = e.message ?: "Failed to load services"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isRefreshing = false,
+                        error = e.message ?: "Failed to load apps"
+                    )
+                }
             }
         }
     }
 
     fun refresh() {
-        loadApps()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, error = null) }
+            loadApps()
+        }
     }
 
     // Start sleeping app
@@ -102,6 +102,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         error = null
                     )
                     ToastManager.showSuccess("Started Container")
+                    refresh()
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(
@@ -133,6 +134,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         error = null
                     )
                     ToastManager.showSuccess("Stopped Container")
+                    refresh()
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(

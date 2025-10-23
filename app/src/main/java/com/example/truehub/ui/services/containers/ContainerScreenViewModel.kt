@@ -1,6 +1,7 @@
 package com.example.truehub.ui.services.containers
 
 import android.util.Log
+import androidx.compose.ui.geometry.isEmpty
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -36,14 +37,16 @@ class ContainerScreenViewModel(
 
     fun loadContainers() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
+            if (_uiState.value.containers.isEmpty()) {
+                _uiState.update { it.copy(isLoading = true) }
+            }
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
                     _uiState.update {
                         it.copy(
                             containers = result.data,
                             isLoading = false,
+                            isRefreshing = false,
                             error = null
                         )
                     }
@@ -53,6 +56,7 @@ class ContainerScreenViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             error = result.message
                         )
                     }

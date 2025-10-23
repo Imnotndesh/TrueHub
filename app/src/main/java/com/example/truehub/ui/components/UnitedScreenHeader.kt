@@ -35,9 +35,8 @@ import com.example.truehub.ui.alerts.AlertsBellButton
 
 /**
  * Unified header component for all screens in the app.
- * Maintains consistent styling and layout across different sections.
  *
- * @param title Main title text (e.g., "Applications", "Containers", "Dashboard")
+ * @param title Main title text
  * @param subtitle Count or status text below the title
  * @param isLoading Whether the screen is initially loading
  * @param isRefreshing Whether a refresh operation is in progress
@@ -46,6 +45,7 @@ import com.example.truehub.ui.alerts.AlertsBellButton
  * @param onDismissError Callback when error dismiss button is clicked
  * @param manager TrueNAS API manager for alerts
  * @param onNavigateToSettings Optional callback for settings button (only shown when provided)
+ * @param onShutdownInvoke Optional callback for power off option (shown when provided)
  */
 @Composable
 fun UnifiedScreenHeader(

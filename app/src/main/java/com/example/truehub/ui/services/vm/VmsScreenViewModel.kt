@@ -38,27 +38,29 @@ class VmsScreenViewModel(
 
     fun loadVms() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
+            if (_uiState.value.vms.isEmpty()) {
+                _uiState.update { it.copy(isLoading = true) }
+            }
             when (val result = manager.vmService.queryAllVmsWithResult()) {
                 is ApiResult.Success -> {
                     _uiState.update {
                         it.copy(
                             vms = result.data,
+                            isRefreshing = false,
                             isLoading = false,
                             error = null
                         )
                     }
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to load VMs")
-                    Log.e("VM-Check", result.message)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
+                            isRefreshing = false,
                             error = result.message
                         )
                     }
+                    ToastManager.showError("Unable to load VMs")
                 }
 
                 ApiResult.Loading -> {
@@ -107,7 +109,7 @@ class VmsScreenViewModel(
             }
         }
     }
-    // TODO: Find a way also to showuser dialog option to overcommit
+    // TODO: Find a way also to show user dialog option to overcommit
     fun startVm(id: Int, overcommit: Boolean = true) {
         viewModelScope.launch {
             val jobId : Int
