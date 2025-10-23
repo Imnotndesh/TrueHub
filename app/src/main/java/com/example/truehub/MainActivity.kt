@@ -340,13 +340,11 @@ class MainActivity : ComponentActivity() {
             }
 
             composable(Screen.Main.route) {
-                // Main screen requires a valid manager
                 manager?.let { validManager ->
                     TrueHubAppTheme {
                         MainScreen(validManager, navController)
                     }
                 } ?: run {
-                    // Fallback if manager is null (shouldn't happen normally)
                     LaunchedEffect(Unit) {
                         ToastManager.showError("Session invalid. Please log in again.")
                         navController.navigate(Screen.Login.route) {

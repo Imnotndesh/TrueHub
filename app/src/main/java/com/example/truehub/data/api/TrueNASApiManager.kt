@@ -13,10 +13,9 @@ import java.lang.reflect.Type
 // The ApiManager now holds all the dependencies.
 class TrueNASApiManager(
     private val client: TrueNASClient,
-    private val context: Context // Use ApplicationContext here
+    context: Context
 ) {
     private val connectivityObserver = NetworkConnectivityObserver(context)
-    private val encryptedPrefs = EncryptedPrefs
 
     val auth: AuthService by lazy { AuthService(this) }
     val system: SystemService by lazy { SystemService(this) }
@@ -46,46 +45,8 @@ class TrueNASApiManager(
         }
 
         if (client.getCurrentConnectionState() is ConnectionState.Disconnected) {
-            if (client.connect()) {
-                return false
-            }
-            return !reauthenticate()
+            return !client.connect()
         }
-        return false
-    }
-
-    /**
-     * Attempts to re-authenticate using stored credentials.
-     * @return True if successful, false otherwise.
-     */
-    private suspend fun reauthenticate(): Boolean {
-        if (encryptedPrefs.getUseAutoLogin(context) != true) return false
-
-        val loginMethod = encryptedPrefs.getLoginMethod(context)
-        val loginSuccessful = when (loginMethod) {
-            "api_key" -> {
-                val apiKey = encryptedPrefs.getApiKey(context) ?: return false
-                auth.loginWithApiKeyWithResult(apiKey) is ApiResult.Success
-            }
-            "password" -> {
-                val username = encryptedPrefs.getUsername(context) ?: return false
-                val password = encryptedPrefs.getUserPass(context) ?: return false
-                auth.loginUserWithResult(AuthService.DefaultAuth(username, password)) is ApiResult.Success
-            }
-            else -> false
-        }
-
-        if (loginSuccessful) {
-            val tokenResult = auth.generateTokenWithResult()
-            if (tokenResult is ApiResult.Success) {
-                encryptedPrefs.saveAuthToken(context, tokenResult.data)
-                encryptedPrefs.saveIsLoggedIn(context)
-                return client.connect()
-            }
-        }
-
-        encryptedPrefs.clearIsLoggedIn(context)
-        encryptedPrefs.clearAuthToken(context)
         return false
     }
     suspend fun connect(): Boolean = client.connect()
