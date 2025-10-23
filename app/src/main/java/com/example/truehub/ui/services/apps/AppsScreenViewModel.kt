@@ -59,7 +59,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         }
                     }
                     is ApiResult.Error -> {
-                        ToastManager.showError("Unable to load Apps")
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -110,7 +109,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         isRefreshing = false,
                         error = result.message
                     )
-                    ToastManager.showError("Failed to start container")
                 }
                 is ApiResult.Loading -> {
                     _uiState.value = _uiState.value.copy(
@@ -142,7 +140,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         isRefreshing = false,
                         error = result.message
                     )
-                    ToastManager.showError("Failed to stop container")
                 }
                 is ApiResult.Loading -> {
                     _uiState.value = _uiState.value.copy(
@@ -173,7 +170,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
-                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
                             when (jobResult) {
                                 is ApiResult.Success -> {
                                     val job = jobResult.data
@@ -273,7 +270,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                             upgradeSummaryResult = null,
                             error = result.message
                         )
-                        ToastManager.showError("Failed to load upgrade summary")
                     }
                     is ApiResult.Loading -> {
                         _uiState.value = _uiState.value.copy(
@@ -288,7 +284,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     upgradeSummaryResult = null,
                     error = e.message ?: "Failed to load upgrade summary"
                 )
-                ToastManager.showError("Error loading upgrade summary: ${e.message}")
             }
         }
     }
@@ -322,7 +317,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                             rollbackVersions = emptyList(),
                             error = result.message
                         )
-                        ToastManager.showError("Failed to load rollback versions")
                     }
                     is ApiResult.Loading -> {
                         _uiState.value = _uiState.value.copy(
@@ -336,7 +330,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     rollbackVersions = emptyList(),
                     error = e.message ?: "Failed to load rollback versions"
                 )
-                ToastManager.showError("Error loading rollback versions: ${e.message}")
             }
         }
     }
@@ -358,7 +351,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
-                            val jobResult = manager.apps.checkOnUpgradeJobWithResult(jobId)
+                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
                             when (jobResult) {
                                 is ApiResult.Success -> {
                                     val job = jobResult.data
@@ -388,7 +381,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                             ToastManager.showSuccess("App rolled back successfully")
                                             loadApps()
                                         } else {
-                                            ToastManager.showError("Rollback $state")
                                         }
                                         break
                                     }
@@ -399,7 +391,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                         rollbackJobs = _uiState.value.rollbackJobs - appName,
                                         error = "Rollback monitoring failed: ${jobResult.message}"
                                     )
-                                    ToastManager.showError("Rollback monitoring failed")
                                     break
                                 }
                                 is ApiResult.Loading -> {}
@@ -410,7 +401,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                 rollbackJobs = _uiState.value.rollbackJobs - appName,
                                 error = "Rollback monitoring error: ${e.message}"
                             )
-                            ToastManager.showError("Rollback error: ${e.message}")
                             break
                         }
 
@@ -423,12 +413,10 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                             rollbackJobs = _uiState.value.rollbackJobs - appName,
                             error = "Rollback monitoring timeout for $appName"
                         )
-                        ToastManager.showError("Rollback timeout")
                     }
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(error = result.message)
-                    ToastManager.showError("Failed to start rollback: ${result.message}")
                 }
                 else -> {}
             }

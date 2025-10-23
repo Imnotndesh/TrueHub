@@ -1,7 +1,10 @@
 package com.example.truehub.data.api
 
+import androidx.annotation.RequiresPermission
 import com.example.truehub.data.ApiResult
+import com.example.truehub.data.ConnectionState
 import com.example.truehub.data.TrueNASClient
+import com.example.truehub.data.helpers.NetworkConnectivityObserver
 import java.lang.reflect.Type
 
 abstract class BaseApiService(protected open val client: TrueNASClient) {
@@ -12,7 +15,6 @@ abstract class BaseApiService(protected open val client: TrueNASClient) {
         params: List<Any?> = listOf(),
         resultType: Type
     ): T = client.call(method, params, resultType)
-
     protected suspend fun <T> apiCallWithResult(
         method: String,
         params: List<Any?> = listOf(),

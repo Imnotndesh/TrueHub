@@ -5,171 +5,91 @@ import com.example.truehub.data.TrueNASClient
 import com.example.truehub.data.models.Virt
 import com.squareup.moshi.Types
 
-class VirtService(client: TrueNASClient) : BaseApiService(client) {
+class VirtService(val manager: TrueNASApiManager) {
     // Get all instance
-    suspend fun getAllInstances(): List<Virt.ContainerResponse>{
-        val result = client.call<Array<Virt.ContainerResponse>>(
+    suspend fun getAllInstancesWithResult(): ApiResult<List<Virt.ContainerResponse>>{
+        val type = Types.newParameterizedType(List::class.java, Virt.ContainerResponse::class.java)
+        return manager.callWithResult(
             method = ApiMethods.Virt.GET_ALL_INSTANCES,
             params = listOf(),
-            resultType = Array<Virt.ContainerResponse>::class.java
+            resultType = type
         )
-        return result.toList()
-    }
-    suspend fun getAllInstancesWithResult(): ApiResult<List<Virt.ContainerResponse>>{
-        return try {
-            val result = getAllInstances()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get installed apps: ${e.message}", e)
-        }
     }
 
     // Get an instance
-    suspend fun genAnInstance(id: String): Virt.ContainerResponse{
-        return client.call<Virt.ContainerResponse>(
+    suspend fun genAnInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.GET_ALL_INSTANCES,
             params = listOf(id),
             resultType = Virt.ContainerResponse::class.java
         )
     }
-    suspend fun genAnInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse>{
-        return try {
-            val result = genAnInstance(id)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get installed apps: ${e.message}", e)
-        }
-    }
     // Start Instance
-    suspend fun startVirtInstance(id : String): Double{
-        return client.call(
+    suspend fun startVirtInstanceWithResult(id : String): ApiResult<Double>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.START_INSTANCE,
             params = listOf(id),
             resultType = Double::class.java
         )
     }
-    suspend fun startVirtInstanceWithResult(id : String): ApiResult<Double>{
-        return try {
-            val result = startVirtInstance(id)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to start instance: ${e.message}", e)
-        }
-    }
     // Stop Instance
-    suspend fun stopVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Double{
-        return client.call(
+    suspend fun stopVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.STOP_INSTANCE,
             params = listOf(id, Virt.stopArgs(timeout, force)),
             resultType = Double::class.java
         )
     }
-    suspend fun stopVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
-        return try {
-            val result = stopVirtInstance(id,timeout,force)
-            ApiResult.Success(result)
-            } catch (e: Exception) {
-            ApiResult.Error("Failed to stop instance: ${e.message}", e)
-        }
-    }
     // Restart Instance
-    suspend fun restartVirtInstance(id : String,timeout : Int? = -1, force : Boolean? = false): Double {
-        return client.call(
+    suspend fun restartVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.RESTART_INSTANCE,
             params = listOf(id, Virt.stopArgs(timeout, force)),
             resultType = Int::class.java
         )
     }
-    suspend fun restartVirtInstanceWithResult(id : String,timeout : Int? = -1, force : Boolean? = false): ApiResult<Double>{
-        return try {
-            val result = restartVirtInstance(id,timeout,force)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to restart instance: ${e.message}", e)
-        }
-    }
     // Delete virt instance
-    suspend fun deleteVirtInstance(id : String): Int {
-        return client.call(
+    suspend fun deleteVirtInstanceWithResult(id : String): ApiResult<Int>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.DELETE_INSTANCE,
             params = listOf(id),
             resultType = Int::class.java
         )
     }
-    suspend fun deleteVirtInstanceWithResult(id : String): ApiResult<Int>{
-        return try {
-            val result = deleteVirtInstance(id)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to delete instance: ${e.message}", e)
-        }
-    }
 
     // Update Instance
-    suspend fun updateVirtInstance(id : String,newInstanceInfo: Virt.ContainerUpdate): Virt.ContainerResponse {
-        return client.call(
+    suspend fun updateVirtInstanceWithResult(id : String,newInstanceInfo: Virt.ContainerUpdate): ApiResult<Virt.ContainerResponse> {
+        return manager.callWithResult(
             method = ApiMethods.Virt.UPDATE_INSTANCE,
             params = listOf(id,newInstanceInfo),
             resultType = Virt.ContainerResponse::class.java
         )
     }
-    suspend fun updateVirtInstanceWithResult(id : String,newInstanceInfo: Virt.ContainerUpdate): ApiResult<Virt.ContainerResponse> {
-        return try {
-            val result = updateVirtInstance(id, newInstanceInfo)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to update instance: ${e.message}", e)
-        }
-    }
     // Get all instance devices
-    suspend fun getVirtInstanceDeviceList(id: String): List<Virt.Device> {
+    suspend fun getVirtInstanceDeviceListWithResult(id:String): ApiResult<List<Virt.Device>>{
         val type = Types.newParameterizedType(List::class.java, Virt.Device::class.java)
-        return client.call(
+        return manager.callWithResult(
             method = ApiMethods.Virt.GET_ALL_INSTANCES,
             params = listOf(id),
             resultType = type::class.java
         )
     }
-    suspend fun getVirtInstanceDeviceListWithResult(id:String): ApiResult<List<Virt.Device>>{
-        return try {
-            val result = getVirtInstanceDeviceList(id)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get instance devices: ${e.message}", e)
-        }
-    }
     // Delete virt instance device
-    suspend fun deleteVirtInstanceDevice(id: String,deviceName: String): Boolean {
-        return client.call(
+    suspend fun deleteVirtInstanceDeviceWithResult(id: String,deviceName: String): ApiResult<Boolean>{
+        return manager.callWithResult(
             method = ApiMethods.Virt.DELETE_INSTANCE_DEVICE,
             params = listOf(id,deviceName),
             resultType = Boolean::class.java
         )
     }
-    suspend fun deleteVirtInstanceDeviceWithResult(id: String,deviceName: String): ApiResult<Boolean>{
-        return try {
-            val result = deleteVirtInstanceDevice(id,deviceName)
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to delete instance device: ${e.message}", e)
-        }
-    }
 
     // Get Virt image choices
-    suspend fun getVirtImageChoices(): List<Virt.ImageChoice> {
+    suspend fun getVirtImageChoicesWithResult(): ApiResult<List<Virt.ImageChoice>>{
         val type = Types.newParameterizedType(List::class.java, Virt.ImageChoice::class.java)
-        return client.call(
+        return manager.callWithResult(
             method = ApiMethods.Virt.GET_IMAGE_CHOICES,
             params = listOf(),
             resultType = type
         )
-    }
-    suspend fun getVirtImageChoicesWithResult(): ApiResult<List<Virt.ImageChoice>>{
-        return try {
-            val result = getVirtImageChoices()
-            ApiResult.Success(result)
-        } catch (e: Exception) {
-            ApiResult.Error("Failed to get image choices: ${e.message}", e)
-        }
     }
 }

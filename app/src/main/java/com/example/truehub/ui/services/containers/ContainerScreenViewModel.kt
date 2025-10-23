@@ -52,7 +52,6 @@ class ContainerScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to load containers: ${result.message}")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -90,7 +89,6 @@ class ContainerScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to refresh containers: ${result.message}")
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
@@ -116,7 +114,6 @@ class ContainerScreenViewModel(
                     trackContainerOperation(id, jobId.toInt(), "STARTING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Start container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to start container: ${result.message}")
                     }
@@ -136,7 +133,6 @@ class ContainerScreenViewModel(
                     trackContainerOperation(id, jobId.toInt(), "STOPPING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Stop container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to stop container: ${result.message}")
                     }
@@ -156,7 +152,6 @@ class ContainerScreenViewModel(
                     trackContainerOperation(id, jobId.toInt(), "RESTARTING")
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Restart container: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to restart container: ${result.message}")
                     }
@@ -229,7 +224,6 @@ class ContainerScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Failed to Delete containers: ${result.message}")
                     _uiState.update {
                         it.copy(error = "Failed to delete container: ${result.message}")
                     }

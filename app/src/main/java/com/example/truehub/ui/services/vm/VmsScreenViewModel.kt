@@ -60,7 +60,6 @@ class VmsScreenViewModel(
                             error = result.message
                         )
                     }
-                    ToastManager.showError("Unable to load VMs")
                 }
 
                 ApiResult.Loading -> {
@@ -90,7 +89,6 @@ class VmsScreenViewModel(
                     }
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to refresh VM")
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
@@ -121,7 +119,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to start VM")
                     _uiState.update {
                         it.copy(error = "Failed to start VM: ${result.message}")
                     }
@@ -148,7 +145,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to stop VM")
                     _uiState.update {
                         it.copy(error = "Failed to stop VM: ${result.message}")
                     }
@@ -175,7 +171,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to restart VM")
                     _uiState.update {
                         it.copy(error = "Failed to restart VM: ${result.message}")
                     }
@@ -200,7 +195,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to suspend VM")
                     _uiState.update {
                         it.copy(error = "Failed to suspend VM: ${result.message}")
                     }
@@ -225,7 +219,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to resume VM")
                     _uiState.update {
                         it.copy(error = "Failed to resume VM: ${result.message}")
                     }
@@ -250,7 +243,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to Power-Off VM")
                     _uiState.update {
                         it.copy(error = "Failed to power off VM: ${result.message}")
                     }
@@ -275,7 +267,6 @@ class VmsScreenViewModel(
                     refresh()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showError("Unable to Delete VM")
                     _uiState.update {
                         it.copy(error = "Failed to delete VM: ${result.message}")
                     }
@@ -327,13 +318,11 @@ class VmsScreenViewModel(
                             }
                         }
                         is ApiResult.Error -> {
-                            ToastManager.showError("Failed to get job info: ${jobResult.message}")
                             break
                         }
                         else -> {}
                     }
                 } catch (e: Exception) {
-                    ToastManager.showError("Failed to get job info: ${e.message}")
                     break
                 }
 

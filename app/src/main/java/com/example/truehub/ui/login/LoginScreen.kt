@@ -122,7 +122,7 @@ fun LoginScreen(
                     )
 
                     val client = TrueNASClient(config)
-                    val newManager = TrueNASApiManager(client)
+                    val newManager = TrueNASApiManager(client,context)
                     val connected = newManager.connect()
 
                     if (connected) {
@@ -212,7 +212,7 @@ fun LoginScreen(
                             )
 
                             val client = TrueNASClient(config)
-                            val newManager = TrueNASApiManager(client)
+                            val newManager = TrueNASApiManager(client,context)
                             val connected = newManager.connect()
 
                             if (connected) {
