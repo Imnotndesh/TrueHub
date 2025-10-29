@@ -75,7 +75,8 @@ fun SettingsScreen(
     onNavigateToLicenses: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {},
-    onDummyAction: (String) -> Unit = {}
+    onDummyAction: (String) -> Unit = {},
+    onNavigateToTheme : () -> Unit = {}
 ) {
     val viewModel : SettingsScreenViewModel = viewModel(
         factory = SettingsScreenViewModel.SettingsViewModelFactory(manager, LocalContext.current.applicationContext as Application)
@@ -166,19 +167,13 @@ fun SettingsScreen(
                         icon = Icons.Default.Apps,
                         name = "Theme",
                         description = "Choose light or dark mode",
-                        onClick = { onDummyAction("Theme") }
+                        onClick = { onNavigateToTheme() }
                     ),
                     SettingItem(
                         icon = Icons.Default.PrivacyTip,
                         name = "Privacy",
                         description = "Control data sharing & permissions",
                         onClick = { onDummyAction("Privacy") }
-                    ),
-                    SettingItem(
-                        icon = Icons.Default.Settings,
-                        name = "Advanced",
-                        description = "Developer and experimental features",
-                        onClick = { onDummyAction("Advanced") }
                     )
                 )
             )

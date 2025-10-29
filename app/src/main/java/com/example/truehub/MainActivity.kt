@@ -46,6 +46,8 @@ import com.example.truehub.ui.login.LoginScreen
 import com.example.truehub.ui.settings.SettingsScreen
 import com.example.truehub.ui.settings.screens.AboutScreen
 import com.example.truehub.ui.settings.screens.LicensesScreen
+import com.example.truehub.ui.settings.screens.ThemeScreen
+import com.example.truehub.ui.theme.AppTheme
 import com.example.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -69,91 +71,106 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            var appState by remember { mutableStateOf<AppState>(AppState.Initializing) }
-            val navController = rememberNavController()
+            var currentTheme by remember { mutableStateOf(Prefs.loadTheme(this)) }
+            TrueHubAppTheme(theme = currentTheme) {
+                var appState by remember { mutableStateOf<AppState>(AppState.Initializing) }
+                val navController = rememberNavController()
 
-            var manager by remember { mutableStateOf<TrueNASApiManager?>(null) }
-            LaunchedEffect(Unit) {
-                initializeApp { state, newManager ->
-                    appState = state
-                    if (newManager != null) {
-                        manager = newManager
+
+                var manager by remember { mutableStateOf<TrueNASApiManager?>(null) }
+                LaunchedEffect(Unit) {
+                    initializeApp { state, newManager ->
+                        appState = state
+                        if (newManager != null) {
+                            manager = newManager
+                        }
                     }
                 }
-            }
-            LaunchedEffect(manager) {
-                manager?.let { mgr ->
-                    while (true) {
-                        try {
-                            val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
-                            val hasToken = EncryptedPrefs.getAuthToken(this@MainActivity) != null
-                            val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
+                LaunchedEffect(manager) {
+                    manager?.let { mgr ->
+                        while (true) {
+                            try {
+                                val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
+                                val hasToken =
+                                    EncryptedPrefs.getAuthToken(this@MainActivity) != null
+                                val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
 
-                            if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
-                                mgr.connection.pingConnectionWithResult()
+                                if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
+                                    mgr.connection.pingConnectionWithResult()
+                                }
+                            } catch (_: Exception) {
+                                // Connection lost - this is normal if not authenticated
                             }
-                        } catch (_: Exception) {
-                            // Connection lost - this is normal if not authenticated
+                            delay(30000L)
                         }
-                        delay(30000L)
                     }
                 }
-            }
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (appState) {
-                    is AppState.Initializing -> LoadingScreen("Initializing...")
-                    is AppState.CheckingConnection -> LoadingScreen("Connecting to server...")
-                    is AppState.ValidatingToken -> LoadingScreen("Validating credentials...")
-                    is AppState.AttemptingAutoLogin -> LoadingScreen("Attempting auto sign-in...")
-                    is AppState.Ready -> {
-                        AppNavigation(
-                            startRoute = (appState as AppState.Ready).startRoute,
-                            navController = navController,
-                            manager = manager,
-                            onManagerUpdate = { newManager ->
-                                manager = newManager
-                            }
-                        )
-                    }
-                    is AppState.Error -> {
-                        LaunchedEffect((appState as AppState.Error).message) {
-                            ToastManager.showError((appState as AppState.Error).message)
-                        }
-                        AppNavigation(
-                            startRoute = (appState as AppState.Error).fallbackRoute,
-                            navController = navController,
-                            manager = manager,
-                            onManagerUpdate = { newManager ->
-                                manager = newManager
-                            }
-                        )
-                    }
-                    is AppState.NoInternet ->{
-                        TrueHubAppTheme {
-                            NoInternetScreen(
-                                message = "No internet connection.",
-                                onRetry = {
-                                    lifecycleScope.launch {
-                                        initializeApp { state, newManager ->
-                                            appState = state
-                                            if (newManager != null) {
-                                                manager = newManager
-                                            }
-                                        }
-                                    }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (appState) {
+                        is AppState.Initializing -> LoadingScreen("Initializing...")
+                        is AppState.CheckingConnection -> LoadingScreen("Connecting to server...")
+                        is AppState.ValidatingToken -> LoadingScreen("Validating credentials...")
+                        is AppState.AttemptingAutoLogin -> LoadingScreen("Attempting auto sign-in...")
+                        is AppState.Ready -> {
+                            AppNavigation(
+                                startRoute = (appState as AppState.Ready).startRoute,
+                                navController = navController,
+                                manager = manager,
+                                onThemeChanged = { newTheme ->
+                                    currentTheme = newTheme
+                                },
+                                currentTheme = currentTheme,
+                                onManagerUpdate = { newManager ->
+                                    manager = newManager
                                 }
                             )
                         }
-                    }
-                }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 16.dp)
-                ) {
-                    ModernToastHost()
+                        is AppState.Error -> {
+                            LaunchedEffect((appState as AppState.Error).message) {
+                                ToastManager.showError((appState as AppState.Error).message)
+                            }
+                            AppNavigation(
+                                startRoute = (appState as AppState.Error).fallbackRoute,
+                                navController = navController,
+                                manager = manager,
+                                onManagerUpdate = { newManager ->
+                                    manager = newManager
+                                },
+                                onThemeChanged = { newTheme ->
+                                    currentTheme = newTheme
+                                },
+                                currentTheme = currentTheme,
+                            )
+                        }
+
+                        is AppState.NoInternet -> {
+                            TrueHubAppTheme {
+                                NoInternetScreen(
+                                    message = "No internet connection.",
+                                    onRetry = {
+                                        lifecycleScope.launch {
+                                            initializeApp { state, newManager ->
+                                                appState = state
+                                                if (newManager != null) {
+                                                    manager = newManager
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 16.dp)
+                    ) {
+                        ModernToastHost()
+                    }
                 }
             }
         }
@@ -315,6 +332,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun AppNavigation(
+        currentTheme: AppTheme,
+        onThemeChanged: (AppTheme) -> Unit,
         startRoute: String,
         navController: androidx.navigation.NavHostController,
         manager: TrueNASApiManager?,
@@ -325,7 +344,6 @@ class MainActivity : ComponentActivity() {
             startDestination = startRoute
         ) {
             composable(Screen.Login.route) {
-                TrueHubAppTheme {
                     LoginScreen(
                         existingManager = manager,
                         navController = navController,
@@ -339,14 +357,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-                }
             }
 
             composable(Screen.Main.route) {
                 manager?.let { validManager ->
-                    TrueHubAppTheme {
-                        MainScreen(validManager, navController)
-                    }
+                MainScreen(validManager, navController)
                 } ?: run {
                     LaunchedEffect(Unit) {
                         ToastManager.showError("Session invalid. Please log in again.")
@@ -359,46 +374,54 @@ class MainActivity : ComponentActivity() {
             }
 
             composable(Screen.Settings.route) {
-                TrueHubAppTheme {
-                    SettingsScreen(
-                        manager = manager,
-                        onDummyAction = { settingAction ->
-                            ToastManager.showInfo("Work in progress for: $settingAction")
-                        },
-                        onNavigateToAbout = {
-                            navController.navigate(Screen.About.route)
-                        },
-                        onNavigateToLicenses = {
-                            navController.navigate(Screen.Licenses.route)
-                        },
-                        onNavigateToLogin = {
-                            navController.navigate(Screen.Login.route) {
-                                popUpTo(Screen.Settings.route) { inclusive = true }
-                            }
+                SettingsScreen(
+                    manager = manager,
+                    onDummyAction = { settingAction ->
+                        ToastManager.showInfo("Work in progress for: $settingAction")
+                    },
+                    onNavigateToTheme = {
+                        navController.navigate(Screen.Theme.route)
+                    },
+                    onNavigateToAbout = {
+                        navController.navigate(Screen.About.route)
+                    },
+                    onNavigateToLicenses = {
+                        navController.navigate(Screen.Licenses.route)
+                    },
+                    onNavigateToLogin = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.Settings.route) { inclusive = true }
                         }
-                    )
-                }
+                    }
+                )
             }
 
             composable( Screen.About.route) {
-                TrueHubAppTheme {
                     AboutScreen(
                         onNavigateBack = {
                             navController.popBackStack()
                         }
                     )
-                }
             }
             composable( Screen.Licenses.route) {
-                TrueHubAppTheme {
-                    LicensesScreen(
-                        onNavigateBack = {
-                            navController.navigate(Screen.Settings.route){
-                                popUpTo(Screen.Settings.route) { inclusive = true }
-                            }
+                LicensesScreen(
+                    onNavigateBack = {
+                        navController.navigate(Screen.Settings.route){
+                            popUpTo(Screen.Settings.route) { inclusive = true }
                         }
-                    )
-                }
+                    }
+                )
+            }
+            composable(Screen.Theme.route) {
+                ThemeScreen(
+                    currentTheme = currentTheme,
+                    onThemeSelected = { newTheme ->
+                        onThemeChanged(newTheme)
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }
