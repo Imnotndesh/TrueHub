@@ -2,6 +2,28 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    id("org.ajoberstar.grgit") version "5.3.3"
+}
+val versionInfo = grgit.let { git ->
+    val latestTag = git.tag.list().maxByOrNull { it.commit.dateTime }
+
+    if (latestTag != null) {
+        val tagName = latestTag.name
+        val parts = tagName.removePrefix("v").split(".").mapNotNull { it.toIntOrNull() }
+
+        if (parts.size >= 3) {
+            val major = parts[0]
+            val minor = parts[1]
+            val patch = parts[2]
+
+            val versionCode = major * 1000000 + minor * 10000 + patch * 100
+            Pair(versionCode, tagName)
+        } else {
+            Pair(1, tagName)
+        }
+    } else {
+        Pair(1, "v1.0")
+    }
 }
 
 android {
@@ -12,8 +34,8 @@ android {
         applicationId = "com.example.truehub"
         minSdk = 33
         targetSdk = 36
-        versionCode = 1
-        versionName = "v0.1-alpha"
+        versionCode = versionInfo.first
+        versionName = versionInfo.second
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

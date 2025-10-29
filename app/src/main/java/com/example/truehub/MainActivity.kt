@@ -363,6 +363,12 @@ class MainActivity : ComponentActivity() {
                         onDummyAction = { settingAction ->
                             ToastManager.showInfo("Work in progress for: $settingAction")
                         },
+                        onNavigateToAbout = {
+                            navController.navigate(Screen.About.route)
+                        },
+                        onNavigateToLicenses = {
+                            navController.navigate(Screen.Licenses.route)
+                        },
                         onNavigateToLogin = {
                             navController.navigate(Screen.Login.route) {
                                 popUpTo(Screen.Settings.route) { inclusive = true }

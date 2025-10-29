@@ -37,6 +37,8 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -61,13 +63,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.truehub.data.api.TrueNASApiManager
+import com.example.truehub.ui.Screen
 import com.example.truehub.ui.settings.sheets.ChangePasswordBottomSheet
 import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
     manager: TrueNASApiManager?,
+    onNavigateToLicenses: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {},
     onDummyAction: (String) -> Unit = {}
 ) {
@@ -146,12 +152,6 @@ fun SettingsScreen(
                         name = "Password",
                         description = "Change your password",
                         onClick = { showPassChangeDialog = true}
-                    ),
-                    SettingItem(
-                        icon = Icons.Default.VerifiedUser,
-                        name = "Two-Factor Authentication",
-                        description = "Enable or disable 2FA",
-                        onClick = { onDummyAction("2FA") }
                     )
                 )
             )
@@ -206,6 +206,27 @@ fun SettingsScreen(
                         description = "Sign out of your account",
                         onClick = { viewModel.handleEvent(SettingsEvent.Logout) },
                         isLoading = uiState.isLoggingOut
+                    )
+                )
+            )
+            SettingsSection(
+                title = "About",
+                items = listOf(
+                    SettingItem(
+                        icon = Icons.Default.Info,
+                        name = "About TrueHub",
+                        description = "Version and application details",
+                        onClick = {
+                            onNavigateToAbout()
+                        }
+                    ),
+                    SettingItem(
+                        icon = Icons.Default.Description,
+                        name = "Licenses",
+                        description = "View open source licenses",
+                        onClick = {
+                            onNavigateToLicenses()
+                        }
                     )
                 )
             )
