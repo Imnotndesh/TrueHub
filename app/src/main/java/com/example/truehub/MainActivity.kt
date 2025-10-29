@@ -99,7 +99,6 @@ class MainActivity : ComponentActivity() {
                                     mgr.connection.pingConnectionWithResult()
                                 }
                             } catch (_: Exception) {
-                                // Connection lost - this is normal if not authenticated
                             }
                             delay(30000L)
                         }
