@@ -44,6 +44,8 @@ import com.example.truehub.ui.components.NoInternetScreen
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
 import com.example.truehub.ui.settings.SettingsScreen
+import com.example.truehub.ui.settings.screens.AboutScreen
+import com.example.truehub.ui.settings.screens.LicensesScreen
 import com.example.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -371,6 +373,27 @@ class MainActivity : ComponentActivity() {
                         },
                         onNavigateToLogin = {
                             navController.navigate(Screen.Login.route) {
+                                popUpTo(Screen.Settings.route) { inclusive = true }
+                            }
+                        }
+                    )
+                }
+            }
+
+            composable( Screen.About.route) {
+                TrueHubAppTheme {
+                    AboutScreen(
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
+            composable( Screen.Licenses.route) {
+                TrueHubAppTheme {
+                    LicensesScreen(
+                        onNavigateBack = {
+                            navController.navigate(Screen.Settings.route){
                                 popUpTo(Screen.Settings.route) { inclusive = true }
                             }
                         }

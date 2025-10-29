@@ -209,6 +209,7 @@ fun SettingsScreen(
                     )
                 )
             )
+            Spacer(modifier = Modifier.height(16.dp))
             SettingsSection(
                 title = "About",
                 items = listOf(

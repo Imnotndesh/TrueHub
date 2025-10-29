@@ -98,7 +98,7 @@ jobs:
         
         echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
         echo "apk_size=${APK_SIZE_MB}MB" >> $GITHUB_OUTPUT
-        echo "apk_name=app-${{ steps.version.outputs.version }}.apk" >> $GITHUB_OUTPUT
+        echo "apk_name=TrueHub-${{ steps.version.outputs.version }}.apk" >> $GITHUB_OUTPUT
     
     - name: Create Release with APK
       env:
@@ -110,9 +110,7 @@ jobs:
         
         ### 📦 Download
         - **APK Size:** ${{ steps.apk_info.outputs.apk_size }}
-        - **Build Type:** Debug (signed with debug certificate)
-        - **Min SDK:** Check your app's build.gradle
-        - **Target SDK:** Check your app's build.gradle
+        - **Target version:** Android 13+
         
         ### 📋 Installation Instructions
         1. Download the APK from the assets below
@@ -125,9 +123,7 @@ jobs:
         - The app will show as "unsigned" but it is properly signed for installation
         
         ### 🔧 Build Info
-        - Built on: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
         - Commit: ${{ github.sha }}
-        - Workflow: ${{ github.run_number }}
         EOF
         
         # Create release with APK
