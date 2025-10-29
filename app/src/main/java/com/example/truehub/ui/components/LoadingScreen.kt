@@ -20,7 +20,6 @@ import com.example.truehub.ui.theme.TrueHubAppTheme
 
 @Composable
 fun LoadingScreen(message: String = "Loading...") {
-    TrueHubAppTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -40,7 +39,6 @@ fun LoadingScreen(message: String = "Loading...") {
                 )
             }
         }
-    }
 }
 
 @Composable

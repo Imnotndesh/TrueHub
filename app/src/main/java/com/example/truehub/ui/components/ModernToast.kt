@@ -45,10 +45,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 
-import com.example.truehub.ui.background.WavyGradientBackground
-import com.example.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.launch
 
+/**
+ * A Composable that observes the current toast state from [ToastManager] and displays it.
+ *
+ * This component is responsible for showing and hiding the toast with a slide-in/slide-out animation.
+ * It acts as a host for the [ModernToast] Composable, which renders the actual toast content.
+ * It should be placed at a high level in the UI hierarchy, typically within your app's main
+ * Scaffold, to ensure toasts can be displayed over any screen.
+ *
+ * The `AnimatedVisibility` handles the appearance and disappearance of the toast.
+ * - The `enter` animation is a `slideInVertically` with a bouncy spring effect.
+ * - The `exit` animation is a simple `slideOutVertically`.
+ *
+ * When a toast is shown, this Composable passes the toast data and a dismiss callback to
+ * the `ModernToast` component.
+ *
+ * @see ToastManager
+ * @see ModernToast
+ */
 @Composable
 fun ModernToastHost() {
     val currentToast = ToastManager.currentToast
@@ -86,7 +102,6 @@ private fun ModernToast(
     LaunchedEffect(toast) {
         isVisible = true
     }
-    TrueHubAppTheme {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -174,16 +189,15 @@ private fun ModernToast(
                 }
             }
         }
-    }
 }
 
 @Composable
 private fun getToastColor(type: ToastType): Color {
     return when (type) {
-        ToastType.SUCCESS -> Color(0xFF2E7D32) // Green
-        ToastType.ERROR -> Color(0xFFD32F2F) // Red
-        ToastType.WARNING -> Color(0xFFF57C00) // Orange
-        ToastType.INFO -> Color(0xFF1976D2) // Blue
+        ToastType.SUCCESS -> Color(0xFF2E7D32)
+        ToastType.ERROR -> Color(0xFFD32F2F)
+        ToastType.WARNING -> Color(0xFFF57C00)
+        ToastType.INFO -> Color(0xFF1976D2)
     }
 }
 
