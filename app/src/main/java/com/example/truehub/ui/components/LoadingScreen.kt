@@ -16,7 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.truehub.TrueHubAppTheme
+import com.example.truehub.ui.theme.TrueHubAppTheme
 
 @Composable
 fun LoadingScreen(message: String = "Loading...") {

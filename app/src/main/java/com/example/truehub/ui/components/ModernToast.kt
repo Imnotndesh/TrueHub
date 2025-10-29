@@ -44,8 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.truehub.TrueHubAppTheme
+
 import com.example.truehub.ui.background.WavyGradientBackground
+import com.example.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.launch
 
 @Composable

@@ -336,7 +336,7 @@ object System {
 
     @JsonClass(generateAdapter = true)
     data class MongoDate(
-        @Json(name = "\$date") val date: Long // Milliseconds since epoch
+        @Json(name = "\$date") val date: Long
     )
 
     @JsonClass(generateAdapter = true)

@@ -44,6 +44,7 @@ import com.example.truehub.ui.components.NoInternetScreen
 import com.example.truehub.ui.components.ToastManager
 import com.example.truehub.ui.login.LoginScreen
 import com.example.truehub.ui.settings.SettingsScreen
+import com.example.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -398,26 +399,4 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
     }
-}
-@Composable
-fun TrueHubAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context)
-        }
-        darkTheme -> darkColorScheme()
-        else -> lightColorScheme()
-    }
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = M3Typography(),
-        content = content
-    )
 }
