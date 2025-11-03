@@ -27,6 +27,24 @@ TrueHub is an open-source Android application designed to provide a seamless and
      3. Shutdown VMs
 
 
+# Screenshots
+| Screen | Image |
+|---|---|
+| Setup Screen | ![Screenshot_20251103_155318_TrueHub](https://github.com/user-attachments/assets/7eacf947-60d0-4fd9-a826-4816331cb37e)
+ |
+| Login Screen | ![Screenshot_20251103_155325_TrueHub](https://github.com/user-attachments/assets/e73e872f-d349-4194-bcd3-f73d533baf75)
+|
+| Apps Screen | ![Screenshot_20251103_154746_TrueHub](https://github.com/user-attachments/assets/89c9b0aa-e695-4aee-88ce-765bae35b7e3)
+ |
+| Dashboard| ![Screenshot_20251103_154738_TrueHub](https://github.com/user-attachments/assets/10854b43-f384-4bbe-ad87-327976c70a27)
+ |
+| Settings| ![Screenshot_20251103_154809_TrueHub](https://github.com/user-attachments/assets/989e31b8-7129-44ac-aefe-5cb5c7434eec)
+ |
+| Alerts pane | ![Screenshot_20251103_154752_TrueHub](https://github.com/user-attachments/assets/0eed5877-50c7-4634-a1a3-3972af5ce514)
+ |
+| Graphs pane | ![Screenshot_20251103_154847_TrueHub](https://github.com/user-attachments/assets/0508732b-32f7-4e34-9ab4-f6e52328e392)
+ |
+
 # Hopefully will implement
 - [ ] Proper backrounding of truenas client
 - [ ] Allow multiple servers
