@@ -1,0 +1,54 @@
+package com.imnotndesh.truehub.data.api
+
+import android.Manifest
+import android.content.Context
+import androidx.annotation.RequiresPermission
+import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.data.ConnectionState
+import com.imnotndesh.truehub.data.TrueNASClient
+import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
+import java.lang.reflect.Type
+
+// The ApiManager now holds all the dependencies.
+class TrueNASApiManager(
+    private val client: TrueNASClient,
+    context: Context
+) {
+    private val connectivityObserver = NetworkConnectivityObserver(context)
+
+    val auth: AuthService by lazy { AuthService(this) }
+    val system: SystemService by lazy { SystemService(this) }
+    val vmService: VmService by lazy { VmService(this) }
+    val apps: AppsService by lazy { AppsService(this) }
+    val virtService: VirtService by lazy { VirtService(this) }
+    val sharing: SharingService by lazy { SharingService(this) }
+    val connection : ConnectionService by lazy { ConnectionService(this) }
+    val user : UserService by lazy { UserService(this) }
+
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+    suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
+        if (checkAndRecoverConnection()) {
+            return ApiResult.Error("No internet or server connection.")
+        }
+        return client.callWithResult(method, params, resultType)
+    }
+
+    /**
+     * Checks connection, and attempts to recover by reconnecting and re-authenticating.
+     * @return `true` if connection is ultimately lost, `false` if it's OK.
+     */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+    private suspend fun checkAndRecoverConnection(): Boolean {
+        if (!connectivityObserver.isNetworkAvailable()) {
+            return true
+        }
+
+        if (client.getCurrentConnectionState() is ConnectionState.Disconnected) {
+            return !client.connect()
+        }
+        return false
+    }
+    suspend fun connect(): Boolean = client.connect()
+    suspend fun disconnect() = client.disconnect()
+    fun isConnected(): Boolean = client.getCurrentConnectionState() == ConnectionState.Connected
+}
