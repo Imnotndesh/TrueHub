@@ -27,11 +27,11 @@ val versionInfo = grgit.let { git ->
 }
 
 android {
-    namespace = "com.example.truehub"
+    namespace = "com.imnotndesh.truehub"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.truehub"
+        applicationId = "com.imnotndesh.truehub"
         minSdk = 33
         targetSdk = 36
         versionCode = versionInfo.first
