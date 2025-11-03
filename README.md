@@ -27,6 +27,14 @@ TrueHub is an open-source Android application designed to provide a seamless and
      3. Shutdown VMs
 
 
+# Hopefully will implement
+- [ ] Proper backrounding of truenas client
+- [ ] Allow multiple servers
+- [ ] Allow multiple url for one server
+- [ ] Allow searching for apps
+- [ ] Add pool jobs
+
+
 ## Getting Started
 
 ### For Users
