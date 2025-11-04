@@ -125,11 +125,11 @@ private fun DiskDetailsContent(
             icon = Icons.Default.Info
         ) {
             DiskInfoRow("Name", disk.name)
-            DiskInfoRow("Model", disk.model ?: "Unknown")
-            DiskInfoRow("Serial", disk.serial ?: "N/A")
-            DiskInfoRow("Bus", disk.bus ?: "N/A")
+            DiskInfoRow("Model", disk.model)
+            DiskInfoRow("Serial", disk.serial)
+            DiskInfoRow("Bus", disk.bus)
             DiskInfoRow("Size", "${disk.size / (1024 * 1024 * 1024)} GB")
-            DiskInfoRow("Type", disk.type ?: "N/A")
+            DiskInfoRow("Type", disk.type)
         }
 
         // Status Section
@@ -139,9 +139,8 @@ private fun DiskDetailsContent(
         ) {
             // SMART Status Card
             DiskStatusCard(
-                title = "SMART Status",
-                status = if (disk.togglesmart == true) "Enabled" else "Disabled",
-                isPositive = disk.togglesmart == true,
+                status = if (disk.togglesmart) "Enabled" else "Disabled",
+                isPositive = disk.togglesmart,
                 icon = Icons.Default.HealthAndSafety
             )
 
@@ -161,9 +160,9 @@ private fun DiskDetailsContent(
             title = "Power Management",
             icon = Icons.Default.Bolt
         ) {
-            DiskInfoRow("Transfer Mode", disk.transfermode ?: "Auto")
-            DiskInfoRow("Standby Mode", disk.hddstandby ?: "Unknown")
-            DiskInfoRow("APM Level", disk.advpowermgmt ?: "Unknown")
+            DiskInfoRow("Transfer Mode", disk.transfermode)
+            DiskInfoRow("Standby Mode", disk.hddstandby)
+            DiskInfoRow("APM Level", disk.advpowermgmt)
         }
 
         // Pool Association Section (only if disk is part of a pool)
@@ -232,7 +231,7 @@ private fun DiskInfoHeader(
 
                 // Disk model or name
                 Text(
-                    text = disk.model ?: disk.name,
+                    text = disk.model,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -242,7 +241,7 @@ private fun DiskInfoHeader(
 
                 // Serial number and size
                 Text(
-                    text = "${disk.serial ?: "No Serial"} • ${disk.size / (1024 * 1024 * 1024)} GB",
+                    text = "${disk.serial} • ${disk.size / (1024 * 1024 * 1024)} GB",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     fontSize = 14.sp
@@ -311,7 +310,6 @@ private fun DiskInfoRow(
 
 @Composable
 private fun DiskStatusCard(
-    title: String,
     status: String,
     isPositive: Boolean,
     icon: ImageVector
@@ -345,7 +343,7 @@ private fun DiskStatusCard(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
+                    text = "SMART Status",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Medium,
                     color = if (isPositive) {
@@ -448,9 +446,9 @@ private fun DiskTechnicalCard(
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TechnicalDetailRow("Bus Interface", disk.bus ?: "Unknown")
-                TechnicalDetailRow("Disk Type", disk.type ?: "Unknown")
-                disk.transfermode?.let {
+                TechnicalDetailRow("Bus Interface", disk.bus)
+                TechnicalDetailRow("Disk Type", disk.type)
+                disk.transfermode.let {
                     TechnicalDetailRow("Transfer Mode", it)
                 }
             }
