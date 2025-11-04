@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
+import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ enum class AutoLoginDialogType {
 
 sealed class SettingsEvent {
     object Logout : SettingsEvent()
+    object SignOut : SettingsEvent()
     data class ChangePassword(val oldPassword : String, val newPassword: String) : SettingsEvent()
     object ClearLogoutSuccess : SettingsEvent()
     object ClearError : SettingsEvent()
@@ -51,6 +53,7 @@ class SettingsScreenViewModel(
     fun handleEvent(event: SettingsEvent) {
         when (event) {
             is SettingsEvent.Logout -> performLogout()
+            is SettingsEvent.SignOut -> performSignOut()
             is SettingsEvent.ClearLogoutSuccess -> {
                 _uiState.value = _uiState.value.copy(logoutSuccess = false)
             }
@@ -72,38 +75,53 @@ class SettingsScreenViewModel(
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             if (newValue) {
-                val loginMethod = getLoginMethod()
-                val hasCredentials = when (loginMethod) {
-                    "api_key" -> getApiKey() != null
-                    "password" -> getUsername() != null && getUserPass() != null
-                    else -> false
-                }
+                val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(application)?: Pair(null,null)
 
-                if (hasCredentials) {
-                    // FIX: Credentials exist, save it and update UI status immediately.
-                    saveUseAutoLogin()
-                    ToastManager.showSuccess("Auto Login Enabled.")
-                    _uiState.value = _uiState.value.copy(isLoading = false) // MUST set to false to trigger LaunchedEffect
-                } else {
-                    val dialogType = when (loginMethod) {
-                        "api_key" -> AutoLoginDialogType.PROMPT_API_KEY
-                        "password" -> AutoLoginDialogType.PROMPT_PASSWORD
-                        else -> {
-                            ToastManager.showError("Unknown login method. Cannot enable Auto Login.")
-                            return@launch
+                if (serverId != null && accountId != null) {
+                    val account = MultiAccountPrefs.getAccount(application, accountId)
+
+                    if (account != null) {
+                        val (cred1, cred2) = MultiAccountPrefs.getAccountCredentials(
+                            application,
+                            accountId,
+                            account.loginMethod
+                        )
+
+                        val hasCredentials = when (account.loginMethod) {
+                            com.imnotndesh.truehub.data.models.LoginMethod.API_KEY -> cred1 != null
+                            com.imnotndesh.truehub.data.models.LoginMethod.PASSWORD -> cred1 != null && cred2 != null
                         }
+
+                        if (hasCredentials) {
+                            val updatedAccount = account.copy(autoLoginEnabled = true)
+                            MultiAccountPrefs.saveAccount(application, updatedAccount)
+                            ToastManager.showSuccess("Auto Login Enabled.")
+                            _uiState.value = _uiState.value.copy(isLoading = false)
+                        } else {
+                            // Prompt for credentials
+                            val dialogType = when (account.loginMethod) {
+                                com.imnotndesh.truehub.data.models.LoginMethod.API_KEY -> AutoLoginDialogType.PROMPT_API_KEY
+                                com.imnotndesh.truehub.data.models.LoginMethod.PASSWORD -> AutoLoginDialogType.PROMPT_PASSWORD
+                            }
+                            _uiState.value = _uiState.value.copy(
+                                showAutoLoginDialog = true,
+                                autoLoginDialogType = dialogType,
+                                isLoading = false
+                            )
+                        }
+                    } else {
+                        ToastManager.showError("Current account not found")
+                        _uiState.value = _uiState.value.copy(isLoading = false)
                     }
-                    _uiState.value = _uiState.value.copy(
-                        showAutoLoginDialog = true,
-                        autoLoginDialogType = dialogType,
-                        isLoading = false // Done checking, ready for dialog input
-                    )
+                } else {
+                    ToastManager.showError("No active session found")
+                    _uiState.value = _uiState.value.copy(isLoading = false)
                 }
             } else {
                 _uiState.value = _uiState.value.copy(
                     showAutoLoginDialog = true,
                     autoLoginDialogType = AutoLoginDialogType.OFF_WARNING,
-                    isLoading = false // Done checking, ready for dialog input
+                    isLoading = false
                 )
             }
         }
@@ -114,23 +132,72 @@ class SettingsScreenViewModel(
             _uiState.value = _uiState.value.copy(isAutoLoginSaving = true)
 
             try {
-                if (apiKey != null) {
-                    saveApiKey(apiKey)
-                }
-                if (username != null && userPass != null) {
-                    saveUsername(username)
-                    saveUserPass(userPass)
-                }
-                saveUseAutoLogin()
+                val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(application)?: Pair(null,null)
 
-                _uiState.value = _uiState.value.copy(
-                    showAutoLoginDialog = false,
-                    isAutoLoginSaving = false
-                )
-                ToastManager.showSuccess("Credentials saved and Auto Login enabled.")
+
+                if (serverId != null && accountId != null) {
+                    val account = MultiAccountPrefs.getAccount(application, accountId)
+
+                    if (account != null) {
+                        MultiAccountPrefs.saveAccountCredentials(
+                            context = application,
+                            accountId = accountId,
+                            loginMethod = account.loginMethod,
+                            apiKey = apiKey,
+                            username = username,
+                            password = userPass
+                        )
+
+                        // Enable auto-login
+                        val updatedAccount = account.copy(autoLoginEnabled = true)
+                        MultiAccountPrefs.saveAccount(application, updatedAccount)
+
+                        _uiState.value = _uiState.value.copy(
+                            showAutoLoginDialog = false,
+                            isAutoLoginSaving = false
+                        )
+                        ToastManager.showSuccess("Credentials saved and Auto Login enabled.")
+                    } else {
+                        throw Exception("Account not found")
+                    }
+                } else {
+                    throw Exception("No active session")
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isAutoLoginSaving = false)
                 ToastManager.showError("Failed to save credentials: ${e.message}")
+            }
+        }
+    }
+
+    private fun performSignOut() {
+        _uiState.value = _uiState.value.copy(isLoggingOut = true, error = null)
+
+        viewModelScope.launch {
+            try {
+                val (_, accountId) = MultiAccountPrefs.getLastUsedProfile(application)?: Pair(null,null)
+                MultiAccountPrefs.clearCurrentSession(application)
+                if (accountId != null) {
+                    MultiAccountPrefs.deleteAccount(application, accountId)
+                }
+
+                // Disconnect manager
+                manager?.disconnect()
+
+                _uiState.value = _uiState.value.copy(
+                    isLoggingOut = false,
+                    logoutSuccess = true,
+                    error = null
+                )
+
+                ToastManager.showSuccess("Signed out successfully")
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoggingOut = false,
+                    logoutSuccess = false,
+                    error = e.message ?: "Sign out failed"
+                )
+                ToastManager.showError("Sign out failed: ${e.message}")
             }
         }
     }
@@ -140,20 +207,6 @@ class SettingsScreenViewModel(
 
         viewModelScope.launch {
             try {
-                EncryptedPrefs.clearAuthToken(application)
-                EncryptedPrefs.clearIsLoggedIn(application)
-                EncryptedPrefs.revokeUseAutoLogin(application)
-                if (EncryptedPrefs.getUseAutoLogin(application)?: false){
-                    when (EncryptedPrefs.getLoginMethod(application)){
-                        "api_key" -> {
-                            EncryptedPrefs.clearApiKey(application)
-                        }
-                        "password" ->{
-                            EncryptedPrefs.clearUsername(application)
-                            EncryptedPrefs.clearUserPass(application)
-                        }
-                    }
-                }
                 manager?.disconnect()
 
                 _uiState.value = _uiState.value.copy(
@@ -215,25 +268,21 @@ class SettingsScreenViewModel(
         }
     }
 
-    // API Key
-    suspend fun getApiKey(): String? = EncryptedPrefs.getApiKey(application)
-    suspend fun saveApiKey(apiKey: String) = EncryptedPrefs.saveApiKey(application, apiKey)
+    suspend fun clearUseAutoLogin() {
+        val (_, accountId) = MultiAccountPrefs.getLastUsedProfile(application) ?: Pair(null, null)
 
-    // Username
-    suspend fun getUsername(): String? = EncryptedPrefs.getUsername(application)
-    suspend fun saveUsername(username: String) = EncryptedPrefs.saveUsername(application, username)
+        if (accountId != null) {
+            val account = MultiAccountPrefs.getAccount(application, accountId)
+            if (account != null) {
+                val updatedAccount = account.copy(autoLoginEnabled = false)
+                MultiAccountPrefs.saveAccount(application, updatedAccount)
 
-    // Password
-    suspend fun getUserPass(): String? = EncryptedPrefs.getUserPass(application)
-    suspend fun saveUserPass(userPass: String) = EncryptedPrefs.saveUserPass(application, userPass)
+                MultiAccountPrefs.clearAccountCredentials(application, accountId)
 
-    // Get saved login method
-    suspend fun getLoginMethod(): String? = EncryptedPrefs.getLoginMethod(application)
-
-    // Auto-Login
-    suspend fun getUseAutoLogin(): Boolean? = EncryptedPrefs.getUseAutoLogin(application)
-    suspend fun saveUseAutoLogin() = EncryptedPrefs.saveUseAutoLogin(application)
-    suspend fun clearUseAutoLogin() = EncryptedPrefs.revokeUseAutoLogin(application)
+                ToastManager.showSuccess("Auto Login disabled")
+            }
+        }
+    }
 
     class SettingsViewModelFactory(
         private val manager: TrueNASApiManager?,
@@ -245,6 +294,14 @@ class SettingsScreenViewModel(
                 return SettingsScreenViewModel(manager, application) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+        }
+    }
+    suspend fun isAutoLoginEnabled(): Boolean {
+        val (_, accountId) = MultiAccountPrefs.getLastUsedProfile(application)?: Pair(null,null)
+        return if (accountId != null) {
+            MultiAccountPrefs.getAccount(application, accountId)?.autoLoginEnabled ?: false
+        } else {
+            false
         }
     }
 }

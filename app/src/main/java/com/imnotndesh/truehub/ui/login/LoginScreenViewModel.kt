@@ -9,7 +9,12 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
+import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.Prefs
 import com.imnotndesh.truehub.data.models.Auth.LoginMode
+import com.imnotndesh.truehub.data.models.LoginMethod
+import com.imnotndesh.truehub.data.models.SavedAccount
+import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,8 +33,9 @@ data class LoginUiState(
     val connectionStatus: ConnectionStatus = ConnectionStatus.Unknown,
     val isLoginSuccessful: Boolean = false,
     val isApiKeyVisible: Boolean = false,
-    val saveDetailsForAutoLogin: Boolean = false
+    val saveDetailsForAutoLogin: Boolean = true
 )
+
 sealed class ConnectionStatus {
     object Unknown : ConnectionStatus()
     object Connected : ConnectionStatus()
@@ -61,6 +67,8 @@ class LoginScreenViewModel(
 
     init {
         checkConnection()
+        // Load the initial auto-login state
+        loadInitialAutoLoginState()
     }
 
     fun updateManager(newManager: TrueNASApiManager) {
@@ -68,51 +76,68 @@ class LoginScreenViewModel(
         checkConnection()
     }
 
-
     fun handleEvent(event: LoginEvent) {
         when (event) {
             is LoginEvent.UpdateUsername -> {
                 _uiState.update { it.copy(username = event.username) }
             }
+
             is LoginEvent.UpdatePassword -> {
                 _uiState.update { it.copy(password = event.password) }
             }
+
             is LoginEvent.UpdateApiKey -> {
                 _uiState.update { it.copy(apiKey = event.apiKey) }
             }
+
             is LoginEvent.UpdateLoginMode -> {
                 _uiState.update { it.copy(loginMode = event.mode) }
             }
+
             is LoginEvent.TogglePasswordVisibility -> {
                 _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
             }
+
             is LoginEvent.Login -> {
                 performLogin(event.context)
             }
+
             is LoginEvent.LoginNavigationCompleted -> {
                 _uiState.update { it.copy(isLoginSuccessful = false) }
             }
+
             is LoginEvent.ResetLoginState -> {
-                _uiState.update { it.copy(
-                    isLoading = false,
-                    isLoginSuccessful = false
-                ) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isLoginSuccessful = false
+                    )
+                }
             }
+
             is LoginEvent.CheckConnection -> {
                 checkConnection()
             }
+
             is LoginEvent.ToggleApiKeyVisibility -> {
                 _uiState.update { it.copy(isApiKeyVisible = !it.isApiKeyVisible) }
             }
+
             is LoginEvent.UpdateSaveApiKey -> {
                 _uiState.update { it.copy(saveDetailsForAutoLogin = event.enabled) }
             }
         }
     }
+
     private fun loadInitialAutoLoginState() {
         viewModelScope.launch {
-            val isAutoLoginEnabled = EncryptedPrefs.getUseAutoLogin(application)
-            _uiState.update { it.copy(saveDetailsForAutoLogin = isAutoLoginEnabled!!) }
+            try {
+                val isAutoLoginEnabled = EncryptedPrefs.getUseAutoLogin(application) ?: true
+                _uiState.update { it.copy(saveDetailsForAutoLogin = isAutoLoginEnabled) }
+            } catch (e: Exception) {
+                // Default to true if loading fails
+                _uiState.update { it.copy(saveDetailsForAutoLogin = true) }
+            }
         }
     }
 
@@ -130,9 +155,11 @@ class LoginScreenViewModel(
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(
-                    connectionStatus = ConnectionStatus.Error(e.message ?: "Connection failed")
-                ) }
+                _uiState.update {
+                    it.copy(
+                        connectionStatus = ConnectionStatus.Error(e.message ?: "Connection failed")
+                    )
+                }
                 ToastManager.showError("Connection failed: ${e.message ?: "Unknown error"}")
             }
         }
@@ -157,6 +184,7 @@ class LoginScreenViewModel(
                     return
                 }
             }
+
             LoginMode.API_KEY -> {
                 if (currentState.apiKey.isBlank()) {
                     ToastManager.showWarning("Please enter your API key")
@@ -172,6 +200,7 @@ class LoginScreenViewModel(
                 LoginMode.PASSWORD -> {
                     performPasswordLogin(context, currentState)
                 }
+
                 LoginMode.API_KEY -> {
                     performApiKeyLogin(context, currentState)
                 }
@@ -192,19 +221,28 @@ class LoginScreenViewModel(
                             val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
-                                    saveBaseInfo(context,tokenResult.data,"password")
-                                    if (state.saveDetailsForAutoLogin){
-                                        saveDetailsForAutoLogin(context,"password",null,state.username,state.password)
+                                    saveBaseInfo(context, tokenResult.data, "password")
+                                    saveDetailsForAutoLogin(
+                                        context,
+                                        "password",
+                                        null,
+                                        state.username,
+                                        state.password,
+                                        state.saveDetailsForAutoLogin // Pass the preference
+                                    )
+                                    _uiState.update {
+                                        it.copy(
+                                            isLoading = false,
+                                            isLoginSuccessful = true
+                                        )
                                     }
-                                    _uiState.update { it.copy(
-                                        isLoading = false,
-                                        isLoginSuccessful = true
-                                    ) }
                                 }
+
                                 is ApiResult.Error -> {
                                     _uiState.update { it.copy(isLoading = false) }
                                     ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
                                 }
+
                                 is ApiResult.Loading -> {
                                     _uiState.update { it.copy(isLoading = true) }
                                 }
@@ -214,10 +252,12 @@ class LoginScreenViewModel(
                             ToastManager.showError("Invalid username or password")
                         }
                     }
+
                     is ApiResult.Error -> {
                         _uiState.update { it.copy(isLoading = false) }
                         ToastManager.showError("Login failed: ${loginResult.message}")
                     }
+
                     is ApiResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                         ToastManager.showInfo("Authenticating with username and password")
@@ -230,6 +270,7 @@ class LoginScreenViewModel(
                 is kotlinx.coroutines.TimeoutCancellationException -> {
                     ToastManager.showError("Login timeout. Server may be slow or unreachable.")
                 }
+
                 else -> {
                     ToastManager.showError("Login error: ${e.message}")
                 }
@@ -250,34 +291,44 @@ class LoginScreenViewModel(
                             val tokenResult = manager!!.auth.generateTokenWithResult()
                             when (tokenResult) {
                                 is ApiResult.Success -> {
-                                    saveBaseInfo(context,tokenResult.data,"api_key")
-                                    saveDetailsForAutoLogin(context,"api_key",state.apiKey,null,null)
-                                    _uiState.update { it.copy(
-                                        isLoading = false,
-                                        isLoginSuccessful = true
-                                    ) }
+                                    saveBaseInfo(context, tokenResult.data, "api_key")
+                                    // ALWAYS save account details, regardless of auto-login preference
+                                    saveDetailsForAutoLogin(
+                                        context,
+                                        "api_key",
+                                        state.apiKey,
+                                        null,
+                                        null,
+                                        state.saveDetailsForAutoLogin // Pass the preference
+                                    )
+                                    _uiState.update {
+                                        it.copy(
+                                            isLoading = false,
+                                            isLoginSuccessful = true
+                                        )
+                                    }
                                 }
+
                                 is ApiResult.Error -> {
                                     _uiState.update { it.copy(isLoading = false) }
                                     ToastManager.showError("Failed to generate secure token: ${tokenResult.message}")
                                 }
+
                                 is ApiResult.Loading -> {
                                     _uiState.update { it.copy(isLoading = true) }
                                 }
                             }
-                            _uiState.update { it.copy(
-                                isLoading = false,
-                                isLoginSuccessful = true
-                            ) }
                         } else {
                             _uiState.update { it.copy(isLoading = false) }
                             ToastManager.showError("Invalid API key")
                         }
                     }
+
                     is ApiResult.Error -> {
                         _uiState.update { it.copy(isLoading = false) }
                         ToastManager.showError("API key validation failed: ${loginResult.message}")
                     }
+
                     is ApiResult.Loading -> {
                         _uiState.update { it.copy(isLoading = true) }
                     }
@@ -289,6 +340,7 @@ class LoginScreenViewModel(
                 is kotlinx.coroutines.TimeoutCancellationException -> {
                     ToastManager.showError("Validation timeout. Please check your connection.")
                 }
+
                 else -> {
                     ToastManager.showError("Validation error: ${e.message}")
                 }
@@ -299,32 +351,84 @@ class LoginScreenViewModel(
     /**
      * Token Storage and IsLoggedIn Status only
      */
-    private suspend fun saveBaseInfo(context: Context,token: String,method: String){
-        EncryptedPrefs.saveAuthToken(context,token)
+    private suspend fun saveBaseInfo(context: Context, token: String, method: String) {
+        EncryptedPrefs.saveAuthToken(context, token)
         EncryptedPrefs.saveIsLoggedIn(context)
-        EncryptedPrefs.saveLoginMethod(context,method)
+        EncryptedPrefs.saveLoginMethod(context, method)
     }
 
     /**
-     * Saved details Storage
+     * Saved details Storage - ALWAYS saves account, auto-login preference controls credential storage
      */
-    private suspend fun saveDetailsForAutoLogin(context: Context,method :String,apiKey: String? = null,username :String? = null,password: String? = null){
-        EncryptedPrefs.saveUseAutoLogin(context)
-        when (method){
-            "password" ->{
-                if (!username.isNullOrEmpty() && !password.isNullOrEmpty()){
-                    EncryptedPrefs.saveUsername(context,username)
-                    EncryptedPrefs.saveUserPass(context,password)
-                }
-            }
-            "api_key" ->{
-                if (!apiKey.isNullOrEmpty()){
-                    EncryptedPrefs.saveApiKey(context, apiKey)
-                }
-            }
+    private suspend fun saveDetailsForAutoLogin(
+        context: Context,
+        method: String,
+        apiKey: String? = null,
+        username: String? = null,
+        password: String? = null,
+        autoLoginEnabled: Boolean = true
+    ) {
+        val (serverUrl, serverInsecure) = Prefs.load(context)
+
+        if (serverUrl == null) {
+            ToastManager.showError("Server URL not configured")
+            return
         }
+
+        // Check if server already exists
+        val existingServers = MultiAccountPrefs.getServers(context)
+        val server = existingServers.find { it.serverUrl == serverUrl } ?: SavedServer(
+            serverUrl = serverUrl,
+            insecure = serverInsecure
+        )
+
+        // Save server (will update lastUsed if already exists)
+        MultiAccountPrefs.saveServer(context, server)
+
+        // Check if account already exists for this server and username
+        val existingAccounts = MultiAccountPrefs.getAccounts(context)
+        val accountUsername = username ?: "API Key User"
+        val existingAccount = existingAccounts.find {
+            it.serverId == server.id && it.username == accountUsername
+        }
+
+        val account = existingAccount?.copy(
+            loginMethod = when (method) {
+                "api_key" -> LoginMethod.API_KEY
+                else -> LoginMethod.PASSWORD
+            },
+            autoLoginEnabled = autoLoginEnabled,
+            lastUsed = System.currentTimeMillis()
+        ) ?: SavedAccount(
+            serverId = server.id,
+            username = accountUsername,
+            loginMethod = when (method) {
+                "api_key" -> LoginMethod.API_KEY
+                else -> LoginMethod.PASSWORD
+            },
+            autoLoginEnabled = autoLoginEnabled
+        )
+
+        // Save account
+        MultiAccountPrefs.saveAccount(context, account)
+
+        // Save credentials only if auto-login is enabled
+        if (autoLoginEnabled) {
+            MultiAccountPrefs.saveAccountCredentials(
+                context = context,
+                accountId = account.id,
+                loginMethod = account.loginMethod,
+                apiKey = apiKey,
+                username = username,
+                password = password
+            )
+        }
+
+        // Mark as last used
+        MultiAccountPrefs.saveLastUsedProfile(context, server.id, account.id)
     }
 }
+
 class LoginViewModelFactory(
     private val manager: TrueNASApiManager?,
     private val application: Application
