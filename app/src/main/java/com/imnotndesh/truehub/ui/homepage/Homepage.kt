@@ -69,6 +69,7 @@ import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.details.DiskInfoBottomSheet
 import com.imnotndesh.truehub.ui.homepage.details.MetricType
@@ -299,10 +300,14 @@ private fun HomeContent(
         )
     }
     if (showMemoryDialog) {
-        DiskInfoBottomSheet(
-            disks = state.diskDetails,
-            onDismiss = { showMemoryDialog = false },
-        )
+        if (state.diskDetails.isNotEmpty()){
+            DiskInfoBottomSheet(
+                disks = state.diskDetails,
+                onDismiss = { showMemoryDialog = false },
+            )
+        }else{
+            ToastManager.showInfo("No disk Information Found")
+        }
     }
     if (showPerformanceDialog) {
         PerformanceBottomSheet(
