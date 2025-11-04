@@ -222,7 +222,6 @@ class LoginScreenViewModel(
                             when (tokenResult) {
                                 is ApiResult.Success -> {
                                     saveBaseInfo(context, tokenResult.data, "password")
-                                    // ALWAYS save account details, regardless of auto-login preference
                                     saveDetailsForAutoLogin(
                                         context,
                                         "password",

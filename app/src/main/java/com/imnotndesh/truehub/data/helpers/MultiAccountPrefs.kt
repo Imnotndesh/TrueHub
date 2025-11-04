@@ -193,6 +193,28 @@ object MultiAccountPrefs {
         return parts[0] to parts[1]
     }
 
+    suspend fun getTokenForLastUsed(context: Context): String? {
+        val (lastServerId, lastAccountId) = getLastUsedProfile(context) ?: return null
+
+        val (currentServerId, currentAccountId, token) = getCurrentSession(context) ?: return null
+
+        // Ensure the active session matches the last used profile
+        return if (lastServerId == currentServerId && lastAccountId == currentAccountId) {
+            token
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Saves a new authentication token for the most recently used account.
+     * This updates the active session keys (CURRENT_SESSION_KEY and CURRENT_TOKEN_KEY).
+     */
+    suspend fun saveTokenForLastUsed(context: Context, token: String) {
+        val (serverId, accountId) = getLastUsedProfile(context) ?: return
+        saveCurrentSession(context, serverId, accountId, token)
+    }
+
     // Session Management (current active session)
     private val CURRENT_SESSION_KEY = stringPreferencesKey("current_session")
     private val CURRENT_TOKEN_KEY = stringPreferencesKey("current_token")

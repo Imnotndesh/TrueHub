@@ -87,12 +87,9 @@ class MainActivity : ComponentActivity() {
                     manager?.let { mgr ->
                         while (true) {
                             try {
-                                val isLoggedIn = EncryptedPrefs.getIsLoggedIn(this@MainActivity)
-                                val hasToken =
-                                    EncryptedPrefs.getAuthToken(this@MainActivity) != null
-                                val hasApiKey = EncryptedPrefs.getApiKey(this@MainActivity) != null
+                                val authToken = MultiAccountPrefs.getTokenForLastUsed(this@MainActivity)
 
-                                if (isLoggedIn && (hasToken || hasApiKey) && mgr.isConnected()) {
+                                if (authToken != null && mgr.isConnected()) {
                                     mgr.connection.pingConnectionWithResult()
                                 }
                             } catch (_: Exception) {
@@ -186,7 +183,27 @@ class MainActivity : ComponentActivity() {
                 val hasSavedAccounts = MultiAccountPrefs.getAccounts(this@MainActivity).isNotEmpty()
 
                 if (hasSavedAccounts) {
+                    onStateChange(AppState.ValidatingToken, null)
+
+                    val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(this@MainActivity) ?: run {
+                        onStateChange(AppState.Ready(Screen.AccountSwitcher.route), null)
+                        return@launch
+                    }
+
+                    val server = MultiAccountPrefs.getServer(this@MainActivity, serverId)
+                    val account = MultiAccountPrefs.getAccount(this@MainActivity, accountId)
+                    val token = MultiAccountPrefs.getTokenForLastUsed(this@MainActivity)
+
+                    if (server != null && account != null && token != null) {
+                        val manager = attemptLoginWithToken(server, account, token)
+
+                        if (manager != null) {
+                            onStateChange(AppState.Ready(Screen.Main.route), manager)
+                            return@launch
+                        }
+                    }
                     onStateChange(AppState.Ready(Screen.AccountSwitcher.route), null)
+
                 } else {
                     onStateChange(AppState.Ready(Screen.Login.route), null)
                 }
@@ -199,6 +216,52 @@ class MainActivity : ComponentActivity() {
                     ),
                     null
                 )
+            }
+        }
+    }
+
+    /**
+     * Attempts connection and token validation for the last used profile.
+     * If successful, generates and saves a new token.
+     */
+    private suspend fun attemptLoginWithToken(
+        server: SavedServer,
+        account: SavedAccount,
+        token: String
+    ): TrueNASApiManager? {
+        return withTimeoutOrNull(10000L) {
+            try {
+                val config = ClientConfig(
+                    serverUrl = server.serverUrl,
+                    insecure = server.insecure,
+                    connectionTimeoutMs = 5000,
+                    enablePing = false,
+                    enableDebugLogging = false
+                )
+
+                val client = TrueNASClient(config)
+                val manager = TrueNASApiManager(client, this@MainActivity)
+
+                if (!manager.connect()) return@withTimeoutOrNull null
+
+                // try login using token
+                val tryLogin = manager.auth.loginWithTokenAndResult(token)
+                if (tryLogin is ApiResult.Error) return@withTimeoutOrNull null
+
+                // generate new token
+                val newTokenResult = manager.auth.generateTokenWithResult()
+                if (newTokenResult is ApiResult.Success) {
+                    MultiAccountPrefs.saveTokenForLastUsed(
+                        this@MainActivity,
+                        newTokenResult.data
+                    )
+                    manager
+                } else {
+                    null
+                }
+
+            } catch (_: Exception) {
+                null
             }
         }
     }
