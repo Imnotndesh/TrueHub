@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui.settings.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -31,6 +32,8 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,7 +64,9 @@ import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
 import kotlinx.coroutines.delay
+import androidx.core.net.toUri
 
+@SuppressLint("UseKtx")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
@@ -69,8 +75,8 @@ fun AboutScreen(
     var tapCount by remember { mutableIntStateOf(0) }
     var showEasterEgg by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
+    val context = LocalContext.current
 
-    // Reset tap count after 2 seconds of inactivity
     LaunchedEffect(tapCount) {
         if (tapCount > 0) {
             delay(2000)
@@ -231,6 +237,17 @@ fun AboutScreen(
                         name = "Brian Njoroge",
                         year = "2025"
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    SupportButton(
+                        onClick = {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                "https://github.com/sponsors/Imnotndesh".toUri()
+                            )
+                            context.startActivity(intent)
+                        }
+                    )
                 }
 
                 // Legal Section
@@ -283,6 +300,35 @@ fun AboutScreen(
                     )
                 }
             }
+        }
+    }
+}
+@Composable
+private fun SupportButton(onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Favorite,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Support Development",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
