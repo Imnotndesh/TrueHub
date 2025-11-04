@@ -364,6 +364,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else {
                                 ToastManager.showError("Failed to login with saved account")
+                                navController.navigate(Screen.Login.route){
+                                    popUpTo(Screen.AccountSwitcher.route) { inclusive = true }
+                                }
                             }
                         }
                     },
