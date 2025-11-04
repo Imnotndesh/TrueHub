@@ -81,7 +81,7 @@ fun SettingsScreen(
     var isAutoLoginChecked by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        isAutoLoginChecked = viewModel.getUseAutoLogin() ?: false
+        isAutoLoginChecked = viewModel.isAutoLoginEnabled()
     }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -89,7 +89,7 @@ fun SettingsScreen(
 
     LaunchedEffect(uiState.isLoading, uiState.isAutoLoginSaving, uiState.showAutoLoginDialog) {
         if (!uiState.isLoading && !uiState.isAutoLoginSaving && !uiState.showAutoLoginDialog) {
-            isAutoLoginChecked = viewModel.getUseAutoLogin() ?: false
+            isAutoLoginChecked = viewModel.isAutoLoginEnabled()
         }
     }
 
@@ -192,10 +192,18 @@ fun SettingsScreen(
                         isChecked = isAutoLoginChecked,
                     ),
                     SettingItem(
+                        icon = Icons.Default.AccountCircle,
+                        name = "Switch Account",
+                        description = "Switch to another saved account",
+                        onClick = {
+                            onNavigateToLogin()
+                        }
+                    ),
+                    SettingItem(
                         icon = Icons.AutoMirrored.Filled.Logout,
-                        name = "Log Out",
-                        description = "Sign out of your account",
-                        onClick = { viewModel.handleEvent(SettingsEvent.Logout) },
+                        name = "Sign Out",
+                        description = "Clear credentials and sign out",
+                        onClick = { viewModel.handleEvent(SettingsEvent.SignOut) },
                         isLoading = uiState.isLoggingOut
                     )
                 )

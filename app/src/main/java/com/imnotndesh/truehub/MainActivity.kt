@@ -26,11 +26,16 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
+import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.Prefs
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
+import com.imnotndesh.truehub.data.models.LoginMethod
+import com.imnotndesh.truehub.data.models.SavedAccount
+import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.MainScreen
 import com.imnotndesh.truehub.ui.Screen
+import com.imnotndesh.truehub.ui.account.AccountSwitcherScreen
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.ModernToastHost
 import com.imnotndesh.truehub.ui.components.NoInternetScreen
@@ -177,103 +182,13 @@ class MainActivity : ComponentActivity() {
                     onStateChange(AppState.NoInternet, null)
                     return@launch
                 }
-                val (savedUrl, savedInsecure) = Prefs.load(this@MainActivity)
 
-                if (savedUrl == null) {
-                    onStateChange(AppState.Ready(Screen.Login.route), null)
-                    return@launch
-                }
-                // Initialize connection
-                val config = ClientConfig(
-                    serverUrl = savedUrl,
-                    insecure = savedInsecure,
-                    connectionTimeoutMs = 10000,
-                    enablePing = false,
-                    enableDebugLogging = false
-                )
+                val hasSavedAccounts = MultiAccountPrefs.getAccounts(this@MainActivity).isNotEmpty()
 
-                val localTrueNasClient = TrueNASClient(config)
-                val localManager = TrueNASApiManager(localTrueNasClient,this@MainActivity)
-
-                val connectionResult = try {
-                    localManager.connect()
-                    true
-                } catch (_: Exception) {
-                    false
-                }
-
-                if (!connectionResult) {
-                    onStateChange(
-                        AppState.Error(
-                            "Unable to connect to server.",
-                            Screen.Login.route
-                        ),
-                        localManager
-                    )
-                    return@launch
-                }
-
-                // Validate credentials
-                onStateChange(AppState.ValidatingToken, localManager)
-
-                val token = EncryptedPrefs.getAuthToken(this@MainActivity)
-                val apiKey = EncryptedPrefs.getApiKey(this@MainActivity)
-                val loginMethod = EncryptedPrefs.getLoginMethod(this@MainActivity)
-
-                val isValid = when (loginMethod) {
-                    "api_key" -> apiKey?.let { validateApiKey(it, localManager) } ?: false
-                    "password" -> token?.let { validateToken(it, localManager) } ?: false
-                    else -> false
-                }
-
-                if (isValid) {
-                    val result = withTimeoutOrNull(1000L) {
-                        localManager.auth.generateTokenWithResult()
-                    }
-                    EncryptedPrefs.clearAuthToken(this@MainActivity)
-                    EncryptedPrefs.saveAuthToken(
-                        this@MainActivity,
-                        (result as ApiResult.Success).data
-                    )
-                    onStateChange(AppState.Ready(Screen.Main.route), localManager)
+                if (hasSavedAccounts) {
+                    onStateChange(AppState.Ready(Screen.AccountSwitcher.route), null)
                 } else {
-                    EncryptedPrefs.clearAuthToken(this@MainActivity)
-                    EncryptedPrefs.clearIsLoggedIn(this@MainActivity)
-
-                    val autoLoginEnabled = EncryptedPrefs.getUseAutoLogin(this@MainActivity)?:false
-
-                    if (autoLoginEnabled) {
-                        onStateChange(AppState.AttemptingAutoLogin, localManager)
-                        val autoLoginSuccessful = attemptAutoLogin(localManager, loginMethod)
-
-                        if (autoLoginSuccessful) {
-                            val result = withTimeoutOrNull(1000L) {
-                                localManager.auth.generateTokenWithResult()
-                            }
-                            EncryptedPrefs.clearAuthToken(this@MainActivity)
-                            EncryptedPrefs.saveAuthToken(
-                                this@MainActivity,
-                                (result as ApiResult.Success).data
-                            )
-                            EncryptedPrefs.saveIsLoggedIn(this@MainActivity)
-                            onStateChange(AppState.Ready(Screen.Main.route), localManager)
-                        } else {
-                            EncryptedPrefs.clearApiKey(this@MainActivity)
-                            onStateChange(
-                                AppState.Error(
-                                    "Auto login failed",
-                                    Screen.Login.route
-                                ), localManager
-                            )
-                        }
-                    } else {
-                        onStateChange(
-                            AppState.Error(
-                                "Session expired",
-                                Screen.Login.route
-                            ), localManager
-                        )
-                    }
+                    onStateChange(AppState.Ready(Screen.Login.route), null)
                 }
 
             } catch (e: Exception) {
@@ -287,37 +202,62 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private suspend fun attemptAutoLogin(manager: TrueNASApiManager, loginMethod: String?): Boolean {
+    private suspend fun attemptAutoLoginWithProfile(
+        server: SavedServer,
+        account: SavedAccount
+    ): TrueNASApiManager? {
         return try {
-            when (loginMethod) {
-                "api_key" -> {
-                    val apiKey = EncryptedPrefs.getApiKey(this)
-                    if (apiKey != null){
-                        val loginResult = withTimeoutOrNull(10000L) {
-                            manager.auth.loginWithApiKeyWithResult(apiKey)
-                        }
-                        loginResult is ApiResult.Success && loginResult.data
-                    }else{
-                        false
-                    }
-                }
-                "password" -> {
-                    val username = EncryptedPrefs.getUsername(this)
-                    val password = EncryptedPrefs.getUserPass(this)
+            val config = ClientConfig(
+                serverUrl = server.serverUrl,
+                insecure = server.insecure,
+                connectionTimeoutMs = 10000,
+                enablePing = false,
+                enableDebugLogging = false
+            )
 
-                    if (username != null && password != null) {
-                        val loginResult = withTimeoutOrNull(10000L) {
-                            manager.auth.loginUserWithResult(AuthService.DefaultAuth(username,password))
-                        }
-                        loginResult is ApiResult.Success && loginResult.data
-                    } else {
-                        false
-                    }
+            val client = TrueNASClient(config)
+            val manager = TrueNASApiManager(client, this@MainActivity)
+
+            if (!manager.connect()) return null
+
+            val (cred1, cred2) = MultiAccountPrefs.getAccountCredentials(
+                this@MainActivity,
+                account.id,
+                account.loginMethod
+            )
+
+            val loginSuccess = when (account.loginMethod) {
+                LoginMethod.API_KEY -> {
+                    cred1?.let {
+                        val result = manager.auth.loginWithApiKeyWithResult(it)
+                        result is ApiResult.Success && result.data
+                    } ?: false
                 }
-                else -> false
+                LoginMethod.PASSWORD -> {
+                    if (cred1 != null && cred2 != null) {
+                        val result = manager.auth.loginUserWithResult(
+                            AuthService.DefaultAuth(cred1, cred2)
+                        )
+                        result is ApiResult.Success && result.data
+                    } else false
+                }
             }
+
+            if (loginSuccess) {
+                val tokenResult = manager.auth.generateTokenWithResult()
+                if (tokenResult is ApiResult.Success) {
+                    MultiAccountPrefs.saveCurrentSession(
+                        this@MainActivity,
+                        server.id,
+                        account.id,
+                        tokenResult.data
+                    )
+                    manager
+                } else null
+            } else null
+
         } catch (_: Exception) {
-            false
+            null
         }
     }
 
@@ -348,6 +288,26 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
+            }
+            composable(Screen.AccountSwitcher.route) {
+                AccountSwitcherScreen(
+                    onAccountSelected = { server, account ->
+                        lifecycleScope.launch {
+                            val manager = attemptLoginWithProfile(server, account)
+                            if (manager != null) {
+                                onManagerUpdate(manager)
+                                navController.navigate(Screen.Main.route) {
+                                    popUpTo(Screen.AccountSwitcher.route) { inclusive = true }
+                                }
+                            } else {
+                                ToastManager.showError("Failed to login with saved account")
+                            }
+                        }
+                    },
+                    onAddNewAccount = {
+                        navController.navigate(Screen.Login.route)
+                    }
+                )
             }
 
             composable(Screen.Main.route) {
@@ -416,27 +376,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    private suspend fun validateToken(token: String, manager: TrueNASApiManager): Boolean {
-        return try {
-            val result = withTimeoutOrNull(10000L){
-                manager.auth.loginWithTokenAndResult(token)
-            }
-            return result is ApiResult.Success && result.data
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private suspend fun validateApiKey(apiKey: String, manager: TrueNASApiManager): Boolean {
-        return try {
-            val result = withTimeoutOrNull(10000L){
-                manager.auth.loginWithApiKeyWithResult(apiKey)
-            }
-            result is ApiResult.Success && result.data
-        } catch (_: Exception) {
-            false
-        }
+    private suspend fun attemptLoginWithProfile(
+        server: SavedServer,
+        account: SavedAccount
+    ): TrueNASApiManager? {
+        return attemptAutoLoginWithProfile(server, account)
     }
 
     override fun onDestroy() {
