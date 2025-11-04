@@ -340,7 +340,7 @@ class MainActivity : ComponentActivity() {
                         navController.navigate(Screen.Licenses.route)
                     },
                     onNavigateToLogin = {
-                        navController.navigate(Screen.Login.route) {
+                        navController.navigate(Screen.AccountSwitcher.route) {
                             popUpTo(Screen.Settings.route) { inclusive = true }
                         }
                     }
