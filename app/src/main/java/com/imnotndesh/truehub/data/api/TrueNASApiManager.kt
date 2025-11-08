@@ -24,6 +24,9 @@ class TrueNASApiManager(
     val sharing: SharingService by lazy { SharingService(this) }
     val connection : ConnectionService by lazy { ConnectionService(this) }
     val user : UserService by lazy { UserService(this) }
+    val storage : StorageService by lazy { StorageService(this) }
+
+
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {

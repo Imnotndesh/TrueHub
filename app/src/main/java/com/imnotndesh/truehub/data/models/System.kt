@@ -326,7 +326,7 @@ object System {
         val datetime: MongoDate,
         val last_occurrence: MongoDate,
         val dismissed: Boolean,
-        val mail: Any? = null, // Can be null or object
+        val mail: Any? = null,
         val text: String,
         val id: String,
         val level: String,
