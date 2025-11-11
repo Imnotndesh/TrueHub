@@ -89,8 +89,8 @@ fun UnifiedScreenHeader(
                         )
                     }
                 }
+                Spacer(modifier = Modifier.width(2.dp))
             }
-            Spacer(modifier = Modifier.width(2.dp))
             Column {
                 Text(
                     text = title,
