@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
@@ -57,6 +58,7 @@ fun UnifiedScreenHeader(
     onRefresh: () -> Unit,
     onDismissError: () -> Unit,
     manager: TrueNASApiManager,
+    onBackPressed: (() -> Unit)?= null,
     onNavigateToSettings: (() -> Unit)? = null,
     onShutdownInvoke : (() -> Unit)?= null
 ) {
@@ -74,6 +76,21 @@ fun UnifiedScreenHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (onBackPressed != null){
+                Column {
+                    IconButton(
+                        onClick = onBackPressed,
+                        enabled = !isLoading && !isRefreshing
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBackIosNew,
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             Column {
                 Text(
                     text = title,
