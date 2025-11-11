@@ -1,5 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.pools
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,32 +18,30 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Scanner
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,13 +60,13 @@ import com.imnotndesh.truehub.data.models.System.PoolScan
 import com.imnotndesh.truehub.data.models.System.PoolTopology
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import java.text.DecimalFormat
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PoolDetailsScreen(
     manager: TrueNASApiManager,
@@ -76,74 +76,55 @@ fun PoolDetailsScreen(
         factory = PoolDetailsViewModel.PoolDetailsViewModelFactory(manager)
     )
     val uiState by viewModel.uiState.collectAsState()
-
-    var isRefreshing = false
-    var currentPool: Pool? = null
+    var isLoading by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var currentPool: Pool? by remember { mutableStateOf(null) }
 
     when (val state = uiState) {
+        is PoolDetailsUiState.Loading -> {
+            isLoading = true
+            isRefreshing = false
+            error = null
+        }
         is PoolDetailsUiState.Success -> {
+            isLoading = false
             isRefreshing = state.isRefreshing
+            error = null
             currentPool = state.pool
         }
-        else -> {}
+        is PoolDetailsUiState.Error -> {
+            isLoading = false
+            isRefreshing = false
+            error = state.message
+        }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(currentPool?.name ?: "Pool Details") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .padding(end = 16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        IconButton(onClick = { viewModel.refreshPool() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxSize()
         ) {
+            UnifiedScreenHeader(
+                title = "Pool Details",
+                subtitle = "${currentPool?.name ?: "Current"} Details",
+                isLoading = isLoading,
+                isRefreshing = isRefreshing,
+                error = error,
+                onRefresh = { viewModel.refreshPool() },
+                onDismissError = { error = null },
+                manager = manager,
+                onBackPressed = onNavigateBack
+            )
+
             when (val state = uiState) {
                 is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
-                is PoolDetailsUiState.Error -> ErrorScreen(message = state.message)
+                is PoolDetailsUiState.Error -> {} // Error shown in header
                 is PoolDetailsUiState.Success -> PoolDetailsContent(pool = state.pool)
             }
         }
-    }
-}
-
-@Composable
-private fun ErrorScreen(message: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp), contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "Failed to load pool details: $message",
-            color = MaterialTheme.colorScheme.error,
-            textAlign = TextAlign.Center
-        )
     }
 }
 
@@ -176,7 +157,8 @@ private fun PoolInfoHeader(pool: Pool) {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp, topStart = 24.dp, topEnd = 24.dp))
+            .padding(horizontal = 10.dp)
     ) {
         WavyGradientBackground {
             Column(
@@ -202,7 +184,7 @@ private fun PoolInfoHeader(pool: Pool) {
                 )
 
                 Text(
-                    text = "${pool.status} • Total: ${pool.size_str}",
+                    text = "${pool.status} • Total: ${pool.size.toGigabytesString()}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                     fontSize = 14.sp
@@ -210,6 +192,18 @@ private fun PoolInfoHeader(pool: Pool) {
             }
         }
     }
+}
+fun Long.toGigabytesString(): String {
+    if (this == 0L) {
+        return "0 GB"
+    }
+
+    val gibibyte = 1024.0 * 1024.0 * 1024.0
+    val gbValue = this.toDouble() / gibibyte
+
+    val decimalFormat = DecimalFormat("#.#")
+
+    return "${decimalFormat.format(gbValue)} GB"
 }
 
 @Composable
@@ -219,6 +213,18 @@ private fun PoolStorageUsageCard(pool: Pool) {
         usedPercentage > 0.9f -> MaterialTheme.colorScheme.error
         usedPercentage > 0.75f -> Color(0xFFF57C00) // Orange
         else -> MaterialTheme.colorScheme.primary
+    }
+
+    // Animated progress
+    var targetProgress by remember { mutableFloatStateOf(0f) }
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 1000, delayMillis = 100),
+        label = "storageProgress"
+    )
+
+    LaunchedEffect(usedPercentage) {
+        targetProgress = usedPercentage
     }
 
     Card(
@@ -247,7 +253,7 @@ private fun PoolStorageUsageCard(pool: Pool) {
             }
             Spacer(modifier = Modifier.height(12.dp))
             LinearProgressIndicator(
-                progress = { usedPercentage },
+                progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
@@ -262,12 +268,12 @@ private fun PoolStorageUsageCard(pool: Pool) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "Used: ${pool.allocated_str}",
+                    "Used: ${pool.allocated.toGigabytesString()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Free: ${pool.free_str}",
+                    "Free: ${pool.free.toGigabytesString()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -393,6 +399,18 @@ private fun PoolScanSection(scan: PoolScan) {
         return dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
     }
 
+    // Animated scan progress
+    var targetScanProgress by remember { mutableFloatStateOf(0f) }
+    val animatedScanProgress by animateFloatAsState(
+        targetValue = targetScanProgress,
+        animationSpec = tween(durationMillis = 1000, delayMillis = 100),
+        label = "scanProgress"
+    )
+
+    LaunchedEffect(scan.percentage) {
+        targetScanProgress = (scan.percentage ?: 0.0).toFloat() / 100f
+    }
+
     PoolInfoSection(title = "Last Scan", icon = Icons.Default.Scanner) {
         PoolInfoRow("Function", scan.function ?: "None Found")
         PoolInfoRow("State", scan.state ?: "None Found")
@@ -404,7 +422,7 @@ private fun PoolScanSection(scan: PoolScan) {
             Spacer(modifier = Modifier.height(8.dp))
             if (scan.percentage != null){
                 LinearProgressIndicator(
-                    progress = { scan.percentage.toFloat() / 100f },
+                    progress = { animatedScanProgress },
                     modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -424,7 +442,7 @@ private fun PoolScanSection(scan: PoolScan) {
                     Text(
                         text = "Cannot Find Storage Usage statistic",
                         style = MaterialTheme.typography.bodySmall
-                        .copy(color = MaterialTheme.colorScheme.error)
+                            .copy(color = MaterialTheme.colorScheme.error)
                     )
                 }
             }
