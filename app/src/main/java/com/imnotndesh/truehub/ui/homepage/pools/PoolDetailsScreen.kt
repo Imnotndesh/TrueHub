@@ -21,9 +21,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DataObject
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Scanner
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.models.Storage
 import com.imnotndesh.truehub.data.models.System.Pool
 import com.imnotndesh.truehub.data.models.System.PoolDevice
 import com.imnotndesh.truehub.data.models.System.PoolScan
@@ -122,14 +125,21 @@ fun PoolDetailsScreen(
             when (val state = uiState) {
                 is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
                 is PoolDetailsUiState.Error -> {} // Error shown in header
-                is PoolDetailsUiState.Success -> PoolDetailsContent(pool = state.pool)
+                is PoolDetailsUiState.Success -> PoolDetailsContent(
+                    pool = state.pool,
+                    scrubTasks = state.scrubTasks
+                    )
             }
         }
     }
 }
 
 @Composable
-private fun PoolDetailsContent(pool: Pool) {
+private fun PoolDetailsContent(
+    pool: Pool,
+    scrubTasks: List<Storage.PoolScrubQueryResponse>
+) {
+    val scrubTask = scrubTasks.find { it.pool == pool.id.toLong() }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -146,8 +156,14 @@ private fun PoolDetailsContent(pool: Pool) {
             pool.scan?.let {
                 PoolScanSection(scan = it)
             }
+            if (scrubTask != null) {
+                PoolScrubSection(scrubTask = scrubTask)
+            } else {
+                NoScrubTaskCard()
+            }
             PoolTopologySection(topology = pool.topology)
         }
+
     }
 }
 
@@ -542,5 +558,92 @@ fun StatChip(label: String, value: String, isError: Boolean) {
             fontWeight = FontWeight.Bold,
             color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+@Composable
+private fun PoolScrubSection(scrubTask: Storage.PoolScrubQueryResponse) {
+
+    fun formatSchedule(schedule: Storage.DeletionSchedule): String {
+        return "${schedule.minute} ${schedule.hour} ${schedule.dom} ${schedule.month} ${schedule.dow}"
+    }
+
+    PoolInfoSection(title = "Scrub Task", icon = Icons.Default.Schedule) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = if (scrubTask.enabled)
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            ),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                PoolInfoRow("Status", if (scrubTask.enabled) "Enabled" else "Disabled")
+                PoolInfoRow("Description", scrubTask.description)
+                PoolInfoRow("Threshold (Days)", scrubTask.threshold.toString())
+                PoolInfoRow("Cron Schedule", formatSchedule(scrubTask.schedule))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoScrubTaskCard(
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(bottom = 16.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Schedule,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Scub Tasks",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.EventRepeat,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "No Scrub Task",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "No automated scrub task is configured for this pool.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
