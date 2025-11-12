@@ -145,7 +145,7 @@ object ApiMethods {
          * @see com.imnotndesh.truehub.data.models.Storage.PoolScrubQueryArgs
          */
         const val POOL_SCRUB_QUERY = "pool.scrub.query"
-
+        const val POOL_SCRUB_CREATE = "pool.scrub.create"
         /**
          * Retrieves a single pool scrub task instance.
          * @see com.imnotndesh.truehub.data.models.Storage.PoolScrubQuerySingleArgs

@@ -16,26 +16,39 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DataObject
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.EventRepeat
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Scanner
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,12 +63,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.JobState
 import com.imnotndesh.truehub.data.models.Storage
 import com.imnotndesh.truehub.data.models.System.Pool
 import com.imnotndesh.truehub.data.models.System.PoolDevice
@@ -116,7 +131,7 @@ fun PoolDetailsScreen(
                 isLoading = isLoading,
                 isRefreshing = isRefreshing,
                 error = error,
-                onRefresh = { viewModel.refreshPool() },
+                onRefresh = { viewModel.refresh() },
                 onDismissError = { error = null },
                 manager = manager,
                 onBackPressed = onNavigateBack
@@ -124,11 +139,17 @@ fun PoolDetailsScreen(
 
             when (val state = uiState) {
                 is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
-                is PoolDetailsUiState.Error -> {} // Error shown in header
+                is PoolDetailsUiState.Error -> {}
                 is PoolDetailsUiState.Success -> PoolDetailsContent(
                     pool = state.pool,
-                    scrubTasks = state.scrubTasks
-                    )
+                    scrubTasks = state.scrubTasks,
+                    onCreateScrubTask = viewModel::createScrubTask,
+                    onUpdateScrubTask = viewModel::updateScrubTask,
+                    onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
+                    onRunScrubTask = viewModel::runScrubTask,
+                    onSwitchScrubState = viewModel::switchScrubTaskState,
+                    jobStates = state.jobStates
+                )
             }
         }
     }
@@ -137,9 +158,75 @@ fun PoolDetailsScreen(
 @Composable
 private fun PoolDetailsContent(
     pool: Pool,
-    scrubTasks: List<Storage.PoolScrubQueryResponse>
+    scrubTasks: List<Storage.PoolScrubQueryResponse>,
+    jobStates: Map<String, JobState>,
+    onCreateScrubTask: (Storage.UpdatePoolScrubDetails) -> Unit,
+    onUpdateScrubTask: (Int, Storage.UpdatePoolScrubDetails) -> Unit,
+    onDeleteScrubTask: (Int) -> Unit,
+    onRunScrubTask: (Storage.RunPoolScrubArgs) -> Unit,
+    onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit
 ) {
     val scrubTask = scrubTasks.find { it.pool == pool.id.toLong() }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var taskToEdit by remember { mutableStateOf<Storage.PoolScrubQueryResponse?>(null) }
+    var taskToDelete by remember { mutableStateOf<Storage.PoolScrubQueryResponse?>(null) }
+    var taskToRun by remember { mutableStateOf<Storage.PoolScrubQueryResponse?>(null) }
+
+
+    if (showCreateDialog) {
+        CreateScrubTaskDialog(
+            poolId = pool.id.toLong(),
+            onDismiss = { showCreateDialog = false },
+            onConfirm = onCreateScrubTask
+        )
+    }
+
+    taskToEdit?.let { task ->
+        CreateScrubTaskDialog(
+            poolId = pool.id.toLong(),
+            existingTask = task,
+            onDismiss = { taskToEdit = null },
+            onConfirm = { updatedDetails -> onUpdateScrubTask(task.id.toInt(), updatedDetails) }
+        )
+    }
+
+    taskToDelete?.let { task ->
+        AlertDialog(
+            onDismissRequest = { taskToDelete = null },
+            title = { Text("Delete Scrub Task") },
+            text = { Text("Are you sure you want to delete this scrub task?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteScrubTask(task.id.toInt())
+                        taskToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
+    taskToRun?.let { task ->
+        AlertDialog(
+            onDismissRequest = { taskToRun = null },
+            title = { Text("Run Scrub Task") },
+            text = { Text("Are you sure you want to manually run the scrub task for pool '${task.pool_name}'?") },
+            confirmButton = {
+                Button(onClick = {
+                    val args = Storage.RunPoolScrubArgs(name = task.pool_name, threshold = task.threshold)
+                    onRunScrubTask(args)
+                    taskToRun = null
+                }) { Text("Run") }
+            },
+            dismissButton = {
+                TextButton(onClick = { taskToRun = null }) { Text("Cancel") }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -157,13 +244,25 @@ private fun PoolDetailsContent(
                 PoolScanSection(scan = it)
             }
             if (scrubTask != null) {
-                PoolScrubSection(scrubTask = scrubTask)
+                val jobKey = "scrub_${scrubTask.id}"
+                PoolScrubSection(
+                    scrubTask = scrubTask,
+                    onAddClick = { showCreateDialog = true },
+                    onEditClick = { taskToEdit = scrubTask },
+                    onDeleteClick = { taskToDelete = scrubTask },
+                    onRunClick = { taskToRun = scrubTask },
+                    onSwitchStateClick = {
+                        val action =
+                            if (scrubTask.enabled) Storage.PoolScrubAction.STOP else Storage.PoolScrubAction.START
+                        onSwitchScrubState(pool.name, scrubTask.id, action)
+                    },
+                    jobState = jobStates[jobKey]
+                )
             } else {
-                NoScrubTaskCard()
+                NoScrubTaskSection(onAddClick = { showCreateDialog = true })
             }
             PoolTopologySection(topology = pool.topology)
         }
-
     }
 }
 
@@ -173,7 +272,14 @@ private fun PoolInfoHeader(pool: Pool) {
         modifier = Modifier
             .fillMaxWidth()
             .height(180.dp)
-            .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp, topStart = 24.dp, topEnd = 24.dp))
+            .clip(
+                RoundedCornerShape(
+                    bottomStart = 24.dp,
+                    bottomEnd = 24.dp,
+                    topStart = 24.dp,
+                    topEnd = 24.dp
+                )
+            )
             .padding(horizontal = 10.dp)
     ) {
         WavyGradientBackground {
@@ -302,6 +408,7 @@ private fun PoolStorageUsageCard(pool: Pool) {
 private fun PoolInfoSection(
     title: String,
     icon: ImageVector,
+    action: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column {
@@ -320,8 +427,10 @@ private fun PoolInfoSection(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
             )
+            action?.invoke()
         }
         Column(content = content)
     }
@@ -358,8 +467,8 @@ private fun PoolStatusSection(pool: Pool) {
     PoolInfoSection(title = "Status & Health", icon = Icons.Default.Info) {
         val statusColor = when {
             !pool.healthy -> MaterialTheme.colorScheme.error
-            pool.warning -> Color(0xFFF57C00) // Orange
-            else -> Color(0xFF2E7D32) // Green
+            pool.warning -> Color(0xFFF57C00)
+            else -> Color(0xFF2E7D32)
         }
         val statusIcon = when {
             !pool.healthy -> Icons.Default.Error
@@ -439,7 +548,10 @@ private fun PoolScanSection(scan: PoolScan) {
             if (scan.percentage != null){
                 LinearProgressIndicator(
                     progress = { animatedScanProgress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
@@ -561,13 +673,56 @@ fun StatChip(label: String, value: String, isError: Boolean) {
     }
 }
 @Composable
-private fun PoolScrubSection(scrubTask: Storage.PoolScrubQueryResponse) {
+private fun PoolScrubSection(
+    scrubTask: Storage.PoolScrubQueryResponse,
+    onAddClick: () -> Unit,
+    jobState: JobState?,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onRunClick: () -> Unit,
+    onSwitchStateClick: () -> Unit
+) {
 
     fun formatSchedule(schedule: Storage.DeletionSchedule): String {
         return "${schedule.minute} ${schedule.hour} ${schedule.dom} ${schedule.month} ${schedule.dow}"
     }
 
-    PoolInfoSection(title = "Scrub Task", icon = Icons.Default.Schedule) {
+    PoolInfoSection(
+        title = "Scrub Details",
+        icon = Icons.Default.EventRepeat,
+        action = {
+            Row {
+//                IconButton(onClick = onSwitchStateClick, enabled = jobState == null) {
+//                    Icon(
+//                        imageVector = Icons.Default.PowerSettingsNew,
+//                        contentDescription = "Toggle Scrub Task State",
+//                        tint = if (scrubTask.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+//                    )
+//                }
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Scrub Task",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+//                IconButton(onClick = onRunClick) {
+//                    Icon(
+//                        imageVector = Icons.Default.PlayArrow,
+//                        contentDescription = "Run Scrub Task",
+//                        tint = MaterialTheme.colorScheme.primary
+//                    )
+//                }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Scrub Task",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    )  {
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = if (scrubTask.enabled)
@@ -584,66 +739,145 @@ private fun PoolScrubSection(scrubTask: Storage.PoolScrubQueryResponse) {
                 PoolInfoRow("Cron Schedule", formatSchedule(scrubTask.schedule))
             }
         }
+        if (jobState != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Column(modifier = Modifier.padding(horizontal = 4.dp)) {
+                Text(
+                    "Job Status: ${jobState.state}",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { jobState.progress / 100f },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                )
+                jobState.description?.let {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun NoScrubTaskSection(onAddClick: () -> Unit) {
+    PoolInfoSection(
+        title = "Scrub Details",
+        icon = Icons.Default.EventRepeat,
+        action = {
+            IconButton(onClick = onAddClick) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create Scrub Task",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Text(
+                text = "No Scrub Task Found for this Pool.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.CenterHorizontally),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
-private fun NoScrubTaskCard(
-    modifier: Modifier = Modifier
+private fun CreateScrubTaskDialog(
+    poolId: Long,
+    existingTask: Storage.PoolScrubQueryResponse? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (Storage.UpdatePoolScrubDetails) -> Unit
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 16.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.Schedule,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Scub Tasks",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = Icons.Default.EventRepeat,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.outline
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Scrub Task",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "No automated scrub task is configured for this pool.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+    var description by remember { mutableStateOf(existingTask?.description ?: "") }
+    var threshold by remember { mutableStateOf(existingTask?.threshold?.toString() ?: "35") }
+    var minute by remember { mutableStateOf(existingTask?.schedule?.minute ?: "00") }
+    var hour by remember { mutableStateOf(existingTask?.schedule?.hour ?: "00") }
+    var dayOfMonth by remember { mutableStateOf(existingTask?.schedule?.dom ?: "*") }
+    var month by remember { mutableStateOf(existingTask?.schedule?.month ?: "*") }
+    var dayOfWeek by remember { mutableStateOf(existingTask?.schedule?.dow ?: "7") }
+    var enabled by remember { mutableStateOf(existingTask?.enabled ?: true) }
+
+    val title = if (existingTask == null) "Create Scrub Task" else "Edit Scrub Task"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = threshold,
+                    onValueChange = { threshold = it },
+                    label = { Text("Threshold (days)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text("Schedule (Cron)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = minute, onValueChange = { minute = it }, label = { Text("Min") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = hour, onValueChange = { hour = it }, label = { Text("Hour") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = dayOfMonth, onValueChange = { dayOfMonth = it }, label = { Text("Day (M)") }, modifier = Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = month, onValueChange = { month = it }, label = { Text("Month") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = dayOfWeek, onValueChange = { dayOfWeek = it }, label = { Text("Day (W)") }, modifier = Modifier.weight(1f))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+                    Text("Enabled")
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val schedule = Storage.DeletionSchedule(
+                    minute = minute,
+                    hour = hour,
+                    dom = dayOfMonth,
+                    month = month,
+                    dow = dayOfWeek
+                )
+                val details = Storage.UpdatePoolScrubDetails(
+                    pool = poolId,
+                    threshold = threshold.toIntOrNull() ?: 35,
+                    description = description,
+                    schedule = schedule,
+                    enabled = enabled
+                )
+                onConfirm(details)
+                onDismiss()
+            }) {
+                Text(if (existingTask == null) "Create" else "Update")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    }
+    )
 }

@@ -345,7 +345,7 @@ object Storage {
      * @see pool.scrub.scrub
      */
     data class TakeActionOnPoolScrubArgs(
-        val id: Long,
+        val name: String,
         val action: PoolScrubAction = PoolScrubAction.START
     )
     enum class PoolScrubAction {
@@ -360,8 +360,9 @@ object Storage {
      * Should return an integer for job tracking
      * @see pool.scrub.update
      */
+    @Suppress("PropertyName")
     data class UpdatePoolScrubArgs(
-        val id: Long,
+        val id_: Int,
         val data : UpdatePoolScrubDetails
     )
     data class UpdatePoolScrubDetails(
@@ -379,7 +380,7 @@ object Storage {
      * @see pool.scrub.delete
      */
     data class DeletePoolScrubArgs(
-        val id: Long
+        val id: Int
     )
 
     /**
