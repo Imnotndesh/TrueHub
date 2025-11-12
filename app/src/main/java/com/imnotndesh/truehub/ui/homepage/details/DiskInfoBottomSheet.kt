@@ -125,7 +125,7 @@ private fun DiskDetailsContent(
             icon = Icons.Default.Info
         ) {
             DiskInfoRow("Name", disk.name)
-            DiskInfoRow("Model", disk.model)
+            DiskInfoRow("Model", disk.model ?: "Generic")
             DiskInfoRow("Serial", disk.serial)
             DiskInfoRow("Bus", disk.bus)
             DiskInfoRow("Size", "${disk.size / (1024 * 1024 * 1024)} GB")
@@ -138,11 +138,19 @@ private fun DiskDetailsContent(
             icon = Icons.Default.HealthAndSafety
         ) {
             // SMART Status Card
-            DiskStatusCard(
-                status = if (disk.togglesmart) "Enabled" else "Disabled",
-                isPositive = disk.togglesmart,
-                icon = Icons.Default.HealthAndSafety
-            )
+            if (disk.togglesmart!= null){
+                DiskStatusCard(
+                    status = if (disk.togglesmart) "Enabled" else "Disabled",
+                    isPositive = disk.togglesmart,
+                    icon = Icons.Default.HealthAndSafety
+                )
+            }else{
+                DiskStatusCard(
+                    status = "Missing Disk Status",
+                    isPositive = true,
+                    icon = Icons.Default.HealthAndSafety
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -151,7 +159,7 @@ private fun DiskDetailsContent(
             }
 
             disk.smartoptions.let {
-                if (it.isNotBlank()) DiskInfoRow("SMART Options", it)
+                if (!it.isNullOrEmpty()) DiskInfoRow("SMART Options", it)
             }
         }
 
@@ -231,7 +239,7 @@ private fun DiskInfoHeader(
 
                 // Disk model or name
                 Text(
-                    text = disk.model,
+                    text = disk.model ?: "Generic",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,

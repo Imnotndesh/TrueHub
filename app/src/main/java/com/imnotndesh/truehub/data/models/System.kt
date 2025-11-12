@@ -209,13 +209,13 @@ object System {
         val transfermode: String,
         val hddstandby: String,
         val advpowermgmt: String,
-        val togglesmart: Boolean,
-        val smartoptions: String,
+        val togglesmart: Boolean?,
+        val smartoptions: String?,
         val expiretime: String?,
         val critical: String?,
         val difference: String?,
         val informational: String?,
-        val model: String,
+        val model: String?= null,
         val rotationrate: Int?,
         val type: String,
         val zfs_guid: String?,
@@ -235,12 +235,12 @@ object System {
         val path: String,
         val status: String,
         val scan: PoolScan?,
-        val expand: String?,
+        val expand: PoolExpand?,
         val topology: PoolTopology,
         val healthy: Boolean,
         val warning: Boolean,
         val status_code: String,
-        val status_detail: String,
+        val status_detail: String?,
         val size: Long,
         val allocated: Long,
         val free: Long,
@@ -254,20 +254,35 @@ object System {
         val dedup_table_size: Long,
         val autotrim: AutoTrim
     )
+
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class PoolScan(
-        val function: String,
-        val state: String,
+        val function: String?,
+        val state: String?,
         val start_time: Map<String, Long>?,
-        val end_time:Map<String, Long>?,
-        val percentage: Double,
-        val bytes_to_process: Long,
-        val bytes_processed: Long,
-        val bytes_issued: Long,
+        val end_time: Map<String, Long>?,
+        val percentage: Double?,
+        val bytes_to_process: Long?,
+        val bytes_processed: Long?,
+        val bytes_issued: Long?,
         val pause: String?,
-        val errors: Int,
+        val errors: Int?,
         val total_secs_left: Long?
+    )
+
+    @Suppress("PropertyName")
+    @JsonClass(generateAdapter = true)
+    data class PoolExpand(
+        val state: String?,
+        val expanding_vdev: Any?,
+        val start_time: Map<String, Long>?,
+        val end_time: Map<String, Long>?,
+        val bytes_to_reflow: Long?,
+        val bytes_reflowed: Long?,
+        val waiting_for_resilver: Boolean?,
+        val total_secs_left: Long?,
+        val percentage: Double?
     )
 
     data class PoolTopology(
@@ -278,6 +293,7 @@ object System {
         val special: List<PoolDevice>,
         val dedup: List<PoolDevice>
     )
+
     @Suppress("PropertyName")
     data class PoolDevice(
         val name: String,
@@ -291,6 +307,7 @@ object System {
         val disk: String?,
         val unavail_disk: String?
     )
+
     @Suppress("PropertyName")
     data class PoolStats(
         val timestamp: Long,
@@ -326,7 +343,7 @@ object System {
         val datetime: MongoDate,
         val last_occurrence: MongoDate,
         val dismissed: Boolean,
-        val mail: Any? = null, // Can be null or object
+        val mail: Any? = null,
         val text: String,
         val id: String,
         val level: String,

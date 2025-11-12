@@ -83,6 +83,7 @@ import java.text.DecimalFormat
 fun HomeScreen(
     manager: TrueNASApiManager,
     onNavigateToSettings: () -> Unit = {},
+    onPoolClick: (System.Pool) -> Unit
 ) {
     val viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
@@ -130,7 +131,8 @@ fun HomeScreen(
                     onShutdown = { reason -> viewModel.shutdownSystem(reason) },
                     onRefreshGraph = { viewModel.loadPerformanceData() },
                     isConnectedStatus = isConnected,
-                    loadAveragesState = loadAveragesState
+                    loadAveragesState = loadAveragesState,
+                    onPoolClick = onPoolClick
                 )
             }
         }
@@ -229,6 +231,7 @@ private fun HomeContent(
     state: HomeUiState.Success,
     loadAveragesState : LoadAveragesState,
     onRefresh: () -> Unit,
+    onPoolClick: (System.Pool) -> Unit,
     onRefreshGraph: () -> Unit,
     onShutdown: (String) -> Unit,
 ) {
@@ -281,7 +284,8 @@ private fun HomeContent(
             state.poolDetails.forEach { pool ->
                 StorageCard(
                     pool = pool,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    onClick = { onPoolClick(pool) }
                 )
             }
         } else {
@@ -751,8 +755,9 @@ private fun StatCard(
 
 @Composable
 private fun StorageCard(
+    modifier: Modifier = Modifier,
     pool: System.Pool,
-    modifier: Modifier = Modifier
+    onClick: () -> Unit
 ) {
     // Helper function to format bytes to human readable string
     fun formatBytes(bytes: Long): String {
@@ -769,6 +774,7 @@ private fun StorageCard(
     }
 
     Card(
+        onClick = onClick,
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
@@ -865,7 +871,7 @@ private fun StorageCard(
                 )
 
                 // Status details if there are warnings
-                if (pool.warning && pool.status_detail.isNotEmpty()) {
+                if (pool.warning && !pool.status_detail.isNullOrEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = pool.status_detail,
@@ -1127,8 +1133,8 @@ private fun SmbShareItem(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Icon(
-                    imageVector = if (share.timemachine) Icons.Default.Backup
-                    else if (share.home) Icons.Default.Home
+                    imageVector = if (share.timemachine?: false) Icons.Default.Backup
+                    else if (share.home?: false) Icons.Default.Home
                     else Icons.Default.Folder,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,

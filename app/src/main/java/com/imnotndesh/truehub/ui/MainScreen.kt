@@ -23,7 +23,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
+import com.imnotndesh.truehub.ui.homepage.pools.PoolDataHolder
+import com.imnotndesh.truehub.ui.homepage.pools.PoolDetailsScreen
 import com.imnotndesh.truehub.ui.services.apps.AppsScreen
 import com.imnotndesh.truehub.ui.services.containers.ContainersScreen
 import com.imnotndesh.truehub.ui.services.vm.VmsScreen
@@ -95,9 +98,15 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
              * Link to home screen
              * @see HomeScreen
              */
-            composable(Screen.Home.route) { HomeScreen(manager,
-                // TODO: DEPRECATE THESE LINKS OR FIND A MORE CLEVER WAY TO HANDLE THEM AND COMPLETELY REMOVE PROFILE
-                onNavigateToSettings = {rootNavController.navigate(Screen.Settings.route)})
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    manager,
+                    onNavigateToSettings = { rootNavController.navigate(Screen.Settings.route) },
+                    onPoolClick = { pool: System.Pool ->
+                        PoolDataHolder.currentPool = pool
+                        navController.navigate(Screen.PoolDetails.route)
+                    }
+                )
             }
 
             /**
@@ -106,6 +115,10 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
              */
             composable(Screen.Apps.route) {
                 AppsScreen(manager)
+            }
+            composable(Screen.PoolDetails.route) {
+                PoolDetailsScreen(manager,
+                    onNavigateBack = { navController.popBackStack() })
             }
 
             /**

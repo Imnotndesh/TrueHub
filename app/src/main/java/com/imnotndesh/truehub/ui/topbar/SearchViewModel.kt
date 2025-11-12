@@ -217,7 +217,7 @@ class SearchViewModel(
             // Search in pools
             if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.STORAGE) {
                 cachedPools.forEach { pool ->
-                    val relevance = calculateRelevance(lowerQuery, pool.name, pool.status_detail)
+                    val relevance = calculateRelevance(lowerQuery, pool.name, pool.status_detail?:"Missing Status")
                     if (relevance > 0) {
                         results.add(
                             SearchResult.PoolResult(
@@ -235,7 +235,7 @@ class SearchViewModel(
             // Search in disks
             if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.STORAGE) {
                 cachedDisks.forEach { disk ->
-                    val relevance = calculateRelevance(lowerQuery, disk.name, disk.model, disk.serial)
+                    val relevance = calculateRelevance(lowerQuery, disk.name, disk.model?: "No model", disk.serial)
                     if (relevance > 0) {
                         results.add(
                             SearchResult.DiskResult(
@@ -253,7 +253,7 @@ class SearchViewModel(
             // Search in shares
             if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.SHARES) {
                 cachedShares.forEach { share ->
-                    val relevance = calculateRelevance(lowerQuery, share.name, share.path, share.comment)
+                    val relevance = calculateRelevance(lowerQuery, share.name, share.path, share.comment?:"No Comments")
                     if (relevance > 0) {
                         results.add(
                             SearchResult.ShareResult(

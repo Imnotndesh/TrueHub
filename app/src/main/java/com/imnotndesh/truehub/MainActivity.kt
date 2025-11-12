@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity() {
                     insecure = server.insecure,
                     connectionTimeoutMs = 5000,
                     enablePing = false,
-                    enableDebugLogging = false
+                    enableDebugLogging = true
                 )
 
                 val client = TrueNASClient(config)
@@ -275,7 +275,7 @@ class MainActivity : ComponentActivity() {
                 insecure = server.insecure,
                 connectionTimeoutMs = 10000,
                 enablePing = false,
-                enableDebugLogging = false
+                enableDebugLogging = true
             )
 
             val client = TrueNASClient(config)

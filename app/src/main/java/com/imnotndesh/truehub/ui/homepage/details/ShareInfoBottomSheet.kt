@@ -135,8 +135,8 @@ private fun SmbShareInfoHeader(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = if (share.timemachine) Icons.Default.Backup
-                    else if (share.home) Icons.Default.Home
+                    imageVector = if (share.timemachine?:false) Icons.Default.Backup
+                    else if (share.home?:false) Icons.Default.Home
                     else Icons.Default.Storage,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -441,13 +441,17 @@ private fun SmbShareDetailsContent(
         ) {
             ShareInfoRow("Share Name", share.name)
             ShareInfoRow("Path", share.path)
-            if (share.path_suffix.isNotEmpty()) {
+            if (!share.path_suffix.isNullOrEmpty()) {
                 ShareInfoRow("Path Suffix", share.path_suffix)
             }
-            if (share.comment.isNotEmpty()) {
+            if (!share.comment.isNullOrEmpty()) {
                 ShareInfoRow("Description", share.comment)
             }
-            ShareInfoRow("Purpose", share.purpose.ifEmpty { "General" })
+            if (!share.purpose.isNullOrEmpty()){
+                ShareInfoRow("Purpose", share.purpose.ifEmpty { "General" })
+            }else{
+                ShareInfoRow("Purpose", "General")
+            }
         }
 
         // Status & Features Section
@@ -485,7 +489,7 @@ private fun SmbShareDetailsContent(
         }
 
         // Network Access Section
-        if (share.hostsallow.isNotEmpty() || share.hostsdeny.isNotEmpty()) {
+        if (!share.hostsallow.isNullOrEmpty()) {
             ShareInfoSection(
                 title = "Network Access",
                 icon = Icons.Default.NetworkCheck
@@ -495,7 +499,7 @@ private fun SmbShareDetailsContent(
         }
 
         // Time Machine Section
-        if (share.timemachine) {
+        if (share.timemachine?:false) {
             ShareInfoSection(
                 title = "Time Machine",
                 icon = Icons.Default.Backup
@@ -515,7 +519,7 @@ private fun SmbShareDetailsContent(
         }
 
         // Additional Configuration
-        if (share.auxsmbconf.isNotEmpty()) {
+        if (!share.auxsmbconf.isNullOrEmpty()) {
             ShareInfoSection(
                 title = "Additional Configuration",
                 icon = Icons.Default.Code
@@ -569,8 +573,8 @@ private fun NfsShareDetailsContent(
         ) {
             ShareStatusCard(
                 title = "Share Status",
-                status = if (share.enabled == true) "Enabled" else "Disabled",
-                isPositive = share.enabled == true,
+                status = if (share.enabled) "Enabled" else "Disabled",
+                isPositive = share.enabled,
                 icon = Icons.Default.PowerSettingsNew
             )
 
@@ -591,7 +595,7 @@ private fun NfsShareDetailsContent(
         }
 
         // User Mapping Section
-        if (share.maproot_user!!.isNotEmpty() || share.mapall_user!!.isNotEmpty()) {
+        if (!share.maproot_user.isNullOrEmpty() || !share.mapall_user.isNullOrEmpty()) {
             ShareInfoSection(
                 title = "User Mapping",
                 icon = Icons.Default.Person
@@ -651,10 +655,10 @@ private fun ShareFeatureChips(share: Shares.SmbShare) {
             if (share.browsable) {
                 FeatureChip("Browsable", Icons.Default.Visibility)
             }
-            if (share.guestok) {
+            if (share.guestok == true) {
                 FeatureChip("Guest Access", Icons.Default.PersonOutline)
             }
-            if (share.ro) {
+            if (share.readonly) {
                 FeatureChip("Read-Only", Icons.Default.Lock)
             }
         }
@@ -664,13 +668,13 @@ private fun ShareFeatureChips(share: Shares.SmbShare) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (share.home) {
+            if (share.home == true) {
                 FeatureChip("Home Share", Icons.Default.Home)
             }
-            if (share.recyclebin) {
+            if (share.recyclebin == true) {
                 FeatureChip("Recycle Bin", Icons.Default.Delete)
             }
-            if (share.shadowcopy) {
+            if (share.shadowcopy == true) {
                 FeatureChip("Shadow Copy", Icons.Default.ContentCopy)
             }
         }
@@ -680,13 +684,13 @@ private fun ShareFeatureChips(share: Shares.SmbShare) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (share.acl) {
+            if (share.acl == true) {
                 FeatureChip("ACL", Icons.Default.AdminPanelSettings)
             }
-            if (share.streams) {
+            if (share.streams == true) {
                 FeatureChip("Streams", Icons.Default.Stream)
             }
-            if (share.durablehandle) {
+            if (share.durablehandle == true) {
                 FeatureChip("Durable Handle", Icons.Default.Link)
             }
         }
@@ -723,10 +727,12 @@ private fun ShareAccessCard(share: Shares.SmbShare) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AccessDetailRow("Read-Only", if (share.ro) "Yes" else "No", share.ro)
-            AccessDetailRow("Guest Access", if (share.guestok) "Allowed" else "Not Allowed", share.guestok)
+            AccessDetailRow("Read-Only", if (share.readonly) "Yes" else "No", share.readonly)
+            AccessDetailRow("Guest Access", if (share.guestok == true) "Allowed" else "Not Allowed",
+                share.guestok == true
+            )
             AccessDetailRow("Browsable", if (share.browsable) "Yes" else "No", share.browsable)
-            if (share.vuid.isNotEmpty()) {
+            if (!share.vuid.isNullOrEmpty()) {
                 AccessDetailRow("VUID", share.vuid, true)
             }
             AccessDetailRow("Locked", if (share.locked) "Yes" else "No", share.locked)
@@ -746,14 +752,28 @@ private fun ShareAdvancedCard(share: Shares.SmbShare) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AccessDetailRow("ACL Support", if (share.acl) "Enabled" else "Disabled", share.acl)
-            AccessDetailRow("Alternate Data Streams", if (share.streams) "Enabled" else "Disabled", share.streams)
-            AccessDetailRow("Durable Handles", if (share.durablehandle) "Enabled" else "Disabled", share.durablehandle)
-            AccessDetailRow("Apple Name Mangling", if (share.aapl_name_mangling) "Enabled" else "Disabled", share.aapl_name_mangling)
-            AccessDetailRow("Access Based Enumeration", if (share.abe) "Enabled" else "Disabled", share.abe)
-            AccessDetailRow("Shadow Copies", if (share.shadowcopy) "Enabled" else "Disabled", share.shadowcopy)
-            AccessDetailRow("FSRVP", if (share.fsrvp) "Enabled" else "Disabled", share.fsrvp)
-            AccessDetailRow("Recycle Bin", if (share.recyclebin) "Enabled" else "Disabled", share.recyclebin)
+            AccessDetailRow("ACL Support", if (share.acl == true) "Enabled" else "Disabled",
+                share.acl == true
+            )
+            AccessDetailRow("Alternate Data Streams", if (share.streams == true) "Enabled" else "Disabled",
+                share.streams == true
+            )
+            AccessDetailRow("Durable Handles", if (share.durablehandle == true) "Enabled" else "Disabled",
+                share.durablehandle == true
+            )
+            AccessDetailRow("Apple Name Mangling", if (share.aapl_name_mangling == true) "Enabled" else "Disabled",
+                share.aapl_name_mangling == true
+            )
+            AccessDetailRow("Access Based Enumeration", if (share.access_based_share_enumeration) "Enabled" else "Disabled", share.access_based_share_enumeration)
+            AccessDetailRow("Shadow Copies", if (share.shadowcopy == true) "Enabled" else "Disabled",
+                share.shadowcopy == true
+            )
+            AccessDetailRow("FSRVP", if (share.fsrvp == true) "Enabled" else "Disabled",
+                share.fsrvp == true
+            )
+            AccessDetailRow("Recycle Bin", if (share.recyclebin == true) "Enabled" else "Disabled",
+                share.recyclebin == true
+            )
         }
     }
 }
@@ -770,7 +790,7 @@ private fun ShareNetworkCard(share: Shares.SmbShare) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (share.hostsallow.isNotEmpty()) {
+            if (!share.hostsallow.isNullOrEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -798,7 +818,7 @@ private fun ShareNetworkCard(share: Shares.SmbShare) {
                 }
             }
 
-            if (share.hostsdeny.isNotEmpty()) {
+            if (!share.hostsdeny.isNullOrEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -856,7 +876,7 @@ private fun ShareTimeMachineCard(share: Shares.SmbShare) {
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
             }
-            if (share.timemachine_quota > 0) {
+            if (share.timemachine_quota != null && share.timemachine_quota > 0) {
                 Text(
                     text = "Quota: ${share.timemachine_quota} GB",
                     style = MaterialTheme.typography.bodyMedium,
