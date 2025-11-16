@@ -658,7 +658,7 @@ private fun ShareFeatureChips(share: Shares.SmbShare) {
             if (share.guestok == true) {
                 FeatureChip("Guest Access", Icons.Default.PersonOutline)
             }
-            if (share.readonly) {
+            if (share.ro == true) {
                 FeatureChip("Read-Only", Icons.Default.Lock)
             }
         }
@@ -727,7 +727,7 @@ private fun ShareAccessCard(share: Shares.SmbShare) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            AccessDetailRow("Read-Only", if (share.readonly) "Yes" else "No", share.readonly)
+            AccessDetailRow("Read-Only", if (share.ro == true) "Yes" else "No", share.ro ?: false)
             AccessDetailRow("Guest Access", if (share.guestok == true) "Allowed" else "Not Allowed",
                 share.guestok == true
             )
@@ -764,7 +764,7 @@ private fun ShareAdvancedCard(share: Shares.SmbShare) {
             AccessDetailRow("Apple Name Mangling", if (share.aapl_name_mangling == true) "Enabled" else "Disabled",
                 share.aapl_name_mangling == true
             )
-            AccessDetailRow("Access Based Enumeration", if (share.access_based_share_enumeration) "Enabled" else "Disabled", share.access_based_share_enumeration)
+            AccessDetailRow("Access Based Enumeration", if (share.abe == true) "Enabled" else "Disabled", share.abe)
             AccessDetailRow("Shadow Copies", if (share.shadowcopy == true) "Enabled" else "Disabled",
                 share.shadowcopy == true
             )

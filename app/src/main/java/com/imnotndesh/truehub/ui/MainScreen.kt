@@ -18,13 +18,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
 import com.imnotndesh.truehub.ui.homepage.pools.PoolDataHolder
 import com.imnotndesh.truehub.ui.homepage.pools.PoolDetailsScreen
 import com.imnotndesh.truehub.ui.services.apps.AppsScreen
@@ -117,8 +120,13 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
                 AppsScreen(manager)
             }
             composable(Screen.PoolDetails.route) {
-                PoolDetailsScreen(manager,
-                    onNavigateBack = { navController.popBackStack() })
+                PoolDetailsScreen(
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToFiles = { poolName: String ->
+                        navController.navigate("${Screen.Files.route}/$poolName")
+                    }
+                )
             }
 
             /**
@@ -135,6 +143,23 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
              */
             composable(Screen.Vms.route) {
                 VmsScreen(manager)
+            }
+            /**
+             * Link to Dataset Explorer Screen
+             * @see DatasetExplorerScreen
+             */
+            composable(
+                route = "${Screen.Files.route}/{poolName}",
+                arguments = listOf(
+                    navArgument("poolName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val poolName = backStackEntry.arguments?.getString("poolName") ?: ""
+                DatasetExplorerScreen(
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() },
+                    poolName = poolName
+                )
             }
         }
     }

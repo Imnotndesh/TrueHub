@@ -26,12 +26,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Scanner
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -40,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -88,7 +88,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun PoolDetailsScreen(
     manager: TrueNASApiManager,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToFiles: (String) -> Unit
 ) {
     val viewModel: PoolDetailsViewModel = viewModel(
         factory = PoolDetailsViewModel.PoolDetailsViewModelFactory(manager)
@@ -148,7 +149,8 @@ fun PoolDetailsScreen(
                     onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
                     onRunScrubTask = viewModel::runScrubTask,
                     onSwitchScrubState = viewModel::switchScrubTaskState,
-                    jobStates = state.jobStates
+                    jobStates = state.jobStates,
+                    onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
                 )
             }
         }
@@ -164,7 +166,8 @@ private fun PoolDetailsContent(
     onUpdateScrubTask: (Int, Storage.UpdatePoolScrubDetails) -> Unit,
     onDeleteScrubTask: (Int) -> Unit,
     onRunScrubTask: (Storage.RunPoolScrubArgs) -> Unit,
-    onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit
+    onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit,
+    onNavigateToFiles: () -> Unit
 ) {
     val scrubTask = scrubTasks.find { it.pool == pool.id.toLong() }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -233,7 +236,31 @@ private fun PoolDetailsContent(
             .verticalScroll(rememberScrollState())
     ) {
         PoolInfoHeader(pool = pool)
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            FilledTonalButton(
+                onClick = onNavigateToFiles,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Browse Datasets")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -261,7 +288,6 @@ private fun PoolDetailsContent(
             } else {
                 NoScrubTaskSection(onAddClick = { showCreateDialog = true })
             }
-            PoolTopologySection(topology = pool.topology)
         }
     }
 }
@@ -577,101 +603,6 @@ private fun PoolScanSection(scan: PoolScan) {
         }
     }
 }
-
-@Composable
-private fun PoolTopologySection(topology: PoolTopology) {
-    PoolInfoSection(title = "Topology", icon = Icons.Default.DataObject) {
-        DeviceGroup("Data", topology.data)
-        DeviceGroup("Log", topology.log)
-        DeviceGroup("Cache", topology.cache)
-        DeviceGroup("Spare", topology.spare)
-        DeviceGroup("Special", topology.special)
-        DeviceGroup("Dedup", topology.dedup)
-    }
-}
-
-@Composable
-private fun DeviceGroup(title: String, devices: List<PoolDevice>) {
-    if (devices.isNotEmpty()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
-        devices.forEach { device ->
-            DeviceItem(device = device, level = 0)
-        }
-    }
-}
-
-@Composable
-private fun DeviceItem(device: PoolDevice, level: Int) {
-    val statusColor = if (device.status == "ONLINE") Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = (level * 12).dp, bottom = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    val icon = if (device.type == "DISK") Icons.Default.Storage else Icons.Default.FolderZip
-                    Row(verticalAlignment = Alignment.CenterVertically){
-                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (device.type == "DISK") device.disk ?: device.name else device.type,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                Text(
-                    text = device.status,
-                    color = statusColor,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            device.stats?.let { stats ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    StatChip("Reads", stats.read_errors.toString(), stats.read_errors > 0)
-                    StatChip("Writes", stats.write_errors.toString(), stats.write_errors > 0)
-                    StatChip("Checksum", stats.checksum_errors.toString(), stats.checksum_errors > 0)
-                }
-            }
-        }
-    }
-
-    device.children.forEach { child ->
-        DeviceItem(device = child, level = level + 1)
-    }
-}
-
-@Composable
-fun StatChip(label: String, value: String, isError: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
 @Composable
 private fun PoolScrubSection(
     scrubTask: Storage.PoolScrubQueryResponse,
@@ -692,13 +623,6 @@ private fun PoolScrubSection(
         icon = Icons.Default.EventRepeat,
         action = {
             Row {
-//                IconButton(onClick = onSwitchStateClick, enabled = jobState == null) {
-//                    Icon(
-//                        imageVector = Icons.Default.PowerSettingsNew,
-//                        contentDescription = "Toggle Scrub Task State",
-//                        tint = if (scrubTask.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-//                    )
-//                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = Icons.Default.Edit,
@@ -706,13 +630,6 @@ private fun PoolScrubSection(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-//                IconButton(onClick = onRunClick) {
-//                    Icon(
-//                        imageVector = Icons.Default.PlayArrow,
-//                        contentDescription = "Run Scrub Task",
-//                        tint = MaterialTheme.colorScheme.primary
-//                    )
-//                }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = Icons.Default.Delete,

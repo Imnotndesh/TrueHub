@@ -517,4 +517,91 @@ object Storage {
         val data: UpdateSnapshotTaskDetails
     )
 
+    // Dataset creation work
+    enum class DatasetType {
+        FILESYSTEM,
+        VOLUME
+    }
+    enum class AclType {
+        NFSV4,
+        POSIX,
+        OFF
+    }
+    enum class AclMode {
+        PASSTHROUGH,
+        DISCARD,
+        RESTRICTED
+    }
+    enum class CaseSensitivity {
+        SENSITIVE,
+        INSENSITIVE,
+        MIXED
+    }
+    enum class Atime {
+        ON,
+        OFF
+    }
+    @JsonClass(generateAdapter = true)
+    data class DatasetCreatePayload(
+        val name: String,
+        val type: DatasetType,
+        val acltype: AclType,
+        val aclmode: AclMode,
+        val casesensitivity: CaseSensitivity? = null,
+        val atime: Atime? = null,
+        val comments: String? = null,
+        val volumeSize: Long? = null
+    )
+    enum class DatasetOptions{
+        SHARE,
+        GENERIC
+    }
+    object Presets{
+        val SHARE_DATASET = DatasetCreatePayload(
+            name = "",
+            type = DatasetType.FILESYSTEM,
+            acltype = AclType.NFSV4,
+            aclmode = AclMode.PASSTHROUGH
+        )
+        val GENERIC_DATASET = DatasetCreatePayload(
+            name = "",
+            type = DatasetType.FILESYSTEM,
+            acltype = AclType.POSIX,
+            aclmode = AclMode.DISCARD
+        )
+    }
+
+    // Dataset creation response
+    @JsonClass(generateAdapter = true)
+    data class ZfsProperty(
+        val value: String?,
+        val rawvalue: String?,
+        val source: String
+    )
+    @JsonClass(generateAdapter = true)
+    data class DatasetCreationResponse(
+        val id: String,
+        val name: String,
+        val pool: String,
+        val type: String,
+        val encrypted: Boolean,
+        val mountpoint: String,
+        val aclmode: ZfsProperty,
+        val acltype: ZfsProperty,
+        val casesensitivity: ZfsProperty,
+        val atime: ZfsProperty,
+        val compression: ZfsProperty,
+        val checksum: ZfsProperty,
+        val deduplication: ZfsProperty,
+        val used: ZfsProperty,
+        val available: ZfsProperty,
+        val quota: ZfsProperty,
+        val creation: CreationProperty
+    )
+    @JsonClass(generateAdapter = true)
+    data class CreationProperty(
+        val parsed: MongoDate,
+        val rawvalue: String,
+        val value: String
+    )
 }
