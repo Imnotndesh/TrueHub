@@ -135,10 +135,11 @@ class StorageService(manager: TrueNASApiManager): BaseApiService(manager) {
 
     // Dataset Stuff
     suspend fun getAllDatasets(): ApiResult<List<Storage.ZfsDataset>>{
+        val type = Types.newParameterizedType(List::class.java,Storage.ZfsDataset::class.java)
         return apiCallWithResult(
             method = ApiMethods.Storage.DATASET_QUERY,
             params = listOf(),
-            resultType = Types.newParameterizedType(List::class.java, Storage.ZfsDataset::class.java)
+            resultType = type
         )
     }
     suspend fun getDatasetDetails(): ApiResult<List<Storage.DatasetDetailsResponse>>{

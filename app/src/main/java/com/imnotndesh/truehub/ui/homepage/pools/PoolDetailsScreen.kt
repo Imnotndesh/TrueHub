@@ -26,12 +26,11 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Scanner
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -40,6 +39,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -88,7 +88,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun PoolDetailsScreen(
     manager: TrueNASApiManager,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToFiles: (String) -> Unit
 ) {
     val viewModel: PoolDetailsViewModel = viewModel(
         factory = PoolDetailsViewModel.PoolDetailsViewModelFactory(manager)
@@ -148,7 +149,8 @@ fun PoolDetailsScreen(
                     onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
                     onRunScrubTask = viewModel::runScrubTask,
                     onSwitchScrubState = viewModel::switchScrubTaskState,
-                    jobStates = state.jobStates
+                    jobStates = state.jobStates,
+                    onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
                 )
             }
         }
@@ -164,7 +166,8 @@ private fun PoolDetailsContent(
     onUpdateScrubTask: (Int, Storage.UpdatePoolScrubDetails) -> Unit,
     onDeleteScrubTask: (Int) -> Unit,
     onRunScrubTask: (Storage.RunPoolScrubArgs) -> Unit,
-    onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit
+    onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit,
+    onNavigateToFiles: () -> Unit
 ) {
     val scrubTask = scrubTasks.find { it.pool == pool.id.toLong() }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -233,7 +236,31 @@ private fun PoolDetailsContent(
             .verticalScroll(rememberScrollState())
     ) {
         PoolInfoHeader(pool = pool)
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            FilledTonalButton(
+                onClick = onNavigateToFiles,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Browse Datasets")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -692,13 +719,6 @@ private fun PoolScrubSection(
         icon = Icons.Default.EventRepeat,
         action = {
             Row {
-//                IconButton(onClick = onSwitchStateClick, enabled = jobState == null) {
-//                    Icon(
-//                        imageVector = Icons.Default.PowerSettingsNew,
-//                        contentDescription = "Toggle Scrub Task State",
-//                        tint = if (scrubTask.enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-//                    )
-//                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         imageVector = Icons.Default.Edit,
@@ -706,13 +726,6 @@ private fun PoolScrubSection(
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
-//                IconButton(onClick = onRunClick) {
-//                    Icon(
-//                        imageVector = Icons.Default.PlayArrow,
-//                        contentDescription = "Run Scrub Task",
-//                        tint = MaterialTheme.colorScheme.primary
-//                    )
-//                }
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         imageVector = Icons.Default.Delete,

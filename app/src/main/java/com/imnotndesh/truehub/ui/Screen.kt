@@ -12,4 +12,6 @@ sealed class Screen(val route:String, val title:String) {
     object About : Screen("about","About")
     object Theme : Screen("theme","Theme")
     object AccountSwitcher : Screen("account_switcher","account_switcher")
-    object PoolDetails : Screen("pool_details", "Pool Details")}
+    object PoolDetails : Screen("pool_details", "Pool Details")
+    object Files : Screen("file_explorer","file_explorer")
+}
