@@ -126,6 +126,7 @@ object ApiMethods {
          * Removes snapshots from a dataset.
          * @see com.imnotndesh.truehub.data.models.Storage.DestroySnapshotsArgs
          */
+        const val DATASET_CREATE = "pool.dataset.create"
         const val DATASET_DESTROY_SNAPSHOTS = "pool.dataset.destroy_snapshots"
 
         /**

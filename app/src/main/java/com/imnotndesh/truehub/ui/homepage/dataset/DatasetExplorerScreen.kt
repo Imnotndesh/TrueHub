@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DividerDefaults
@@ -45,9 +47,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -78,6 +85,20 @@ fun DatasetExplorerScreen(
     val viewModel: DatasetExplorerViewModel = viewModel(factory = DatasetExplorerViewModel.Factory(manager))
     val uiState by viewModel.uiState.collectAsState()
     val selectedDataset by viewModel.selectedDataset.collectAsState()
+    var showCreateDialog by remember { mutableStateOf(false) }
+
+    if (showCreateDialog) {
+        CreateDatasetDialog(
+            onDismiss = { showCreateDialog = false },
+            onCreate = { name, type ->
+                val parentPath = selectedDataset?.name ?: poolName
+                val fullPath = "$parentPath/$name"
+
+                viewModel.createDataset(fullPath, type, poolName)
+                showCreateDialog = false
+            }
+        )
+    }
 
     LaunchedEffect(poolName) {
         viewModel.loadDatasets(poolName)
@@ -128,7 +149,9 @@ fun DatasetExplorerScreen(
                                             .background(MaterialTheme.colorScheme.surface)
                                     ) {
                                         if (selectedDataset != null) {
-                                            DatasetDetailsPanel(selectedDataset!!, isTablet = true)
+                                            DatasetDetailsPanel(
+                                                selectedDataset!!, isTablet = true,
+                                                onCreateDatasetClicked = { showCreateDialog = true }                                            )
                                         } else {
                                             EmptySelectionState()
                                         }
@@ -156,7 +179,10 @@ fun DatasetExplorerScreen(
                                         MobileDetailsSheet(
                                             dataset = selectedDataset!!,
                                             isExpanded = isMobileSheetExpanded,
-                                            onToggleExpand = { isMobileSheetExpanded = !isMobileSheetExpanded }
+                                            onToggleExpand = {
+                                                isMobileSheetExpanded = !isMobileSheetExpanded
+                                            },
+                                            onCreateDatasetClicked = { showCreateDialog = true }
                                         )
                                     }
                                 }
@@ -169,6 +195,8 @@ fun DatasetExplorerScreen(
                             Text("Pool '$poolName' not found.", color = MaterialTheme.colorScheme.error)
                         }
                     }
+                }
+                is DatasetExplorerViewModel.UiState.LoadingWithCache -> {
                 }
             }
         }
@@ -203,10 +231,71 @@ fun DatasetTreeView(
 }
 
 @Composable
+fun CreateDatasetDialog(
+    onDismiss: () -> Unit,
+    onCreate: (name: String, type: Storage.DatasetOptions) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var selectedOption by remember { mutableStateOf(Storage.DatasetOptions.GENERIC) }
+    val options = Storage.DatasetOptions.entries.toTypedArray()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create New Dataset") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Dataset Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    "Dataset Type",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    options.forEachIndexed { index, option ->
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(
+                                index = index,
+                                count = options.size
+                            ),
+                            onClick = { selectedOption = option },
+                            selected = option == selectedOption
+                        ) {
+                            Text(option.name.lowercase().replaceFirstChar { it.titlecase() })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onCreate(name, selectedOption) },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Create")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 fun MobileDetailsSheet(
     dataset: Storage.ZfsDataset,
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
+    onCreateDatasetClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -220,15 +309,18 @@ fun MobileDetailsSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onToggleExpand() }
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onToggleExpand() }
+                ) {
                     Text(
                         text = "Dataset Details",
                         style = MaterialTheme.typography.labelLarge,
@@ -245,11 +337,26 @@ fun MobileDetailsSheet(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 FilledTonalButton(
+                    onClick = onCreateDatasetClicked,
+                    contentPadding = PaddingValues(12.dp),
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Create Child Dataset",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(2.dp))
+                FilledTonalButton(
                     onClick = onToggleExpand,
-                    modifier = Modifier
+                    contentPadding = PaddingValues(12.dp),
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
@@ -275,7 +382,10 @@ fun MobileDetailsSheet(
                             .height(320.dp)
                             .padding(horizontal = 20.dp, vertical = 16.dp)
                     ) {
-                        DatasetDetailsPanel(dataset, isTablet = false)
+                        DatasetDetailsContent(
+                            dataset = dataset,
+                            isTablet = false
+                        )
                     }
                 }
             }
@@ -297,7 +407,6 @@ fun DatasetTreeItem(
     val hasChildren = dataset.children.isNotEmpty()
     val isRoot = level == 0
 
-    // Dynamic styling for Root vs Children
     val rowHeight = if (isRoot) 68.dp else 54.dp
     val iconSize = if (isRoot) 28.dp else 22.dp
     val textStyle = if (isRoot) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium
@@ -326,7 +435,6 @@ fun DatasetTreeItem(
                 .height(rowHeight),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Toggle Icon Area
             Box(
                 modifier = Modifier
                     .width(44.dp)
@@ -344,7 +452,6 @@ fun DatasetTreeItem(
                 }
             }
 
-            // Type Icon
             Icon(
                 imageVector = if (isRoot) Icons.Default.Storage else if (isExpanded) Icons.Default.FolderOpen else Icons.Default.Folder,
                 contentDescription = null,
@@ -354,7 +461,6 @@ fun DatasetTreeItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Name
             Text(
                 text = if (isRoot) dataset.name else dataset.name.substringAfterLast("/"),
                 style = textStyle,
@@ -387,56 +493,98 @@ fun DatasetTreeItem(
 }
 
 @Composable
-fun DatasetDetailsPanel(dataset: Storage.ZfsDataset, isTablet: Boolean) {
+fun DatasetDetailsPanel(
+    dataset: Storage.ZfsDataset,
+    isTablet: Boolean,
+    onCreateDatasetClicked: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                if (isTablet) Modifier.verticalScroll(rememberScrollState()) else Modifier
-            )
             .padding(if (isTablet) 16.dp else 0.dp)
     ) {
         if (isTablet) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Details",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Details",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                FilledTonalButton(
+                    onClick = onCreateDatasetClicked,
+                    contentPadding = PaddingValues(12.dp),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Create Child Dataset",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            shape = RoundedCornerShape(12.dp)
+        DatasetDetailsContent(
+            dataset = dataset,
+            isTablet = isTablet
+        )
+    }
+}
+
+@Composable
+private fun DatasetDetailsContent(
+    dataset: Storage.ZfsDataset,
+    isTablet: Boolean = true
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .then(
+                    if (isTablet) {
+                        Modifier.verticalScroll(rememberScrollState())
+                    } else {
+                        Modifier
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                    }
+                ),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-                    .then(if (!isTablet) Modifier.verticalScroll(rememberScrollState()) else Modifier),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                DetailRow("Full Path", dataset.name)
-                DetailRow("Mountpoint", dataset.mountpoint)
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 6.dp),
-                    thickness = DividerDefaults.Thickness,
-                    color = DividerDefaults.color
-                )
-                DetailRow("Used", dataset.used.value ?: "N/A")
-                DetailRow("Available", dataset.available.value ?: "N/A")
-                DetailRow("Compression", dataset.compression.value ?: "N/A")
-                DetailRow("Ratio", dataset.compressratio.value ?: "N/A")
-                DetailRow("Deduplication", dataset.deduplication.value ?: "N/A")
-                DetailRow("Sync", dataset.sync.value ?: "N/A")
-                DetailRow("Case Sensitivity", dataset.casesensitivity.value ?: "N/A")
-                DetailRow("Read Only", dataset.readonly.value ?: "N/A")
-                DetailRow("Encryption", if (dataset.encrypted) "Yes" else "No")
-            }
+            DetailRow("Full Path", dataset.name)
+            DetailRow("Mountpoint", dataset.mountpoint)
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 6.dp),
+                thickness = DividerDefaults.Thickness,
+                color = DividerDefaults.color
+            )
+            DetailRow("Used", dataset.used.value ?: "N/A")
+            DetailRow("Available", dataset.available.value ?: "N/A")
+            DetailRow("Compression", dataset.compression.value ?: "N/A")
+            DetailRow("Ratio", dataset.compressratio.value ?: "N/A")
+            DetailRow("Deduplication", dataset.deduplication.value ?: "N/A")
+            DetailRow("Sync", dataset.sync.value ?: "N/A")
+            DetailRow("Case Sensitivity", dataset.casesensitivity.value ?: "N/A")
+            DetailRow("Read Only", dataset.readonly.value ?: "N/A")
+            DetailRow("Encryption", if (dataset.encrypted) "Yes" else "No")
         }
     }
 }
@@ -513,7 +661,6 @@ private fun NoDatasetsCard(
         }
     }
 }
-
 @Composable
 fun DetailRow(label: String, value: String) {
     Row(

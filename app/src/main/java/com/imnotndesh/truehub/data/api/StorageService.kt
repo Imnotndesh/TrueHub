@@ -151,7 +151,7 @@ class StorageService(manager: TrueNASApiManager): BaseApiService(manager) {
     }
 
 
-    suspend fun destroyDatasetSnapshots(args: Storage.DestroySnapshotsArgs): ApiResult<Int>{
+    suspend fun destroyDatasetSnapshots(args: Storage.DestroySnapshotsArgs): ApiResult<Int> {
         return apiCallWithResult(
             method = ApiMethods.Storage.DATASET_DESTROY_SNAPSHOTS,
             params = listOf(args),
@@ -159,26 +159,26 @@ class StorageService(manager: TrueNASApiManager): BaseApiService(manager) {
         )
     }
 
-    suspend fun getDirStats(args: Storage.FilesystemStatfsArgs): ApiResult<Storage.FilesystemStatfsResult>{
-        return apiCallWithResult(
-            method = ApiMethods.Storage.FILESYSTEM_STATFS,
-            params = listOf(args),
-            resultType = Storage.FilesystemStatfsResult::class.java
-        )
+    suspend fun createDataset(name: String,datasetType: Storage.DatasetOptions): ApiResult<Storage.DatasetCreationResponse> {
+        if (datasetType == Storage.DatasetOptions.SHARE) {
+            val payload = Storage.Presets.SHARE_DATASET.copy(
+                name = name
+            )
+            return apiCallWithResult(
+                method = ApiMethods.Storage.DATASET_CREATE,
+                params = listOf(payload),
+                resultType = Storage.DatasetCreationResponse::class.java
+            )
+        } else {
+            val payload = Storage.Presets.GENERIC_DATASET.copy(
+                name = name
+            )
+            return apiCallWithResult(
+                method = ApiMethods.Storage.DATASET_CREATE,
+                params = listOf(payload),
+                resultType = Storage.DatasetCreationResponse::class.java
+            )
+        }
     }
 
-    suspend fun getDirInfo(args: Storage.FilesystemStatArgs): ApiResult<Storage.FilesystemStatResult>{
-        return apiCallWithResult(
-            method = ApiMethods.Storage.FILESYSTEM_STAT,
-            params = listOf(args),
-            resultType = Storage.FilesystemStatResult::class.java
-        )
-    }
-    suspend fun mkdir(args: Storage.FilesystemMkdirArgs): ApiResult<Storage.FilesystemMkdirResult> {
-        return apiCallWithResult(
-            method = ApiMethods.Storage.FILESYSTEM_MKDIR,
-            params = listOf(args),
-            resultType = Storage.FilesystemMkdirResult::class.java
-        )
-    }
 }
