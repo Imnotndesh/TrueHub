@@ -288,7 +288,6 @@ private fun PoolDetailsContent(
             } else {
                 NoScrubTaskSection(onAddClick = { showCreateDialog = true })
             }
-            PoolTopologySection(topology = pool.topology)
         }
     }
 }
@@ -602,101 +601,6 @@ private fun PoolScanSection(scan: PoolScan) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PoolTopologySection(topology: PoolTopology) {
-    PoolInfoSection(title = "Topology", icon = Icons.Default.DataObject) {
-        DeviceGroup("Data", topology.data)
-        DeviceGroup("Log", topology.log)
-        DeviceGroup("Cache", topology.cache)
-        DeviceGroup("Spare", topology.spare)
-        DeviceGroup("Special", topology.special)
-        DeviceGroup("Dedup", topology.dedup)
-    }
-}
-
-@Composable
-private fun DeviceGroup(title: String, devices: List<PoolDevice>) {
-    if (devices.isNotEmpty()) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-        )
-        devices.forEach { device ->
-            DeviceItem(device = device, level = 0)
-        }
-    }
-}
-
-@Composable
-private fun DeviceItem(device: PoolDevice, level: Int) {
-    val statusColor = if (device.status == "ONLINE") Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = (level * 12).dp, bottom = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    val icon = if (device.type == "DISK") Icons.Default.Storage else Icons.Default.FolderZip
-                    Row(verticalAlignment = Alignment.CenterVertically){
-                        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (device.type == "DISK") device.disk ?: device.name else device.type,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-                Text(
-                    text = device.status,
-                    color = statusColor,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            device.stats?.let { stats ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    StatChip("Reads", stats.read_errors.toString(), stats.read_errors > 0)
-                    StatChip("Writes", stats.write_errors.toString(), stats.write_errors > 0)
-                    StatChip("Checksum", stats.checksum_errors.toString(), stats.checksum_errors > 0)
-                }
-            }
-        }
-    }
-
-    device.children.forEach { child ->
-        DeviceItem(device = child, level = level + 1)
-    }
-}
-
-@Composable
-fun StatChip(label: String, value: String, isError: Boolean) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-        )
     }
 }
 @Composable
