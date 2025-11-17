@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.dataset
 
+import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -7,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
+import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -116,6 +118,27 @@ class DatasetExplorerViewModel(private val manager: TrueNASApiManager) : ViewMod
                         _uiState.value = UiState.Error(result.message)
                     }
                     is ApiResult.Success<*> -> {
+                        refreshDatasets(poolName)
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = UiState.Error(e.localizedMessage ?: "Failed to create dataset")
+            }
+        }
+    }
+    fun deleteDataset(path: String, poolName: String) {
+        _uiState.value = UiState.Loading
+
+        viewModelScope.launch {
+            try {
+                val result = manager.storage.deleteDataset(path)
+                when(result){
+                    is ApiResult.Loading -> {}
+                    is ApiResult.Error ->{
+                        _uiState.value = UiState.Error(result.message)
+                    }
+                    is ApiResult.Success -> {
+                        ToastManager.showSuccess("Successfully created dataset")
                         refreshDatasets(poolName)
                     }
                 }

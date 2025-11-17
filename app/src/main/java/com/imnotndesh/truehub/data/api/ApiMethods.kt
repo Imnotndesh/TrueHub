@@ -141,6 +141,8 @@ object ApiMethods {
          */
         const val DATASET_QUERY = "pool.dataset.query"
 
+        const val DATASET_DELETE = "pool.dataset.query"
+
         /**
          * Queries for pool scrub tasks.
          * @see com.imnotndesh.truehub.data.models.Storage.PoolScrubQueryArgs

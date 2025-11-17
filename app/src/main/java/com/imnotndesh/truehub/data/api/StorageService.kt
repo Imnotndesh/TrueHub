@@ -159,6 +159,17 @@ class StorageService(manager: TrueNASApiManager): BaseApiService(manager) {
         )
     }
 
+    suspend fun deleteDataset(datasetName: String): ApiResult<Boolean>{
+        val payload = Storage.DatasetDeleteOptions(
+            datasetName
+        )
+        return apiCallWithResult(
+            method = ApiMethods.Storage.DATASET_DELETE,
+            params = listOf(payload),
+            resultType = Boolean::class.java
+        )
+    }
+
     suspend fun createDataset(name: String,datasetType: Storage.DatasetOptions): ApiResult<Storage.DatasetCreationResponse> {
         if (datasetType == Storage.DatasetOptions.SHARE) {
             val payload = Storage.Presets.SHARE_DATASET.copy(
