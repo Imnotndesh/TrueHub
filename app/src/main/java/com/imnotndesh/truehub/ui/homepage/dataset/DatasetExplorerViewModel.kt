@@ -131,14 +131,14 @@ class DatasetExplorerViewModel(private val manager: TrueNASApiManager) : ViewMod
 
         viewModelScope.launch {
             try {
-                val result = manager.storage.deleteDataset(path)
+                val result = manager.storage.deleteDataset(path, recursive = true)
                 when(result){
                     is ApiResult.Loading -> {}
                     is ApiResult.Error ->{
                         _uiState.value = UiState.Error(result.message)
                     }
                     is ApiResult.Success -> {
-                        ToastManager.showSuccess("Successfully created dataset")
+                        ToastManager.showSuccess("Successfully deleted dataset")
                         refreshDatasets(poolName)
                     }
                 }
