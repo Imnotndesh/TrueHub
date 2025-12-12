@@ -12,7 +12,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -32,8 +31,6 @@ import com.imnotndesh.truehub.ui.components.ModernToastHost
 import com.imnotndesh.truehub.ui.components.NoInternetScreen
 import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.login.LoginScreen
-import com.imnotndesh.truehub.ui.main.AppState
-import com.imnotndesh.truehub.ui.main.MainViewModel
 import com.imnotndesh.truehub.ui.settings.SettingsScreen
 import com.imnotndesh.truehub.ui.settings.screens.AboutScreen
 import com.imnotndesh.truehub.ui.settings.screens.LicensesScreen

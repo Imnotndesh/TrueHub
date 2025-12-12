@@ -1,4 +1,4 @@
-package com.imnotndesh.truehub.ui.main
+package com.imnotndesh.truehub
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -122,8 +122,8 @@ class MainViewModel : ViewModel() {
                 serverUrl = server.serverUrl,
                 insecure = server.insecure,
                 connectionTimeoutMs = 10000,
-                enablePing = false,
-                enableDebugLogging = true
+                enablePing = true,
+                enableDebugLogging = false
             )
 
             val client = TrueNASClient(config)
@@ -184,8 +184,8 @@ class MainViewModel : ViewModel() {
                     serverUrl = server.serverUrl,
                     insecure = server.insecure,
                     connectionTimeoutMs = 5000,
-                    enablePing = false,
-                    enableDebugLogging = true
+                    enablePing = true,
+                    enableDebugLogging = false
                 )
 
                 val client = TrueNASClient(config)
