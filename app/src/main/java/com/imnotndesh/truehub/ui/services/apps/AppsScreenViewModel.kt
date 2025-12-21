@@ -213,7 +213,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                     break
                                 }
                                 is ApiResult.Loading -> {
-                                    // Continue polling
+
                                 }
                             }
                         } catch (e: Exception) {
