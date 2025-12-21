@@ -117,8 +117,8 @@ fun LoginScreen(
                         serverUrl = savedUrl,
                         insecure = savedInsecure,
                         connectionTimeoutMs = 15000,
-                        enablePing = false,
-                        enableDebugLogging = true
+                        enablePing = true,
+                        enableDebugLogging = false
                     )
 
                     val client = TrueNASClient(config)

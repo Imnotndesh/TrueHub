@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.AppCache
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
@@ -57,13 +58,11 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var _performanceDataLoading = MutableStateFlow(false)
-    val performanceDataLoading: StateFlow<Boolean> = _performanceDataLoading.asStateFlow()
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val _connectionError = MutableStateFlow<String?>(null)
-    val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
 
     private val _loadAverages = MutableStateFlow<LoadAveragesState>(LoadAveragesState.Loading)
     val loadAverages: StateFlow<LoadAveragesState> = _loadAverages.asStateFlow()
@@ -210,15 +209,14 @@ class HomeViewModel(
 
                 if (systemInfoResult !is ApiResult.Success) {
                     _uiState.value = HomeUiState.Error("Failed to load system information")
-
                     _isConnected.value = false
                     return@launch
                 }
 
                 _isConnected.value = true
                 val systemInfo = systemInfoResult.data
+                AppCache.updateSystemInfo(systemInfo)
 
-                // Load other data concurrently
                 val poolDeferred = async {
                     apiManager.system.getPoolsWithResult()
                 }
@@ -268,7 +266,6 @@ class HomeViewModel(
                     apiManager.system.getReportingDataWithResult(memoryGraphRequest, query)
                 }
 
-                // Await all results
                 val poolResult = poolDeferred.await()
                 val diskResult = diskDeferred.await()
                 val smbSharesResult = smbSharesDeferred.await()
@@ -277,12 +274,16 @@ class HomeViewModel(
                 val memoryDataResult = memoryDataDeferred.await()
                 val tempDataResult = tempDataDeferred.await()
 
-
-
                 val pools = if (poolResult is ApiResult.Success) poolResult.data else emptyList()
                 val disks = if (diskResult is ApiResult.Success) diskResult.data else emptyList()
                 val smbShares = if (smbSharesResult is ApiResult.Success) smbSharesResult.data else emptyList()
                 val nfsShares = if (nfsSharesResult is ApiResult.Success) nfsSharesResult.data else emptyList()
+
+                AppCache.updatePools(pools)
+                AppCache.updateDisks(disks)
+                AppCache.updateSmbShares(smbShares)
+                AppCache.updateNfsShares(nfsShares)
+
                 _uiState.value = HomeUiState.Success(
                     systemInfo = systemInfo,
                     poolDetails = pools,
@@ -323,7 +324,7 @@ class HomeViewModel(
                         ToastManager.showInfo("Initiating system shutdown...")
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
 
             }
         }
@@ -336,14 +337,10 @@ class HomeViewModel(
         }
     }
 
-    /**
-     * Load user info for other uses later and to fill username in case of api login
-     */
     fun loadUserData(){
         viewModelScope.launch {
             try {
-                val res = apiManager.auth.getUserDetailsWithResult()
-                when (res){
+                when (val res = apiManager.auth.getUserDetailsWithResult()){
                     is ApiResult.Error ->{
                         ToastManager.showWarning("Failed to get user information")
                     }

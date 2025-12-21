@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -56,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -63,6 +67,7 @@ import com.imnotndesh.truehub.data.models.Virt
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.containers.details.ContainerInfoBottomSheet
+import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,41 +156,85 @@ private fun ContainersContent(
     onDeleteContainer: (String) -> Unit,
     operationJobs: Map<String, System.Job>
 ) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier
-            .fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        if (isRefreshing) {
-            item {
-                LinearProgressIndicator(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val isCompact = AdaptiveLayoutHelper.isCompact()
+    val columnCount = AdaptiveLayoutHelper.getColumnCount(
+        compact = 1,
+        medium = 2,
+        expanded = 3
+    )
+    val contentPadding = AdaptiveLayoutHelper.getContentPadding()
+    val horizontalSpacing = AdaptiveLayoutHelper.getHorizontalSpacing()
+
+    if (isCompact) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+        ) {
+            if (isRefreshing) {
+                item {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+
+            items(containers) { container ->
+                ContainerCard(
+                    container = container,
+                    onStartContainer = { onStartContainer(container.id) },
+                    onStopContainer = { onStopContainer(container.id) },
+                    onRestartContainer = { onRestartContainer(container.id) },
+                    onDeleteContainer = { onDeleteContainer(container.id) },
+                    operationJob = operationJobs[container.id]
                 )
             }
-        }
 
-        items(containers) { container ->
-            ContainerCard(
-                container = container,
-                onStartContainer = { onStartContainer(container.id) },
-                onStopContainer = { onStopContainer(container.id) },
-                onRestartContainer = { onRestartContainer(container.id) },
-                onDeleteContainer = { onDeleteContainer(container.id) },
-                operationJob = operationJobs[container.id]
-            )
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columnCount),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+        ) {
+            if (isRefreshing) {
+                item {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
 
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
+            items(containers) { container ->
+                ContainerCard(
+                    container = container,
+                    onStartContainer = { onStartContainer(container.id) },
+                    onStopContainer = { onStopContainer(container.id) },
+                    onRestartContainer = { onRestartContainer(container.id) },
+                    onDeleteContainer = { onDeleteContainer(container.id) },
+                    operationJob = operationJobs[container.id]
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ContainerCard(
@@ -200,6 +249,10 @@ private fun ContainerCard(
     var showInfoDialog by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
 
+    val isCompact = AdaptiveLayoutHelper.isCompact()
+    val cardPadding = if (isCompact) 20.dp else 16.dp
+    val cardHorizontalPadding = if (isCompact) 4.dp else 0.dp
+
     Card(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -208,73 +261,138 @@ private fun ContainerCard(
         ),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = cardHorizontalPadding)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(cardPadding)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Container Icon/Type
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            when (container.type) {
-                                Virt.Type.CONTAINER -> MaterialTheme.colorScheme.primaryContainer
-                                Virt.Type.VM -> MaterialTheme.colorScheme.secondaryContainer
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
+            if (isCompact) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = when (container.type) {
-                            Virt.Type.CONTAINER -> "C"
-                            Virt.Type.VM -> "VM"
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = when (container.type) {
-                            Virt.Type.CONTAINER -> MaterialTheme.colorScheme.onPrimaryContainer
-                            Virt.Type.VM -> MaterialTheme.colorScheme.onSecondaryContainer
-                        }
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                when (container.type) {
+                                    Virt.Type.CONTAINER -> MaterialTheme.colorScheme.primaryContainer
+                                    Virt.Type.VM -> MaterialTheme.colorScheme.secondaryContainer
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when (container.type) {
+                                Virt.Type.CONTAINER -> "C"
+                                Virt.Type.VM -> "VM"
+                            },
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = when (container.type) {
+                                Virt.Type.CONTAINER -> MaterialTheme.colorScheme.onPrimaryContainer
+                                Virt.Type.VM -> MaterialTheme.colorScheme.onSecondaryContainer
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = container.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "ID: ${container.id}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    StatusChip(
+                        status = container.status,
+                        icon = getStatusIcon(container.status)
                     )
                 }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    when (container.type) {
+                                        Virt.Type.CONTAINER -> MaterialTheme.colorScheme.primaryContainer
+                                        Virt.Type.VM -> MaterialTheme.colorScheme.secondaryContainer
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = when (container.type) {
+                                    Virt.Type.CONTAINER -> "C"
+                                    Virt.Type.VM -> "VM"
+                                },
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = when (container.type) {
+                                    Virt.Type.CONTAINER -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    Virt.Type.VM -> MaterialTheme.colorScheme.onSecondaryContainer
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(getStatusColor(container.status))
+                        )
+                    }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = container.name,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 24.sp
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
                         text = "ID: ${container.id}",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                StatusChip(
-                    status = container.status,
-                    icon = getStatusIcon(container.status)
-                )
             }
 
-            // Container Details
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(
@@ -353,93 +471,147 @@ private fun ContainerCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Primary action row - Start/Stop and View Info only
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                when (container.status) {
-                    Virt.Status.STOPPED -> {
-                        ActionButton(
-                            text = "Start",
-                            icon = Icons.Default.PlayArrow,
-                            enabled = true,
-                            isPrimary = true,
-                            onClick = onStartContainer,
-                            modifier = Modifier.weight(1f)
-                        )
+            if (isCompact) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    when (container.status) {
+                        Virt.Status.STOPPED -> {
+                            ActionButton(
+                                text = "Start",
+                                icon = Icons.Default.PlayArrow,
+                                enabled = true,
+                                isPrimary = true,
+                                onClick = onStartContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Virt.Status.RUNNING -> {
+                            ActionButton(
+                                text = "Stop",
+                                icon = Icons.Default.Stop,
+                                enabled = true,
+                                isPrimary = true,
+                                onClick = onStopContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        else -> {
+                            ActionButton(
+                                text = container.status.name,
+                                icon = Icons.Default.Refresh,
+                                enabled = false,
+                                isPrimary = false,
+                                onClick = {},
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
-                    Virt.Status.RUNNING -> {
-                        ActionButton(
-                            text = "Stop",
-                            icon = Icons.Default.Stop,
-                            enabled = true,
-                            isPrimary = true,
-                            onClick = onStopContainer,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    else -> {
-                        ActionButton(
-                            text = container.status.name,
-                            icon = Icons.Default.Refresh,
-                            enabled = false,
-                            isPrimary = false,
-                            onClick = {},
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
 
-                ActionButton(
-                    text = "View Info",
-                    icon = Icons.Default.Info,
-                    enabled = true,
-                    isPrimary = false,
-                    onClick = { showInfoDialog = true },
-                    modifier = Modifier.weight(1f)
-                )
+                    ActionButton(
+                        text = "View Info",
+                        icon = Icons.Default.Info,
+                        enabled = true,
+                        isPrimary = false,
+                        onClick = { showInfoDialog = true },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    when (container.status) {
+                        Virt.Status.STOPPED -> {
+                            CompactActionButton(
+                                icon = Icons.Default.PlayArrow,
+                                contentDescription = "Start",
+                                isPrimary = true,
+                                onClick = onStartContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Virt.Status.RUNNING -> {
+                            CompactActionButton(
+                                icon = Icons.Default.Stop,
+                                contentDescription = "Stop",
+                                isPrimary = true,
+                                onClick = onStopContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        else -> {
+                            CompactActionButton(
+                                icon = Icons.Default.Refresh,
+                                contentDescription = container.status.name,
+                                isPrimary = false,
+                                enabled = false,
+                                onClick = {},
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    CompactActionButton(
+                        icon = Icons.Default.Info,
+                        contentDescription = "View Info",
+                        isPrimary = false,
+                        onClick = { showInfoDialog = true },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    CompactActionButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = "More Options",
+                        isPrimary = false,
+                        onClick = { showMoreOptions = !showMoreOptions },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            if (isCompact) {
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // More Options expandable section
-            Surface(
-                onClick = { showMoreOptions = !showMoreOptions },
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    onClick = { showMoreOptions = !showMoreOptions },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "More Options",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                            imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (showMoreOptions) "Collapse" else "Expand",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "More Options",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
-
-                    Icon(
-                        imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (showMoreOptions) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 
@@ -452,7 +624,6 @@ private fun ContainerCard(
                     modifier = Modifier.padding(top = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Restart button (only show when running)
                     if (container.status == Virt.Status.RUNNING) {
                         ActionButton(
                             text = "Restart",
@@ -464,7 +635,6 @@ private fun ContainerCard(
                         )
                     }
 
-                    // Delete button (only enabled when stopped)
                     ActionButton(
                         text = "Delete",
                         icon = Icons.Default.Delete,
@@ -497,7 +667,58 @@ private fun ContainerCard(
         )
     }
 }
-
+@Composable
+private fun getStatusColor(status: Virt.Status): Color {
+    return when (status) {
+        Virt.Status.RUNNING -> Color(0xFF2E7D32)
+        Virt.Status.STOPPED -> Color(0xFF757575)
+        Virt.Status.ERROR -> MaterialTheme.colorScheme.error
+        Virt.Status.FROZEN -> Color(0xFF1976D2)
+        Virt.Status.STARTING, Virt.Status.STOPPING,
+        Virt.Status.FREEZING, Virt.Status.THAWED,
+        Virt.Status.ABORTING -> Color(0xFFF57C00)
+        Virt.Status.UNKNOWN -> MaterialTheme.colorScheme.outline
+    }
+}
+@Composable
+private fun CompactActionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isPrimary: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        color = when {
+            !enabled -> MaterialTheme.colorScheme.surfaceVariant
+            isPrimary -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(22.dp),
+                tint = when {
+                    !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    isPrimary -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+    }
+}
 @Composable
 private fun DetailItem(
     label: String,
@@ -600,20 +821,6 @@ private fun ActionButton(
                 }
             )
         }
-    }
-}
-
-@Composable
-private fun getStatusColor(status: Virt.Status): Color {
-    return when (status) {
-        Virt.Status.RUNNING -> Color(0xFF2E7D32)
-        Virt.Status.STOPPED -> Color(0xFF757575)
-        Virt.Status.ERROR -> MaterialTheme.colorScheme.error
-        Virt.Status.FROZEN -> Color(0xFF1976D2)
-        Virt.Status.STARTING, Virt.Status.STOPPING,
-        Virt.Status.FREEZING, Virt.Status.THAWED,
-        Virt.Status.ABORTING -> Color(0xFFF57C00)
-        Virt.Status.UNKNOWN -> MaterialTheme.colorScheme.outline
     }
 }
 

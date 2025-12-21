@@ -2,14 +2,29 @@ package com.imnotndesh.truehub.ui.services.apps
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +71,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -64,6 +80,7 @@ import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.details.AppInfoDialog
+import com.imnotndesh.truehub.ui.services.apps.details.AppInfoPane
 import com.imnotndesh.truehub.ui.services.apps.details.RollbackVersionDialog
 import com.imnotndesh.truehub.ui.services.apps.details.UpgradeSummaryBottomSheet
 
@@ -73,10 +90,12 @@ fun AppsScreen(manager: TrueNASApiManager) {
     val appsScreenViewModel: AppsScreenViewModel = viewModel(
         factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
     )
-    // Tracked App States
     val uiState by appsScreenViewModel.uiState.collectAsState()
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
     var showRollbackDialog by remember { mutableStateOf<String?>(null) }
+    var selectedAppForInfo by remember { mutableStateOf<Apps.AppQueryResponse?>(null) }
+
+    val isCompact = AdaptiveLayoutHelper.isCompact()
 
     if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
         UpgradeSummaryBottomSheet(
@@ -112,7 +131,16 @@ fun AppsScreen(manager: TrueNASApiManager) {
             }
         )
     }
-    Column{
+
+    // Show bottom sheet only on compact (phone) devices
+    if (isCompact && selectedAppForInfo != null) {
+        AppInfoDialog(
+            app = selectedAppForInfo!!,
+            onDismiss = { selectedAppForInfo = null }
+        )
+    }
+
+    Column {
         UnifiedScreenHeader(
             title = "Applications",
             subtitle = "${uiState.apps.size} Applications",
@@ -126,34 +154,106 @@ fun AppsScreen(manager: TrueNASApiManager) {
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { appsScreenViewModel.refresh() }
-
         ) {
             when {
-                uiState.apps.isEmpty() && uiState.isLoading -> {
+                uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading Apps")
                 }
-                uiState.apps.isEmpty() && !uiState.isLoading -> {
+                uiState.apps.isEmpty() && !uiState.isLoading && uiState.error != null -> {
                     EmptyContent()
                 }
                 else -> {
-                    AppsContent(
-                        apps = uiState.apps,
-                        onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
-                        loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                        onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
-                        onShowUpgradeSummary = { appName ->
-                            appForUpgradeSummary = appName
-                            appsScreenViewModel.loadUpgradeSummary(appName)
-                        },
-                        upgradeJobs = uiState.upgradeJobs,
-                        onShowRollbackDialog = { appName -> showRollbackDialog = appName }
+                    if (isCompact) {
+                        // Phone: Single column with bottom sheet
+                        AppsContent(
+                            apps = uiState.apps,
+                            onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                            onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
+                            onShowUpgradeSummary = { appName ->
+                                appForUpgradeSummary = appName
+                                appsScreenViewModel.loadUpgradeSummary(appName)
+                            },
+                            upgradeJobs = uiState.upgradeJobs,
+                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
+                            onAppInfoClick = { app -> selectedAppForInfo = app },
+                            selectedApp = null
+                        )
+                    } else {
+                        // Tablet/Landscape: Split pane layout
+                        AppsSplitPaneContent(
+                            apps = uiState.apps,
+                            selectedApp = selectedAppForInfo,
+                            onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                            onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
+                            onShowUpgradeSummary = { appName ->
+                                appForUpgradeSummary = appName
+                                appsScreenViewModel.loadUpgradeSummary(appName)
+                            },
+                            upgradeJobs = uiState.upgradeJobs,
+                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
+                            onAppInfoClick = { app -> selectedAppForInfo = app },
+                            onCloseInfoPane = { selectedAppForInfo = null }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun AppsSplitPaneContent(
+    apps: List<Apps.AppQueryResponse>,
+    selectedApp: Apps.AppQueryResponse?,
+    loadingSummaryForApp: String?,
+    onStartApp: (String) -> Unit,
+    onStopApp: (String) -> Unit,
+    onShowUpgradeSummary: (String) -> Unit,
+    upgradeJobs: Map<String, System.UpgradeJobState>,
+    onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    onCloseInfoPane: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Left side: App list (takes 55% when pane is open, 100% when closed)
+        Box(
+            modifier = Modifier
+                .weight(if (selectedApp != null) 0.55f else 1f)
+                .fillMaxSize()
+        ) {
+            AppsContent(
+                apps = apps,
+                onStartApp = onStartApp,
+                loadingSummaryForApp = loadingSummaryForApp,
+                onStopApp = onStopApp,
+                onShowUpgradeSummary = onShowUpgradeSummary,
+                upgradeJobs = upgradeJobs,
+                onShowRollbackDialog = onShowRollbackDialog,
+                onAppInfoClick = onAppInfoClick,
+                selectedApp = selectedApp
+            )
+        }
+        AnimatedVisibility(
+            visible = selectedApp != null,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+        ) {
+            selectedApp?.let { app ->
+                Box(
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .fillMaxHeight()
+                ) {
+                    AppInfoPane(
+                        app = app,
+                        onClose = onCloseInfoPane
                     )
                 }
             }
         }
     }
 }
-
 @Composable
 private fun EmptyContent() {
     Column(
@@ -190,27 +290,67 @@ private fun AppsContent(
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
     onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    selectedApp: Apps.AppQueryResponse?
 ) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier
-            .fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        items(apps) { app ->
-            ServiceCard(
-                app = app,
-                isLoadingSummary = app.name == loadingSummaryForApp,
-                onStartApp = onStartApp,
-                onStopApp = onStopApp,
-                onShowUpgradeSummary = onShowUpgradeSummary,
-                upgradeJobs = upgradeJobs,
-                onShowRollbackDialog = onShowRollbackDialog
-            )
-        }
+    val isCompact = AdaptiveLayoutHelper.isCompact()
+    val columnCount = AdaptiveLayoutHelper.getColumnCount(
+        compact = 1,
+        medium = 2,
+        expanded = 3
+    )
+    val contentPadding = AdaptiveLayoutHelper.getContentPadding()
+    val horizontalSpacing = AdaptiveLayoutHelper.getHorizontalSpacing()
 
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
+    if (isCompact) {
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+        ) {
+            items(apps) { app ->
+                ServiceCard(
+                    app = app,
+                    isLoadingSummary = app.name == loadingSummaryForApp,
+                    onStartApp = onStartApp,
+                    onStopApp = onStopApp,
+                    onShowUpgradeSummary = onShowUpgradeSummary,
+                    upgradeJobs = upgradeJobs,
+                    onShowRollbackDialog = onShowRollbackDialog,
+                    onAppInfoClick = onAppInfoClick,
+                    isSelected = selectedApp?.id == app.id
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    } else {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columnCount),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+        ) {
+            items(apps) { app ->
+                ServiceCard(
+                    app = app,
+                    isLoadingSummary = app.name == loadingSummaryForApp,
+                    onStartApp = onStartApp,
+                    onStopApp = onStopApp,
+                    onShowUpgradeSummary = onShowUpgradeSummary,
+                    upgradeJobs = upgradeJobs,
+                    onShowRollbackDialog = onShowRollbackDialog,
+                    onAppInfoClick = onAppInfoClick,
+                    isSelected = selectedApp?.id == app.id
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     }
 }
@@ -225,32 +365,44 @@ private fun ServiceCard(
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
     onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    isSelected: Boolean = false
 ) {
-    var showInfoDialog by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
+
+    val isCompact = AdaptiveLayoutHelper.isCompact()
+    val cardPadding = if (isCompact) 20.dp else 16.dp
+    val cardHorizontalPadding = if (isCompact) 4.dp else 0.dp
 
     Card(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surface
         ),
+        border = if (isSelected)
+            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else null,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = cardHorizontalPadding)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(cardPadding)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                app.metadata?.icon.let { iconUrl ->
-                    Column {
+            // ... keep existing header code ...
+            if (isCompact) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    app.metadata?.icon.let { iconUrl ->
                         AsyncImage(
                             model = iconUrl,
                             contentDescription = "App icon",
@@ -260,33 +412,82 @@ private fun ServiceCard(
                             contentScale = ContentScale.Crop
                         )
                     }
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = app.metadata?.title ?: app.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "ID: ${app.id}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    StatusChip(state = app.state, icon = getStatusIcon(app.state))
                 }
-                Spacer(modifier = Modifier.width(5.dp))
+            } else {
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        app.metadata?.icon.let { iconUrl ->
+                            AsyncImage(
+                                model = iconUrl,
+                                contentDescription = "App icon",
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(getStatusColor(app.state))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
                         text = app.metadata?.title ?: app.name,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 24.sp
                     )
 
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
                         text = "ID: ${app.id}",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-
-                StatusChip(state = app.state, icon = getStatusIcon(app.state))
             }
+
+            // ... keep existing upgrade section code ...
 
             if (app.upgrade_available || upgradeJobs[app.name] != null) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -357,81 +558,125 @@ private fun ServiceCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Spacer(modifier = Modifier.height(20.dp))
-            // Primary action row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (!app.state.equals("running", ignoreCase = true)){
-                    ActionButton(
-                        text = "Start",
-                        icon = Icons.Default.PlayArrow,
-                        enabled = true,
-                        isPrimary = true,
-                        onClick = { onStartApp(app.name) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }else{
-                    ActionButton(
-                        text = "Stop",
-                        icon = Icons.Default.Stop,
-                        enabled = true,
-                        isPrimary = true,
-                        onClick = { onStopApp(app.name) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                ActionButton(
-                    text = "View Info",
-                    icon = Icons.Default.Info,
-                    enabled = true,
-                    isPrimary = false,
-                    onClick = { showInfoDialog = true },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                onClick = { showMoreOptions = !showMoreOptions },
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            // MODIFY button actions to use onAppInfoClick:
+            if (isCompact) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    if (!app.state.equals("running", ignoreCase = true)){
+                        ActionButton(
+                            text = "Start",
+                            icon = Icons.Default.PlayArrow,
+                            enabled = true,
+                            isPrimary = true,
+                            onClick = { onStartApp(app.name) },
+                            modifier = Modifier.weight(1f)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "More Options",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    }else{
+                        ActionButton(
+                            text = "Stop",
+                            icon = Icons.Default.Stop,
+                            enabled = true,
+                            isPrimary = true,
+                            onClick = { onStopApp(app.name) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
 
-                    Icon(
-                        imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (showMoreOptions) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    ActionButton(
+                        text = "View Info",
+                        icon = Icons.Default.Info,
+                        enabled = true,
+                        isPrimary = false,
+                        onClick = { onAppInfoClick(app) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (!app.state.equals("running", ignoreCase = true)){
+                        CompactActionButton(
+                            icon = Icons.Default.PlayArrow,
+                            contentDescription = "Start",
+                            isPrimary = true,
+                            onClick = { onStartApp(app.name) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }else{
+                        CompactActionButton(
+                            icon = Icons.Default.Stop,
+                            contentDescription = "Stop",
+                            isPrimary = true,
+                            onClick = { onStopApp(app.name) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    CompactActionButton(
+                        icon = Icons.Default.Info,
+                        contentDescription = "View Info",
+                        isPrimary = false,
+                        onClick = { onAppInfoClick(app) },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    CompactActionButton(
+                        icon = Icons.Default.Settings,
+                        contentDescription = "More Options",
+                        isPrimary = false,
+                        onClick = { showMoreOptions = !showMoreOptions },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
+
+            // ... keep existing more options code ...
+            if (isCompact) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    onClick = { showMoreOptions = !showMoreOptions },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "More Options",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Icon(
+                            imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (showMoreOptions) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             AnimatedVisibility(
                 visible = showMoreOptions,
                 enter = expandVertically() + fadeIn(),
@@ -448,20 +693,46 @@ private fun ServiceCard(
                         onClick = { onShowRollbackDialog(app.name) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    // Less Important Options go in here
                 }
             }
         }
     }
-
-    if (showInfoDialog) {
-        AppInfoDialog(
-            app = app,
-            onDismiss = { showInfoDialog = false }
-        )
+}
+@Composable
+private fun CompactActionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isPrimary: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isPrimary)
+            MaterialTheme.colorScheme.primary
+        else
+            MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(22.dp),
+                tint = if (isPrimary)
+                    MaterialTheme.colorScheme.onPrimary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
-
 @Composable
 private fun UpgradeButton(
     onClick: () -> Unit,

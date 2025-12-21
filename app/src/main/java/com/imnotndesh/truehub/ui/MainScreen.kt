@@ -1,9 +1,11 @@
 package com.imnotndesh.truehub.ui
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
@@ -13,10 +15,13 @@ import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -35,16 +40,19 @@ import com.imnotndesh.truehub.ui.services.containers.ContainersScreen
 import com.imnotndesh.truehub.ui.services.vm.VmsScreen
 
 @Composable
-fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
+fun MainScreen(manager: TrueNASApiManager, rootNavController: NavController) {
     val navController = rememberNavController()
     val items = listOf(Screen.Home, Screen.Apps, Screen.Containers, Screen.Vms)
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
+    if (isLandscape) {
+        // Landscape: Side navigation rail
+        Row {
+            NavigationRail {
                 val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
                 items.forEach { screen ->
-                    NavigationBarItem(
+                    NavigationRailItem(
                         selected = currentRoute == screen.route,
                         onClick = {
                             if (currentRoute != screen.route) {
@@ -55,113 +63,208 @@ fun MainScreen(manager: TrueNASApiManager,rootNavController: NavController) {
                             }
                         },
                         label = { Text(screen.title) },
-                        icon = { Icon(when (screen){
-                            Screen.Home -> Icons.Filled.Home
-                            Screen.Apps -> Icons.Filled.Apps
-                            Screen.Vms -> Icons.Filled.Computer
-                            Screen.Containers -> Icons.Filled.Inventory
-                            else -> Icons.Filled.Home
-                        }, contentDescription = null) }
+                        icon = {
+                            Icon(
+                                when (screen) {
+                                    Screen.Home -> Icons.Filled.Home
+                                    Screen.Apps -> Icons.Filled.Apps
+                                    Screen.Vms -> Icons.Filled.Computer
+                                    Screen.Containers -> Icons.Filled.Inventory
+                                    else -> Icons.Filled.Home
+                                }, contentDescription = null
+                            )
+                        }
+                    )
+                }
+            }
+
+            NavHost(
+                navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.weight(1f),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300)
+                    )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300)
+                    )
+                }
+            ) {
+                composable(Screen.Home.route) {
+                    HomeScreen(
+                        manager,
+                        onNavigateToSettings = { rootNavController.navigate(Screen.Settings.route) },
+                        onPoolClick = { pool: System.Pool ->
+                            PoolDataHolder.currentPool = pool
+                            navController.navigate(Screen.PoolDetails.route)
+                        }
+                    )
+                }
+
+                composable(Screen.Apps.route) {
+                    AppsScreen(manager)
+                }
+
+                composable(Screen.PoolDetails.route) {
+                    PoolDetailsScreen(
+                        manager = manager,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToFiles = { poolName: String ->
+                            navController.navigate("${Screen.Files.route}/$poolName")
+                        }
+                    )
+                }
+
+                composable(Screen.Containers.route) {
+                    ContainersScreen(manager)
+                }
+
+                composable(Screen.Vms.route) {
+                    VmsScreen(manager)
+                }
+
+                composable(
+                    route = "${Screen.Files.route}/{poolName}",
+                    arguments = listOf(
+                        navArgument("poolName") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val poolName = backStackEntry.arguments?.getString("poolName") ?: ""
+                    DatasetExplorerScreen(
+                        manager = manager,
+                        onNavigateBack = { navController.popBackStack() },
+                        poolName = poolName
                     )
                 }
             }
         }
-    ) { innerPadding ->
-        NavHost(
-            navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = {
-                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
-                    AnimatedContentTransitionScope.SlideDirection.Start,
-                    animationSpec = tween(300)
-                )
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
-                    AnimatedContentTransitionScope.SlideDirection.Start,
-                    animationSpec = tween(300)
-                )
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(300)) + slideIntoContainer(
-                    AnimatedContentTransitionScope.SlideDirection.End,
-                    animationSpec = tween(300)
-                )
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
-                    AnimatedContentTransitionScope.SlideDirection.End,
-                    animationSpec = tween(300)
-                )
-            }
-        ) {
-
-            /**
-             * Link to home screen
-             * @see HomeScreen
-             */
-            composable(Screen.Home.route) {
-                HomeScreen(
-                    manager,
-                    onNavigateToSettings = { rootNavController.navigate(Screen.Settings.route) },
-                    onPoolClick = { pool: System.Pool ->
-                        PoolDataHolder.currentPool = pool
-                        navController.navigate(Screen.PoolDetails.route)
+    } else {
+        // Portrait: Bottom navigation bar
+        Scaffold(
+            bottomBar = {
+                NavigationBar {
+                    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+                    items.forEach { screen ->
+                        NavigationBarItem(
+                            selected = currentRoute == screen.route,
+                            onClick = {
+                                if (currentRoute != screen.route) {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.startDestinationId)
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            label = { Text(screen.title) },
+                            icon = {
+                                Icon(
+                                    when (screen) {
+                                        Screen.Home -> Icons.Filled.Home
+                                        Screen.Apps -> Icons.Filled.Apps
+                                        Screen.Vms -> Icons.Filled.Computer
+                                        Screen.Containers -> Icons.Filled.Inventory
+                                        else -> Icons.Filled.Home
+                                    }, contentDescription = null
+                                )
+                            }
+                        )
                     }
-                )
+                }
             }
+        ) { innerPadding ->
+            NavHost(
+                navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.padding(innerPadding),
+                enterTransition = {
+                    fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300)
+                    )
+                },
+                exitTransition = {
+                    fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300)
+                    )
+                },
+                popEnterTransition = {
+                    fadeIn(animationSpec = tween(300)) + slideIntoContainer(
+                        AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300)
+                    )
+                },
+                popExitTransition = {
+                    fadeOut(animationSpec = tween(300)) + slideOutOfContainer(
+                        AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300)
+                    )
+                }
+            ) {
+                composable(Screen.Home.route) {
+                    HomeScreen(
+                        manager,
+                        onNavigateToSettings = { rootNavController.navigate(Screen.Settings.route) },
+                        onPoolClick = { pool: System.Pool ->
+                            PoolDataHolder.currentPool = pool
+                            navController.navigate(Screen.PoolDetails.route)
+                        }
+                    )
+                }
 
-            /**
-             * Link to apps screen
-             * @see AppsScreen
-             */
-            composable(Screen.Apps.route) {
-                AppsScreen(manager)
-            }
-            composable(Screen.PoolDetails.route) {
-                PoolDetailsScreen(
-                    manager = manager,
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToFiles = { poolName: String ->
-                        navController.navigate("${Screen.Files.route}/$poolName")
-                    }
-                )
-            }
+                composable(Screen.Apps.route) {
+                    AppsScreen(manager)
+                }
 
-            /**
-             * Link to Containers Screen
-             * @see ContainersScreen
-             */
-            composable(Screen.Containers.route) {
-                ContainersScreen(manager)
-            }
+                composable(Screen.PoolDetails.route) {
+                    PoolDetailsScreen(
+                        manager = manager,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToFiles = { poolName: String ->
+                            navController.navigate("${Screen.Files.route}/$poolName")
+                        }
+                    )
+                }
 
-            /**
-             * Link to Vms Screen
-             * @see VmsScreen
-             */
-            composable(Screen.Vms.route) {
-                VmsScreen(manager)
-            }
-            /**
-             * Link to Dataset Explorer Screen
-             * @see DatasetExplorerScreen
-             */
-            composable(
-                route = "${Screen.Files.route}/{poolName}",
-                arguments = listOf(
-                    navArgument("poolName") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val poolName = backStackEntry.arguments?.getString("poolName") ?: ""
-                DatasetExplorerScreen(
-                    manager = manager,
-                    onNavigateBack = { navController.popBackStack() },
-                    poolName = poolName
-                )
+                composable(Screen.Containers.route) {
+                    ContainersScreen(manager)
+                }
+
+                composable(Screen.Vms.route) {
+                    VmsScreen(manager)
+                }
+
+                composable(
+                    route = "${Screen.Files.route}/{poolName}",
+                    arguments = listOf(
+                        navArgument("poolName") { type = NavType.StringType }
+                    )
+                ) { backStackEntry ->
+                    val poolName = backStackEntry.arguments?.getString("poolName") ?: ""
+                    DatasetExplorerScreen(
+                        manager = manager,
+                        onNavigateBack = { navController.popBackStack() },
+                        poolName = poolName
+                    )
+                }
             }
         }
     }
 }
-

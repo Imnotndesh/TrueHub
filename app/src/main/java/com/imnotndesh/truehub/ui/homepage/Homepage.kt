@@ -1,6 +1,8 @@
 package com.imnotndesh.truehub.ui.homepage
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.FlowRow
+import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -227,9 +229,9 @@ private fun ErrorScreen(
 
 @Composable
 private fun HomeContent(
-    isConnectedStatus :Boolean,
+    isConnectedStatus: Boolean,
     state: HomeUiState.Success,
-    loadAveragesState : LoadAveragesState,
+    loadAveragesState: LoadAveragesState,
     onRefresh: () -> Unit,
     onPoolClick: (System.Pool) -> Unit,
     onRefreshGraph: () -> Unit,
@@ -239,77 +241,121 @@ private fun HomeContent(
     var showPerformanceDialog by remember { mutableStateOf(false) }
     var currentMetricType by remember { mutableStateOf(MetricType.ALL) }
     var selectedShare by remember { mutableStateOf<ShareType?>(null) }
+
+    // Use the adaptive helper
+    val isAdaptiveLayout = AdaptiveLayoutHelper.isExpandedLayout()
+    val columnCount = AdaptiveLayoutHelper.getColumnCount()
+    val contentPadding = AdaptiveLayoutHelper.getContentPadding()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(contentPadding.dp)
     ) {
+        // System Overview Card - Always full width
         SystemOverviewCard(
             isConnectedStatus = isConnectedStatus,
             systemInfo = state.systemInfo,
             modifier = Modifier.padding(bottom = 16.dp)
         )
-        LoadAveragesGrid(
-            loadAveragesState = loadAveragesState,
-            modifier = Modifier.padding(bottom = 16.dp),
-            onCpuClick = {
-                currentMetricType = MetricType.CPU
-                showPerformanceDialog = true
-            },
-            onMemoryClick = {
-                currentMetricType = MetricType.MEMORY
-                showPerformanceDialog = true
-            },
-            onLoadClick = {
-                currentMetricType = MetricType.ALL
-                showPerformanceDialog = true
-            },
-            onTempClick = {
-                currentMetricType = MetricType.TEMPERATURE
-                showPerformanceDialog = true
-            }
-        )
 
-        SystemStatsSection(
-            systemInfo = state.systemInfo,
-            poolDetails = state.poolDetails.firstOrNull(),
-            diskCount = state.diskDetails.size,
-            modifier = Modifier.padding(bottom = 16.dp),
-            onDiskClick = { showMemoryDialog = true }
-        )
-
-        // Storage Information - show each pool
-        if (state.poolDetails.isNotEmpty()) {
-            state.poolDetails.forEach { pool ->
-                StorageCard(
-                    pool = pool,
-                    modifier = Modifier.padding(bottom = 16.dp),
-                    onClick = { onPoolClick(pool) }
-                )
-            }
+        if (isAdaptiveLayout) {
+            // Adaptive multi-column layout for landscape/tablet
+            AdaptiveGridLayout(
+                columnCount = columnCount,
+                state = state,
+                loadAveragesState = loadAveragesState,
+                onCpuClick = {
+                    currentMetricType = MetricType.CPU
+                    showPerformanceDialog = true
+                },
+                onMemoryClick = {
+                    currentMetricType = MetricType.MEMORY
+                    showPerformanceDialog = true
+                },
+                onLoadClick = {
+                    currentMetricType = MetricType.ALL
+                    showPerformanceDialog = true
+                },
+                onTempClick = {
+                    currentMetricType = MetricType.TEMPERATURE
+                    showPerformanceDialog = true
+                },
+                onDiskClick = { showMemoryDialog = true },
+                onPoolClick = onPoolClick,
+                onSmbShareClick = { share ->
+                    selectedShare = ShareType.Smb(share)
+                },
+                onNfsShareClick = { share ->
+                    selectedShare = ShareType.Nfs(share)
+                }
+            )
         } else {
-            NoStorageCard(modifier = Modifier.padding(bottom = 16.dp))
-        }
-        // SMB Shares Section
-        SharesCard(
-            smbShares = state.smbShares,
-            nfsShares = state.nfsShares,
-            onSmbShareClick = { share ->
-                selectedShare = ShareType.Smb(share)
-            },
-            onNfsShareClick = { share ->
-                selectedShare = ShareType.Nfs(share)
+            // Original single-column layout for portrait phones
+            LoadAveragesGrid(
+                loadAveragesState = loadAveragesState,
+                modifier = Modifier.padding(bottom = 16.dp),
+                onCpuClick = {
+                    currentMetricType = MetricType.CPU
+                    showPerformanceDialog = true
+                },
+                onMemoryClick = {
+                    currentMetricType = MetricType.MEMORY
+                    showPerformanceDialog = true
+                },
+                onLoadClick = {
+                    currentMetricType = MetricType.ALL
+                    showPerformanceDialog = true
+                },
+                onTempClick = {
+                    currentMetricType = MetricType.TEMPERATURE
+                    showPerformanceDialog = true
+                }
+            )
+
+            SystemStatsSection(
+                systemInfo = state.systemInfo,
+                poolDetails = state.poolDetails.firstOrNull(),
+                diskCount = state.diskDetails.size,
+                modifier = Modifier.padding(bottom = 16.dp),
+                onDiskClick = { showMemoryDialog = true }
+            )
+
+            // Storage Information
+            if (state.poolDetails.isNotEmpty()) {
+                state.poolDetails.forEach { pool ->
+                    StorageCard(
+                        pool = pool,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                        onClick = { onPoolClick(pool) }
+                    )
+                }
+            } else {
+                NoStorageCard(modifier = Modifier.padding(bottom = 16.dp))
             }
-        )
+
+            SharesCard(
+                smbShares = state.smbShares,
+                nfsShares = state.nfsShares,
+                onSmbShareClick = { share ->
+                    selectedShare = ShareType.Smb(share)
+                },
+                onNfsShareClick = { share ->
+                    selectedShare = ShareType.Nfs(share)
+                }
+            )
+        }
     }
+
+    // Dialogs (unchanged)
     if (showMemoryDialog) {
-        if (state.diskDetails.isNotEmpty()){
+        if (state.diskDetails.isNotEmpty()) {
             DiskInfoBottomSheet(
                 disks = state.diskDetails,
                 onDismiss = { showMemoryDialog = false },
             )
-        }else{
+        } else {
             ToastManager.showInfo("No disk Information Found")
         }
     }
@@ -332,6 +378,94 @@ private fun HomeContent(
             shareType = shareType,
             onDismiss = { selectedShare = null }
         )
+    }
+}
+@Composable
+private fun AdaptiveGridLayout(
+    columnCount: Int,
+    state: HomeUiState.Success,
+    loadAveragesState: LoadAveragesState,
+    onCpuClick: () -> Unit,
+    onMemoryClick: () -> Unit,
+    onLoadClick: () -> Unit,
+    onTempClick: () -> Unit,
+    onDiskClick: () -> Unit,
+    onPoolClick: (System.Pool) -> Unit,
+    onSmbShareClick: (Shares.SmbShare) -> Unit,
+    onNfsShareClick: (Shares.NfsShare) -> Unit
+) {
+    val spacing = AdaptiveLayoutHelper.getHorizontalSpacing()
+
+    // Create a list of all sections
+    val sections = buildList {
+        add(SectionItem.LoadAverages(loadAveragesState, onCpuClick, onMemoryClick, onLoadClick, onTempClick))
+        add(SectionItem.SystemStats(state.systemInfo, state.poolDetails.firstOrNull(), state.diskDetails.size, onDiskClick))
+
+        if (state.poolDetails.isNotEmpty()) {
+            state.poolDetails.forEach { pool ->
+                add(SectionItem.StoragePool(pool, onPoolClick))
+            }
+        } else {
+            add(SectionItem.NoStorage)
+        }
+
+        add(SectionItem.Shares(state.smbShares, state.nfsShares, onSmbShareClick, onNfsShareClick))
+    }
+
+    // Render sections in a grid
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        maxItemsInEachRow = columnCount
+    ) {
+        sections.forEach { section ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                when (section) {
+                    is SectionItem.LoadAverages -> {
+                        LoadAveragesGrid(
+                            loadAveragesState = section.state,
+                            modifier = Modifier,
+                            onCpuClick = section.onCpuClick,
+                            onMemoryClick = section.onMemoryClick,
+                            onLoadClick = section.onLoadClick,
+                            onTempClick = section.onTempClick
+                        )
+                    }
+                    is SectionItem.SystemStats -> {
+                        SystemStatsSection(
+                            systemInfo = section.systemInfo,
+                            poolDetails = section.poolDetails,
+                            diskCount = section.diskCount,
+                            modifier = Modifier,
+                            onDiskClick = section.onDiskClick
+                        )
+                    }
+                    is SectionItem.StoragePool -> {
+                        StorageCard(
+                            pool = section.pool,
+                            modifier = Modifier,
+                            onClick = { section.onPoolClick(section.pool) }
+                        )
+                    }
+                    is SectionItem.NoStorage -> {
+                        NoStorageCard(modifier = Modifier)
+                    }
+                    is SectionItem.Shares -> {
+                        SharesCard(
+                            smbShares = section.smbShares,
+                            nfsShares = section.nfsShares,
+                            onSmbShareClick = section.onSmbShareClick,
+                            onNfsShareClick = section.onNfsShareClick
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1306,4 +1440,34 @@ fun ShutdownDialog(
             }
         }
     )
+}
+private sealed class SectionItem {
+    data class LoadAverages(
+        val state: LoadAveragesState,
+        val onCpuClick: () -> Unit,
+        val onMemoryClick: () -> Unit,
+        val onLoadClick: () -> Unit,
+        val onTempClick: () -> Unit
+    ) : SectionItem()
+
+    data class SystemStats(
+        val systemInfo: System.SystemInfo,
+        val poolDetails: System.Pool?,
+        val diskCount: Int,
+        val onDiskClick: () -> Unit
+    ) : SectionItem()
+
+    data class StoragePool(
+        val pool: System.Pool,
+        val onPoolClick: (System.Pool) -> Unit
+    ) : SectionItem()
+
+    object NoStorage : SectionItem()
+
+    data class Shares(
+        val smbShares: List<Shares.SmbShare>,
+        val nfsShares: List<Shares.NfsShare>,
+        val onSmbShareClick: (Shares.SmbShare) -> Unit,
+        val onNfsShareClick: (Shares.NfsShare) -> Unit
+    ) : SectionItem()
 }

@@ -604,4 +604,7 @@ object Storage {
         val rawvalue: String,
         val value: String
     )
+    data class DatasetDeleteOptions(
+        val id : String
+    )
 }

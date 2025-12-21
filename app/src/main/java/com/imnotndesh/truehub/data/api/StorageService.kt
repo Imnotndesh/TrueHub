@@ -158,6 +158,14 @@ class StorageService(manager: TrueNASApiManager): BaseApiService(manager) {
             resultType = Int::class.java
         )
     }
+    suspend fun deleteDataset(datasetName: String, recursive: Boolean = true): ApiResult<Boolean>{
+        val optionsPayload = mapOf("recursive" to recursive)
+        return apiCallWithResult(
+            method = ApiMethods.Storage.DATASET_DELETE,
+            params = listOf(datasetName, optionsPayload),
+            resultType = Boolean::class.java
+        )
+    }
 
     suspend fun createDataset(name: String,datasetType: Storage.DatasetOptions): ApiResult<Storage.DatasetCreationResponse> {
         if (datasetType == Storage.DatasetOptions.SHARE) {

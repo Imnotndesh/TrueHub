@@ -1,9 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.dataset
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Folder
@@ -45,7 +43,6 @@ import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -85,7 +82,9 @@ fun DatasetExplorerScreen(
     val viewModel: DatasetExplorerViewModel = viewModel(factory = DatasetExplorerViewModel.Factory(manager))
     val uiState by viewModel.uiState.collectAsState()
     val selectedDataset by viewModel.selectedDataset.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var currentSelectedDataset by remember { mutableStateOf("") }
 
     if (showCreateDialog) {
         CreateDatasetDialog(
@@ -96,6 +95,17 @@ fun DatasetExplorerScreen(
 
                 viewModel.createDataset(fullPath, type, poolName)
                 showCreateDialog = false
+            }
+        )
+    }
+    if (showDeleteDialog){
+        DeleteDatasetDialog(
+            onDismiss = {showDeleteDialog = false},
+            onDelete = {
+                val fullPath = currentSelectedDataset
+                viewModel.deleteDataset(fullPath,poolName)
+                showDeleteDialog = false
+                currentSelectedDataset = ""
             }
         )
     }
@@ -182,7 +192,11 @@ fun DatasetExplorerScreen(
                                             onToggleExpand = {
                                                 isMobileSheetExpanded = !isMobileSheetExpanded
                                             },
-                                            onCreateDatasetClicked = { showCreateDialog = true }
+                                            onCreateDatasetClicked = { showCreateDialog = true },
+                                            onDeleteDatasetClicked = {datasetName ->
+                                                showDeleteDialog = true
+                                                currentSelectedDataset = datasetName
+                                            }
                                         )
                                     }
                                 }
@@ -296,6 +310,7 @@ fun MobileDetailsSheet(
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
     onCreateDatasetClicked: () -> Unit,
+    onDeleteDatasetClicked: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -338,7 +353,6 @@ fun MobileDetailsSheet(
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
-
                 FilledTonalButton(
                     onClick = onCreateDatasetClicked,
                     contentPadding = PaddingValues(12.dp),
@@ -351,7 +365,25 @@ fun MobileDetailsSheet(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(2.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                FilledTonalButton(
+                    onClick = {
+                        onDeleteDatasetClicked(
+                            dataset.name
+                        )
+                    },
+                    contentPadding = PaddingValues(12.dp),
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Dataset",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 FilledTonalButton(
                     onClick = onToggleExpand,
                     contentPadding = PaddingValues(12.dp),
@@ -681,4 +713,36 @@ fun DetailRow(label: String, value: String) {
             textAlign = TextAlign.End
         )
     }
+}
+
+@Composable
+fun DeleteDatasetDialog(
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete New Dataset") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    "Are you Sure you want to delete This dataset",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onDelete() },
+            ) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
