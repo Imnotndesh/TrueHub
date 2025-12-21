@@ -2,7 +2,14 @@ package com.imnotndesh.truehub.ui.services.apps
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -17,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -72,6 +80,7 @@ import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.details.AppInfoDialog
+import com.imnotndesh.truehub.ui.services.apps.details.AppInfoPane
 import com.imnotndesh.truehub.ui.services.apps.details.RollbackVersionDialog
 import com.imnotndesh.truehub.ui.services.apps.details.UpgradeSummaryBottomSheet
 
@@ -81,10 +90,12 @@ fun AppsScreen(manager: TrueNASApiManager) {
     val appsScreenViewModel: AppsScreenViewModel = viewModel(
         factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
     )
-    // Tracked App States
     val uiState by appsScreenViewModel.uiState.collectAsState()
     var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
     var showRollbackDialog by remember { mutableStateOf<String?>(null) }
+    var selectedAppForInfo by remember { mutableStateOf<Apps.AppQueryResponse?>(null) }
+
+    val isCompact = AdaptiveLayoutHelper.isCompact()
 
     if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
         UpgradeSummaryBottomSheet(
@@ -120,7 +131,16 @@ fun AppsScreen(manager: TrueNASApiManager) {
             }
         )
     }
-    Column{
+
+    // Show bottom sheet only on compact (phone) devices
+    if (isCompact && selectedAppForInfo != null) {
+        AppInfoDialog(
+            app = selectedAppForInfo!!,
+            onDismiss = { selectedAppForInfo = null }
+        )
+    }
+
+    Column {
         UnifiedScreenHeader(
             title = "Applications",
             subtitle = "${uiState.apps.size} Applications",
@@ -134,7 +154,6 @@ fun AppsScreen(manager: TrueNASApiManager) {
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { appsScreenViewModel.refresh() }
-
         ) {
             when {
                 uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
@@ -144,24 +163,97 @@ fun AppsScreen(manager: TrueNASApiManager) {
                     EmptyContent()
                 }
                 else -> {
-                    AppsContent(
-                        apps = uiState.apps,
-                        onStartApp = {appName ->appsScreenViewModel.startApp(appName)},
-                        loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                        onStopApp = {appName -> appsScreenViewModel.stopApp(appName)},
-                        onShowUpgradeSummary = { appName ->
-                            appForUpgradeSummary = appName
-                            appsScreenViewModel.loadUpgradeSummary(appName)
-                        },
-                        upgradeJobs = uiState.upgradeJobs,
-                        onShowRollbackDialog = { appName -> showRollbackDialog = appName }
+                    if (isCompact) {
+                        // Phone: Single column with bottom sheet
+                        AppsContent(
+                            apps = uiState.apps,
+                            onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                            onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
+                            onShowUpgradeSummary = { appName ->
+                                appForUpgradeSummary = appName
+                                appsScreenViewModel.loadUpgradeSummary(appName)
+                            },
+                            upgradeJobs = uiState.upgradeJobs,
+                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
+                            onAppInfoClick = { app -> selectedAppForInfo = app },
+                            selectedApp = null
+                        )
+                    } else {
+                        // Tablet/Landscape: Split pane layout
+                        AppsSplitPaneContent(
+                            apps = uiState.apps,
+                            selectedApp = selectedAppForInfo,
+                            onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                            onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
+                            onShowUpgradeSummary = { appName ->
+                                appForUpgradeSummary = appName
+                                appsScreenViewModel.loadUpgradeSummary(appName)
+                            },
+                            upgradeJobs = uiState.upgradeJobs,
+                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
+                            onAppInfoClick = { app -> selectedAppForInfo = app },
+                            onCloseInfoPane = { selectedAppForInfo = null }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+private fun AppsSplitPaneContent(
+    apps: List<Apps.AppQueryResponse>,
+    selectedApp: Apps.AppQueryResponse?,
+    loadingSummaryForApp: String?,
+    onStartApp: (String) -> Unit,
+    onStopApp: (String) -> Unit,
+    onShowUpgradeSummary: (String) -> Unit,
+    upgradeJobs: Map<String, System.UpgradeJobState>,
+    onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    onCloseInfoPane: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Left side: App list (takes 55% when pane is open, 100% when closed)
+        Box(
+            modifier = Modifier
+                .weight(if (selectedApp != null) 0.55f else 1f)
+                .fillMaxSize()
+        ) {
+            AppsContent(
+                apps = apps,
+                onStartApp = onStartApp,
+                loadingSummaryForApp = loadingSummaryForApp,
+                onStopApp = onStopApp,
+                onShowUpgradeSummary = onShowUpgradeSummary,
+                upgradeJobs = upgradeJobs,
+                onShowRollbackDialog = onShowRollbackDialog,
+                onAppInfoClick = onAppInfoClick,
+                selectedApp = selectedApp
+            )
+        }
+        AnimatedVisibility(
+            visible = selectedApp != null,
+            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+        ) {
+            selectedApp?.let { app ->
+                Box(
+                    modifier = Modifier
+                        .weight(0.45f)
+                        .fillMaxHeight()
+                ) {
+                    AppInfoPane(
+                        app = app,
+                        onClose = onCloseInfoPane
                     )
                 }
             }
         }
     }
 }
-
 @Composable
 private fun EmptyContent() {
     Column(
@@ -198,18 +290,19 @@ private fun AppsContent(
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
     onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    selectedApp: Apps.AppQueryResponse?
 ) {
     val isCompact = AdaptiveLayoutHelper.isCompact()
     val columnCount = AdaptiveLayoutHelper.getColumnCount(
-        compact = 1,    // 1 column on phones
-        medium = 2,     // 2 columns on small tablets
-        expanded = 3    // 3 columns on large tablets
+        compact = 1,
+        medium = 2,
+        expanded = 3
     )
     val contentPadding = AdaptiveLayoutHelper.getContentPadding()
     val horizontalSpacing = AdaptiveLayoutHelper.getHorizontalSpacing()
 
     if (isCompact) {
-        // Original list layout for phones
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
@@ -223,7 +316,9 @@ private fun AppsContent(
                     onStopApp = onStopApp,
                     onShowUpgradeSummary = onShowUpgradeSummary,
                     upgradeJobs = upgradeJobs,
-                    onShowRollbackDialog = onShowRollbackDialog
+                    onShowRollbackDialog = onShowRollbackDialog,
+                    onAppInfoClick = onAppInfoClick,
+                    isSelected = selectedApp?.id == app.id
                 )
             }
 
@@ -232,7 +327,6 @@ private fun AppsContent(
             }
         }
     } else {
-        // Adaptive grid layout for tablets/landscape
         LazyVerticalGrid(
             columns = GridCells.Fixed(columnCount),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -248,7 +342,9 @@ private fun AppsContent(
                     onStopApp = onStopApp,
                     onShowUpgradeSummary = onShowUpgradeSummary,
                     upgradeJobs = upgradeJobs,
-                    onShowRollbackDialog = onShowRollbackDialog
+                    onShowRollbackDialog = onShowRollbackDialog,
+                    onAppInfoClick = onAppInfoClick,
+                    isSelected = selectedApp?.id == app.id
                 )
             }
 
@@ -269,11 +365,11 @@ private fun ServiceCard(
     onShowUpgradeSummary: (String) -> Unit,
     upgradeJobs: Map<String, System.UpgradeJobState>,
     onShowRollbackDialog: (String) -> Unit,
+    onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
+    isSelected: Boolean = false
 ) {
-    var showInfoDialog by remember { mutableStateOf(false) }
     var showMoreOptions by remember { mutableStateOf(false) }
 
-    // Adaptive padding based on screen size
     val isCompact = AdaptiveLayoutHelper.isCompact()
     val cardPadding = if (isCompact) 20.dp else 16.dp
     val cardHorizontalPadding = if (isCompact) 4.dp else 0.dp
@@ -282,8 +378,14 @@ private fun ServiceCard(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else
+                MaterialTheme.colorScheme.surface
         ),
+        border = if (isSelected)
+            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        else null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = cardHorizontalPadding)
@@ -293,9 +395,8 @@ private fun ServiceCard(
                 .fillMaxWidth()
                 .padding(cardPadding)
         ) {
-            // Header section - Adaptive layout
+            // ... keep existing header code ...
             if (isCompact) {
-                // Phone layout - Horizontal row with all info
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -335,7 +436,6 @@ private fun ServiceCard(
                     StatusChip(state = app.state, icon = getStatusIcon(app.state))
                 }
             } else {
-                // Tablet layout - Vertical stack with compact status indicator
                 Column(
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -355,7 +455,6 @@ private fun ServiceCard(
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        // Compact status indicator - just a colored dot
                         Box(
                             modifier = Modifier
                                 .size(12.dp)
@@ -387,6 +486,8 @@ private fun ServiceCard(
                     )
                 }
             }
+
+            // ... keep existing upgrade section code ...
 
             if (app.upgrade_available || upgradeJobs[app.name] != null) {
                 Spacer(modifier = Modifier.height(10.dp))
@@ -457,9 +558,8 @@ private fun ServiceCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Primary action row - Adaptive button style
+            // MODIFY button actions to use onAppInfoClick:
             if (isCompact) {
-                // Phone layout - Full buttons with text
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -489,12 +589,11 @@ private fun ServiceCard(
                         icon = Icons.Default.Info,
                         enabled = true,
                         isPrimary = false,
-                        onClick = { showInfoDialog = true },
+                        onClick = { onAppInfoClick(app) },
                         modifier = Modifier.weight(1f)
                     )
                 }
             } else {
-                // Tablet layout - Icon-only buttons in a row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -521,7 +620,7 @@ private fun ServiceCard(
                         icon = Icons.Default.Info,
                         contentDescription = "View Info",
                         isPrimary = false,
-                        onClick = { showInfoDialog = true },
+                        onClick = { onAppInfoClick(app) },
                         modifier = Modifier.weight(1f)
                     )
 
@@ -535,7 +634,7 @@ private fun ServiceCard(
                 }
             }
 
-            // More options section - only show on phones
+            // ... keep existing more options code ...
             if (isCompact) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
@@ -594,17 +693,9 @@ private fun ServiceCard(
                         onClick = { onShowRollbackDialog(app.name) },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    // Less Important Options go in here
                 }
             }
         }
-    }
-
-    if (showInfoDialog) {
-        AppInfoDialog(
-            app = app,
-            onDismiss = { showInfoDialog = false }
-        )
     }
 }
 @Composable
