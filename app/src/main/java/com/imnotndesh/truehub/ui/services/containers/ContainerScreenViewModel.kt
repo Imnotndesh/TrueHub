@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.AppCache
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
 import com.imnotndesh.truehub.ui.components.ToastManager
@@ -31,16 +32,36 @@ class ContainerScreenViewModel(
     val uiState: StateFlow<ContainerScreenUiState> = _uiState.asStateFlow()
 
     init {
+        val cachedData = AppCache.cachedContainers.value
+        if (cachedData.isNotEmpty()) {
+            _uiState.update { it.copy(containers = cachedData, isLoading = false) }
+        }
         loadContainers()
+        startPeriodicRefresh()
     }
+    private fun startPeriodicRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30000)
+                if (_uiState.value.containers.isNotEmpty()) {
+                    _uiState.update { it.copy(isRefreshing = true) }
+                    loadContainers()
+                }
+            }
+        }
+    }
+
 
     fun loadContainers() {
         viewModelScope.launch {
             if (_uiState.value.containers.isEmpty()) {
                 _uiState.update { it.copy(isLoading = true) }
+            } else {
+                _uiState.update { it.copy(isRefreshing = true) }
             }
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
+                    AppCache.updateContainers(result.data)
                     _uiState.update {
                         it.copy(
                             containers = result.data,
@@ -55,13 +76,13 @@ class ContainerScreenViewModel(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = result.message
+                            error = if (it.containers.isEmpty()) result.message else null
                         )
                     }
                 }
 
                 ApiResult.Loading ->{
-                        _uiState.update {
+                    _uiState.update {
                         it.copy(
                             isLoading = true,
                             error = null
@@ -78,6 +99,7 @@ class ContainerScreenViewModel(
 
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
+                    AppCache.updateContainers(result.data)
                     ToastManager.showSuccess("Refreshed ${result.data.size} containers")
                     _uiState.update {
                         it.copy(
@@ -91,7 +113,7 @@ class ContainerScreenViewModel(
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            error = result.message
+                            error = if (it.containers.isEmpty()) result.message else null
                         )
                     }
                 }

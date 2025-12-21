@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.AppCache
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.ToastManager
@@ -36,17 +37,37 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     val uiState: StateFlow<AppsScreenUiState> = _uiState.asStateFlow()
 
     init {
+        val cachedData = AppCache.cachedApps.value
+        if (cachedData.isNotEmpty()) {
+            _uiState.update { it.copy(apps = cachedData, isLoading = false) }
+        }
         loadApps()
+        startPeriodicRefresh()
+    }
+
+    private fun startPeriodicRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                delay(30000)
+                if (_uiState.value.apps.isNotEmpty()) {
+                    _uiState.update { it.copy(isRefreshing = true) }
+                    loadApps()
+                }
+            }
+        }
     }
 
     fun loadApps() {
         viewModelScope.launch {
             if (_uiState.value.apps.isEmpty()){
                 _uiState.update { it.copy(isLoading = true) }
+            } else {
+                _uiState.update { it.copy(isRefreshing = true) }
             }
             try {
                 when(val result = manager.apps.getInstalledAppsWithResult()) {
                     is ApiResult.Success -> {
+                        AppCache.updateApps(result.data)
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -61,7 +82,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                             it.copy(
                                 isLoading = false,
                                 isRefreshing = false,
-                                error = result.message
+                                error = if (it.apps.isEmpty()) result.message else null
                             )
                         }
                     }
@@ -73,7 +94,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     it.copy(
                         isLoading = false,
                         isRefreshing = false,
-                        error = e.message ?: "Failed to load apps"
+                        error = if (it.apps.isEmpty()) e.message ?: "Failed to load apps" else null
                     )
                 }
             }
@@ -93,27 +114,14 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             val result = manager.apps.startAppWithResult(appName)
             when(result){
                 is ApiResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = null
-                    )
                     ToastManager.showSuccess("Started Container")
-                    refresh()
+                    _uiState.update { it.copy(isRefreshing = true) }
+                    loadApps()
                 }
                 is ApiResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = result.message
-                    )
+                    _uiState.update { it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else null) }
                 }
                 is ApiResult.Loading -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = true,
-                        isRefreshing = false,
-                        error = null
-                    )
                     ToastManager.showInfo("Starting Container")
                 }
             }
@@ -124,27 +132,14 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             val result = manager.apps.stopAppWithResult(appName)
             when(result){
                 is ApiResult.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = null
-                    )
                     ToastManager.showSuccess("Stopped Container")
-                    refresh()
+                    _uiState.update { it.copy(isRefreshing = true) }
+                    loadApps()
                 }
                 is ApiResult.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isRefreshing = false,
-                        error = result.message
-                    )
+                    _uiState.update { it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else null) }
                 }
                 is ApiResult.Loading -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = true,
-                        isRefreshing = false,
-                        error = null
-                    )
                     ToastManager.showInfo("Stopping Container")
                 }
             }
@@ -152,8 +147,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     }
     fun upgradeApp(appName: String) {
         viewModelScope.launch {
-            val result = manager.apps.upgradeAppWithResult(appName)
-            when (result) {
+            when (val result = manager.apps.upgradeAppWithResult(appName)) {
                 is ApiResult.Success -> {
                     val jobId = result.data
                     _uiState.value = _uiState.value.copy(
@@ -161,15 +155,12 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                 appName to System.UpgradeJobState(state = "UPGRADING", progress = 0)
                                 )
                     )
-
-                    // Fixed polling with proper error handling and termination
                     var pollAttempts = 0
                     val maxPollAttempts = 150 // 5 minutes max (150 * 2 seconds)
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
-                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
-                            when (jobResult) {
+                            when (val jobResult = manager.system.getJobInfoJobWithResult(jobId)) {
                                 is ApiResult.Success -> {
                                     val job = jobResult.data
                                     val state = job.state

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.AppCache
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Vm
 import com.imnotndesh.truehub.ui.components.ToastManager
@@ -31,16 +32,36 @@ class VmsScreenViewModel(
     val uiState: StateFlow<VmScreenUiState> = _uiState.asStateFlow()
 
     init {
+        val cachedData = AppCache.cachedVms.value
+        if (cachedData.isNotEmpty()) {
+            _uiState.update { it.copy(vms = cachedData, isLoading = false) }
+        }
         loadVms()
+        startPeriodicRefresh()
+    }
+
+    private fun startPeriodicRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30000)
+                if (_uiState.value.vms.isNotEmpty()) {
+                    _uiState.update { it.copy(isRefreshing = true) }
+                    loadVms()
+                }
+            }
+        }
     }
 
     fun loadVms() {
         viewModelScope.launch {
             if (_uiState.value.vms.isEmpty()) {
                 _uiState.update { it.copy(isLoading = true) }
+            } else {
+                _uiState.update { it.copy(isRefreshing = true) }
             }
             when (val result = manager.vmService.queryAllVmsWithResult()) {
                 is ApiResult.Success -> {
+                    AppCache.updateVms(result.data)
                     _uiState.update {
                         it.copy(
                             vms = result.data,
@@ -55,7 +76,7 @@ class VmsScreenViewModel(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = result.message
+                            error = if (it.vms.isEmpty()) result.message else null
                         )
                     }
                 }
@@ -78,6 +99,7 @@ class VmsScreenViewModel(
 
             when (val result = manager.vmService.queryAllVmsWithResult()) {
                 is ApiResult.Success -> {
+                    AppCache.updateVms(result.data)
                     _uiState.update {
                         it.copy(
                             vms = result.data,
@@ -90,7 +112,7 @@ class VmsScreenViewModel(
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            error = result.message
+                            error = if (it.vms.isEmpty()) result.message else null
                         )
                     }
                 }

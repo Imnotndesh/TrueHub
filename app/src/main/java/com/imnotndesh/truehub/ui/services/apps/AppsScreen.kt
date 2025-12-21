@@ -137,10 +137,10 @@ fun AppsScreen(manager: TrueNASApiManager) {
 
         ) {
             when {
-                uiState.apps.isEmpty() && uiState.isLoading -> {
+                uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading Apps")
                 }
-                uiState.apps.isEmpty() && !uiState.isLoading -> {
+                uiState.apps.isEmpty() && !uiState.isLoading && uiState.error != null -> {
                     EmptyContent()
                 }
                 else -> {
