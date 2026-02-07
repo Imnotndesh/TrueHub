@@ -8,6 +8,9 @@
   <img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3">
   <img src="https://img.shields.io/github/v/release/Imnotndesh/TrueHub" alt="Latest Release">
   <img src="https://img.shields.io/badge/UI-Jetpack_Compose-green.svg" alt="Jetpack Compose">
+  <a href="https://mm200.github.io/Obtainium/v1/?r=https://github.com/Imnotndesh/TrueHub">
+    <img src="https://img.shields.io/badge/Add%20to-Obtainium-purple?style=for-the-badge" alt="Add to Obtainuim">
+  </a>
 </p>
 
 TrueHub is an open-source Android application designed to provide a seamless and intuitive mobile experience for interacting with your TrueNAS SCALE server. Monitor performance, manage applications, and stay on top of alerts directly from your phone.
