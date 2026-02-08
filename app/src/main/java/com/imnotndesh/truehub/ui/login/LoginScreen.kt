@@ -118,11 +118,11 @@ fun LoginScreen(
                         insecure = savedInsecure,
                         connectionTimeoutMs = 15000,
                         enablePing = true,
-                        enableDebugLogging = false
+                        enableDebugLogging = true
                     )
 
                     val client = TrueNASClient(config)
-                    val newManager = TrueNASApiManager(client,context)
+                    val newManager = TrueNASApiManager(client,context.applicationContext)
                     val connected = newManager.connect()
 
                     if (connected) {
@@ -212,7 +212,7 @@ fun LoginScreen(
                             )
 
                             val client = TrueNASClient(config)
-                            val newManager = TrueNASApiManager(client,context)
+                            val newManager = TrueNASApiManager(client,context.applicationContext)
                             val connected = newManager.connect()
 
                             if (connected) {

@@ -91,7 +91,6 @@ fun HomeScreen(
         factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
     )
 
-    // Remember states
     val uiState by viewModel.uiState.collectAsState()
     val loadAveragesState by viewModel.loadAverages.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()

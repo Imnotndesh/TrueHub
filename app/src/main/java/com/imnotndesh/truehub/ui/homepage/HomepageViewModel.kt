@@ -179,8 +179,14 @@ class HomeViewModel(
     private suspend fun checkConnectivity() {
         try {
             val result = apiManager.system.getSystemInfoWithResult()
-            _isConnected.value = result is ApiResult.Success
-            _connectionError.value = if (result is ApiResult.Error) result.message else null
+
+            if (result is ApiResult.Success) {
+                _isConnected.value = true
+                _connectionError.value = null
+            } else if (result is ApiResult.Error) {
+                _isConnected.value = false
+                _connectionError.value = result.message
+            }
         } catch (e: Exception) {
             _isConnected.value = false
             _connectionError.value = e.message
