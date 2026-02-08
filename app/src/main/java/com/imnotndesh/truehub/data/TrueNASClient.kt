@@ -1,6 +1,6 @@
 package com.imnotndesh.truehub.data
 
-import android.util.Log
+import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -34,6 +34,10 @@ class TrueNASClient(private val config: ClientConfig) {
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .build()
     }
+    init {
+        TrueHubLogger.isLoggingEnabled = config.enableDebugLogging
+    }
+    private val logName = "TrueNAS-Client"
 
     private var webSocket: WebSocket? = null
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
@@ -44,7 +48,6 @@ class TrueNASClient(private val config: ClientConfig) {
 
     private val pendingRequests = ConcurrentHashMap<Int, CompletableDeferred<Response<Any>>>()
     private val idCounter = AtomicInteger(1)
-    private val logName = "TrueNAS-Client"
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
@@ -65,20 +68,20 @@ class TrueNASClient(private val config: ClientConfig) {
                 override fun onOpen(webSocket: WebSocket, response: okhttp3.Response) {
                     super.onOpen(webSocket, response)
                     _connectionState.value = ConnectionState.Connected
-                    logDebug("Connected to ${config.serverUrl}")
+                    TrueHubLogger.e(logName,"Connected to ${config.serverUrl}")
                     connectionDeferred.complete(true)
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     super.onMessage(webSocket, text)
-                    logDebug("Received message: $text")
+                    TrueHubLogger.e(logName,"Received message: $text")
                     handleMessage(text)
                 }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
                     super.onFailure(webSocket, t, response)
                     val errorMsg = "Connection failed: ${t.message}"
                     _connectionState.value = ConnectionState.Error(errorMsg, t)
-                    logError(errorMsg, t)
+                    TrueHubLogger.e(logName,errorMsg, t)
 
                     pendingRequests.values.forEach { it.completeExceptionally(t) }
                     pendingRequests.clear()
@@ -91,14 +94,14 @@ class TrueNASClient(private val config: ClientConfig) {
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     super.onClosed(webSocket, code, reason)
                     _connectionState.value = ConnectionState.Disconnected
-                    logDebug("Connection closed: $code - $reason")
+                    TrueHubLogger.e(logName,"Connection closed: $code - $reason")
                 }
             })
 
             connectionDeferred.await()
         } catch (e: Exception) {
             _connectionState.value = ConnectionState.Error("Failed to connect", e)
-            logError("Connection error", e)
+            TrueHubLogger.e(logName,"Connection error", e)
             false
         }
     }
@@ -108,10 +111,10 @@ class TrueNASClient(private val config: ClientConfig) {
             val resp = responseAdapter.fromJson(text)
 
             when {
-                resp == null -> logError("Null response from server")
+                resp == null -> TrueHubLogger.e(logName,"Null response from server")
 
                 resp.id == null && resp.method != null -> {
-                    logDebug("Notification: ${resp.method} ${resp.params}")
+                    TrueHubLogger.e(logName,"Notification: ${resp.method} ${resp.params}")
                 }
                 resp.error != null -> {
                     val deferred = pendingRequests[resp.id]
@@ -126,12 +129,12 @@ class TrueNASClient(private val config: ClientConfig) {
                         deferred.complete(resp)
                         pendingRequests.remove(resp.id)
                     } else {
-                        logDebug("Received response for unknown request ID: ${resp.id}")
+                        TrueHubLogger.e(logName,"Received response for unknown request ID: ${resp.id}")
                     }
                 }
             }
         } catch (e: Exception) {
-            logError("Error parsing message", e)
+            TrueHubLogger.e(logName,"Error parsing message", e)
         }
     }
 
@@ -146,7 +149,7 @@ class TrueNASClient(private val config: ClientConfig) {
             )
             response == "pong"
         } catch (e: Exception) {
-            logError("Ping failed", e)
+            TrueHubLogger.e(logName,"Ping failed", e)
             false
         }
     }
@@ -172,7 +175,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
         return try {
             val json = requestAdapter.toJson(request)
-            logDebug("Sending: $json")
+            TrueHubLogger.e(logName,"Sending: $json")
 
             webSocket?.send(json) ?: throw RuntimeException("WebSocket not connected")
 
@@ -221,7 +224,7 @@ class TrueNASClient(private val config: ClientConfig) {
             val result = call<T>(method, params, resultType)
             ApiResult.Success(result)
         } catch (e: Exception) {
-            logDebug("API call failed: $method -> $e")
+            TrueHubLogger.e(logName,"API call failed: $method -> $e")
             ApiResult.Error(e.message ?: "Unknown error", e)
         } finally {
             _isLoading.value = false
@@ -233,7 +236,7 @@ class TrueNASClient(private val config: ClientConfig) {
         webSocket = null
         _connectionState.value = ConnectionState.Disconnected
         pendingRequests.clear()
-        logDebug("Disconnected")
+        TrueHubLogger.e(logName,"Disconnected")
     }
 
     private fun createUnsafeClient(): OkHttpClient {
@@ -251,18 +254,6 @@ class TrueNASClient(private val config: ClientConfig) {
             .hostnameVerifier { _, _ -> true }
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .build()
-    }
-
-    private fun logDebug(message: String) {
-        if (config.enableDebugLogging) {
-            Log.d(logName, message)
-        }
-    }
-
-    private fun logError(message: String, throwable: Throwable? = null) {
-        if (config.enableDebugLogging) {
-            Log.e(logName, message, throwable)
-        }
     }
 
     fun getCurrentConnectionState(): ConnectionState = _connectionState.value
