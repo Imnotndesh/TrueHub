@@ -92,7 +92,7 @@ class SetupScreenViewModel : ViewModel() {
                     )
 
                     val client = TrueNASClient(config)
-                    tempApiManager = TrueNASApiManager(client,context)
+                    tempApiManager = TrueNASApiManager(client,context.applicationContext)
 
                     // Test connection
                     tempApiManager?.connect()

@@ -123,11 +123,11 @@ class MainViewModel : ViewModel() {
                 insecure = server.insecure,
                 connectionTimeoutMs = 10000,
                 enablePing = true,
-                enableDebugLogging = false
+                enableDebugLogging = true
             )
 
             val client = TrueNASClient(config)
-            val manager = TrueNASApiManager(client, context)
+            val manager = TrueNASApiManager(client, context.applicationContext)
 
             if (!manager.connect()) return null
 
@@ -185,7 +185,7 @@ class MainViewModel : ViewModel() {
                     insecure = server.insecure,
                     connectionTimeoutMs = 5000,
                     enablePing = true,
-                    enableDebugLogging = false
+                    enableDebugLogging = true
                 )
 
                 val client = TrueNASClient(config)

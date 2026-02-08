@@ -56,7 +56,7 @@ object Auth {
         val accountAttributes: List<String> = emptyList()
     )
     data class TokenRequest(
-        val ttl: Int = 600,
+        val ttl: Int = 6000,
         val attrs: Map<String, Any> = emptyMap(),
         val matchOrigin: Boolean = true,
         val singleUse: Boolean = false
