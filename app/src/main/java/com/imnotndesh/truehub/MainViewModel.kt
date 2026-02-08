@@ -123,7 +123,7 @@ class MainViewModel : ViewModel() {
                 insecure = server.insecure,
                 connectionTimeoutMs = 10000,
                 enablePing = true,
-                enableDebugLogging = true
+                enableDebugLogging = false
             )
 
             val client = TrueNASClient(config)
@@ -185,7 +185,7 @@ class MainViewModel : ViewModel() {
                     insecure = server.insecure,
                     connectionTimeoutMs = 5000,
                     enablePing = true,
-                    enableDebugLogging = true
+                    enableDebugLogging = false
                 )
 
                 val client = TrueNASClient(config)

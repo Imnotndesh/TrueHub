@@ -22,7 +22,7 @@ object Shares {
         val hostsdeny: List<String>?,
         val auxsmbconf: String?,
         val aapl_name_mangling: Boolean?,
-        val abe: Boolean,
+        val abe: Boolean?,
         val acl: Boolean?,
         val durablehandle: Boolean?,
         val streams: Boolean?,

@@ -1,11 +1,16 @@
 package com.imnotndesh.truehub.ui.homepage
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.FlowRow
-import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -78,6 +84,7 @@ import com.imnotndesh.truehub.ui.homepage.details.MetricType
 import com.imnotndesh.truehub.ui.homepage.details.PerformanceBottomSheet
 import com.imnotndesh.truehub.ui.homepage.details.ShareInfoBottomSheet
 import com.imnotndesh.truehub.ui.homepage.details.ShareType
+import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,24 +103,23 @@ fun HomeScreen(
     val isConnected by viewModel.isConnected.collectAsState()
     var showShutdownDialog by remember { mutableStateOf(false) }
     val isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false
-    val pullRefreshState = rememberPullToRefreshState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "Dashboard",
             subtitle = "Welcome back",
-            isLoading = uiState is HomeUiState.Loading ,
-            isRefreshing = (uiState as? HomeUiState.Success)?.isRefreshing ?: false,
+            isLoading = uiState is HomeUiState.Loading,
+            isRefreshing = isRefreshing,
             error = null,
             onRefresh = { viewModel.refresh() },
             onDismissError = { viewModel.refresh() },
             manager = manager,
             onNavigateToSettings = onNavigateToSettings,
-            onShutdownInvoke = {showShutdownDialog = true}
+            onShutdownInvoke = { showShutdownDialog = true }
         )
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = {viewModel.refresh()}
+            onRefresh = { viewModel.refresh() }
         )
         {
             when (val state = uiState) {
@@ -137,7 +143,6 @@ fun HomeScreen(
                 )
             }
         }
-
     }
     if (showShutdownDialog) {
         ShutdownDialog(
@@ -170,7 +175,7 @@ private fun ErrorScreen(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.errorContainer
             ),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -198,9 +203,9 @@ private fun ErrorScreen(
                 )
 
                 if (canRetry) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         TextButton(onClick = onDismiss) {
                             Text("Dismiss")
@@ -209,7 +214,8 @@ private fun ErrorScreen(
                             onClick = onRetry,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
-                            )
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
@@ -241,7 +247,6 @@ private fun HomeContent(
     var currentMetricType by remember { mutableStateOf(MetricType.ALL) }
     var selectedShare by remember { mutableStateOf<ShareType?>(null) }
 
-    // Use the adaptive helper
     val isAdaptiveLayout = AdaptiveLayoutHelper.isExpandedLayout()
     val columnCount = AdaptiveLayoutHelper.getColumnCount()
     val contentPadding = AdaptiveLayoutHelper.getContentPadding()
@@ -283,15 +288,11 @@ private fun HomeContent(
                 },
                 onDiskClick = { showMemoryDialog = true },
                 onPoolClick = onPoolClick,
-                onSmbShareClick = { share ->
-                    selectedShare = ShareType.Smb(share)
-                },
-                onNfsShareClick = { share ->
-                    selectedShare = ShareType.Nfs(share)
-                }
+                onSmbShareClick = { share -> selectedShare = ShareType.Smb(share) },
+                onNfsShareClick = { share -> selectedShare = ShareType.Nfs(share) }
             )
         } else {
-            // Original single-column layout for portrait phones
+            // Portrait Layout
             LoadAveragesGrid(
                 loadAveragesState = loadAveragesState,
                 modifier = Modifier.padding(bottom = 16.dp),
@@ -321,7 +322,6 @@ private fun HomeContent(
                 onDiskClick = { showMemoryDialog = true }
             )
 
-            // Storage Information
             if (state.poolDetails.isNotEmpty()) {
                 state.poolDetails.forEach { pool ->
                     StorageCard(
@@ -337,17 +337,13 @@ private fun HomeContent(
             SharesCard(
                 smbShares = state.smbShares,
                 nfsShares = state.nfsShares,
-                onSmbShareClick = { share ->
-                    selectedShare = ShareType.Smb(share)
-                },
-                onNfsShareClick = { share ->
-                    selectedShare = ShareType.Nfs(share)
-                }
+                onSmbShareClick = { share -> selectedShare = ShareType.Smb(share) },
+                onNfsShareClick = { share -> selectedShare = ShareType.Nfs(share) }
             )
         }
     }
 
-    // Dialogs (unchanged)
+    // Dialogs
     if (showMemoryDialog) {
         if (state.diskDetails.isNotEmpty()) {
             DiskInfoBottomSheet(
@@ -379,6 +375,7 @@ private fun HomeContent(
         )
     }
 }
+
 @Composable
 private fun AdaptiveGridLayout(
     columnCount: Int,
@@ -395,11 +392,9 @@ private fun AdaptiveGridLayout(
 ) {
     val spacing = AdaptiveLayoutHelper.getHorizontalSpacing()
 
-    // Create a list of all sections
     val sections = buildList {
         add(SectionItem.LoadAverages(loadAveragesState, onCpuClick, onMemoryClick, onLoadClick, onTempClick))
         add(SectionItem.SystemStats(state.systemInfo, state.poolDetails.firstOrNull(), state.diskDetails.size, onDiskClick))
-
         if (state.poolDetails.isNotEmpty()) {
             state.poolDetails.forEach { pool ->
                 add(SectionItem.StoragePool(pool, onPoolClick))
@@ -407,11 +402,9 @@ private fun AdaptiveGridLayout(
         } else {
             add(SectionItem.NoStorage)
         }
-
         add(SectionItem.Shares(state.smbShares, state.nfsShares, onSmbShareClick, onNfsShareClick))
     }
 
-    // Render sections in a grid
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(spacing.dp),
@@ -425,43 +418,30 @@ private fun AdaptiveGridLayout(
                     .fillMaxWidth()
             ) {
                 when (section) {
-                    is SectionItem.LoadAverages -> {
-                        LoadAveragesGrid(
-                            loadAveragesState = section.state,
-                            modifier = Modifier,
-                            onCpuClick = section.onCpuClick,
-                            onMemoryClick = section.onMemoryClick,
-                            onLoadClick = section.onLoadClick,
-                            onTempClick = section.onTempClick
-                        )
-                    }
-                    is SectionItem.SystemStats -> {
-                        SystemStatsSection(
-                            systemInfo = section.systemInfo,
-                            poolDetails = section.poolDetails,
-                            diskCount = section.diskCount,
-                            modifier = Modifier,
-                            onDiskClick = section.onDiskClick
-                        )
-                    }
-                    is SectionItem.StoragePool -> {
-                        StorageCard(
-                            pool = section.pool,
-                            modifier = Modifier,
-                            onClick = { section.onPoolClick(section.pool) }
-                        )
-                    }
-                    is SectionItem.NoStorage -> {
-                        NoStorageCard(modifier = Modifier)
-                    }
-                    is SectionItem.Shares -> {
-                        SharesCard(
-                            smbShares = section.smbShares,
-                            nfsShares = section.nfsShares,
-                            onSmbShareClick = section.onSmbShareClick,
-                            onNfsShareClick = section.onNfsShareClick
-                        )
-                    }
+                    is SectionItem.LoadAverages -> LoadAveragesGrid(
+                        loadAveragesState = section.state,
+                        onCpuClick = section.onCpuClick,
+                        onMemoryClick = section.onMemoryClick,
+                        onLoadClick = section.onLoadClick,
+                        onTempClick = section.onTempClick
+                    )
+                    is SectionItem.SystemStats -> SystemStatsSection(
+                        systemInfo = section.systemInfo,
+                        poolDetails = section.poolDetails,
+                        diskCount = section.diskCount,
+                        onDiskClick = section.onDiskClick
+                    )
+                    is SectionItem.StoragePool -> StorageCard(
+                        pool = section.pool,
+                        onClick = { section.onPoolClick(section.pool) }
+                    )
+                    is SectionItem.NoStorage -> NoStorageCard()
+                    is SectionItem.Shares -> SharesCard(
+                        smbShares = section.smbShares,
+                        nfsShares = section.nfsShares,
+                        onSmbShareClick = section.onSmbShareClick,
+                        onNfsShareClick = section.onNfsShareClick
+                    )
                 }
             }
         }
@@ -470,16 +450,16 @@ private fun AdaptiveGridLayout(
 
 @Composable
 private fun SystemOverviewCard(
-    isConnectedStatus : Boolean,
+    isConnectedStatus: Boolean,
     systemInfo: System.SystemInfo,
     modifier: Modifier = Modifier
 ) {
     WavyGradientBackground {
         Card(
-            shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(24.dp), // Expressive
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
             ),
             modifier = modifier
                 .fillMaxWidth()
@@ -488,26 +468,26 @@ private fun SystemOverviewCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp),
+                    .padding(24.dp), // More breathing room
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Server Icon
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(20.dp))
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Computer,
                         contentDescription = null,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(20.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -518,6 +498,7 @@ private fun SystemOverviewCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = systemInfo.version,
                         style = MaterialTheme.typography.bodyMedium,
@@ -528,47 +509,47 @@ private fun SystemOverviewCard(
                     Text(
                         text = "Uptime: ${systemInfo.uptime.toShortUptime()}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                // Status indicator
+                // Status indicator with Animation
+                val statusColor by animateColorAsState(
+                    if (isConnectedStatus) Color(0xFF2E7D32) else Color(0xFFF57C00), label = "statusColor"
+                )
+                val statusText = if (isConnectedStatus) "Online" else "Offline"
+
                 Surface(
-                    color = Color(0xFF2E7D32).copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(24.dp)
+                    color = statusColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(100.dp) // Pill
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background( if (isConnectedStatus) Color(0xFF2E7D32) else Color(0xFFF57C00))
+                                .clip(CircleShape)
+                                .background(statusColor)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isConnectedStatus) "Online" else "Offline",
+                            text = statusText,
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.SemiBold
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
-
         }
     }
 }
 
-/**
- * Uptime Formatter, might be used later
- */
 fun String.toShortUptime(): String {
-
     val lastColonIndex = this.lastIndexOf(':')
     if (lastColonIndex == -1) {
         return this
@@ -585,7 +566,7 @@ fun String.toShortUptime(): String {
         this.substring(0, lastColonIndex)
     }
 }
-// REPLACE the entire LoadAveragesGrid function with:
+
 @Composable
 private fun LoadAveragesGrid(
     loadAveragesState: LoadAveragesState,
@@ -598,49 +579,28 @@ private fun LoadAveragesGrid(
     Column(modifier = modifier) {
         Text(
             text = "Load Averages",
-            fontSize = 20.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
         )
 
         when (loadAveragesState) {
             is LoadAveragesState.Loading -> {
-                // Show loading cards
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    LoadingStatCard(
-                        title = "CPU",
-                        icon = Icons.Default.Memory,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LoadingStatCard(
-                        title = "Memory",
-                        icon = Icons.Default.Storage,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.weight(1f)
-                    )
+                    LoadingStatCard("CPU", Icons.Default.Memory, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+                    LoadingStatCard("Memory", Icons.Default.Storage, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    LoadingStatCard(
-                        title = "Load",
-                        icon = Icons.Default.Timeline,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.weight(1f)
-                    )
-                    LoadingStatCard(
-                        title = "Temperature",
-                        icon = Icons.Default.Thermostat,
-                        color = Color(0xFF2E7D32),
-                        modifier = Modifier.weight(1f)
-                    )
+                    LoadingStatCard("Load", Icons.Default.Timeline, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+                    LoadingStatCard("Temperature", Icons.Default.Thermostat, Color(0xFF2E7D32), Modifier.weight(1f))
                 }
             }
             is LoadAveragesState.Success -> {
@@ -650,9 +610,7 @@ private fun LoadAveragesGrid(
                 ) {
                     StatCard(
                         title = "CPU",
-                        value = loadAveragesState.cpuAverage?.let {
-                            DecimalFormat("#.##").format(it) + "%"
-                        } ?: "N/A",
+                        value = loadAveragesState.cpuAverage?.let { DecimalFormat("#.##").format(it) + "%" } ?: "N/A",
                         subtitle = "Average usage",
                         icon = Icons.Default.Memory,
                         color = MaterialTheme.colorScheme.primary,
@@ -661,9 +619,7 @@ private fun LoadAveragesGrid(
                     )
                     StatCard(
                         title = "Memory",
-                        value = loadAveragesState.memoryAverage?.let {
-                            DecimalFormat("#.##").format(it) + "%"
-                        } ?: "N/A",
+                        value = loadAveragesState.memoryAverage?.let { DecimalFormat("#.##").format(it) + "%" } ?: "N/A",
                         subtitle = "Average usage",
                         icon = Icons.Default.Storage,
                         color = MaterialTheme.colorScheme.secondary,
@@ -680,9 +636,7 @@ private fun LoadAveragesGrid(
                 ) {
                     StatCard(
                         title = "Load",
-                        value = loadAveragesState.loadAverage?.let {
-                            DecimalFormat("#.##").format(it)
-                        } ?: "N/A",
+                        value = loadAveragesState.loadAverage?.let { DecimalFormat("#.##").format(it) } ?: "N/A",
                         subtitle = "System load",
                         icon = Icons.Default.Timeline,
                         color = MaterialTheme.colorScheme.tertiary,
@@ -691,9 +645,7 @@ private fun LoadAveragesGrid(
                     )
                     StatCard(
                         title = "Temperature",
-                        value = loadAveragesState.tempAverage?.let {
-                            DecimalFormat("#.#").format(it) + "°C"
-                        } ?: "N/A",
+                        value = loadAveragesState.tempAverage?.let { DecimalFormat("#.#").format(it) + "°C" } ?: "N/A",
                         subtitle = "CPU temp",
                         icon = Icons.Default.Thermostat,
                         color = Color(0xFF2E7D32),
@@ -703,24 +655,17 @@ private fun LoadAveragesGrid(
                 }
             }
             is LoadAveragesState.Error -> {
-                // Show error state
                 Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    ),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(20.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Text(
                             text = "Failed to load averages",
                             style = MaterialTheme.typography.bodyMedium,
@@ -741,41 +686,26 @@ private fun LoadingStatCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         modifier = modifier
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.Start
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = color
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            CircularProgressIndicator(
                 modifier = Modifier.size(24.dp),
+                tint = color.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
                 color = color,
                 strokeWidth = 2.dp
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Loading...",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -792,13 +722,12 @@ private fun SystemStatsSection(
     Column(modifier = modifier) {
         Text(
             text = "System Stats",
-            fontSize = 20.sp,
+            fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp)
         )
 
-        // Full width cards
         StatCard(
             title = "CPU Cores",
             value = "${systemInfo.cores.toInt()} Total (${systemInfo.physical_cores ?: 0} Physical)",
@@ -843,24 +772,33 @@ private fun StatCard(
 ) {
     Card(
         onClick = { onClick?.invoke() },
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         modifier = modifier
     ) {
-        Row(  // CHANGED FROM Column to Row for full-width support
-            modifier = Modifier.padding(16.dp),
+        Row(
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = color
-            )
+            Surface(
+                color = color.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(48.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = color
+                    )
+                }
+            }
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
@@ -879,7 +817,7 @@ private fun StatCard(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
@@ -892,24 +830,21 @@ private fun StorageCard(
     pool: System.Pool,
     onClick: () -> Unit
 ) {
-    // Helper function to format bytes to human readable string
     fun formatBytes(bytes: Long): String {
         val units = arrayOf("B", "KB", "MB", "GB", "TB")
         var size = bytes.toDouble()
         var unitIndex = 0
-
         while (size >= 1024 && unitIndex < units.size - 1) {
             size /= 1024.0
             unitIndex++
         }
-
         return "${DecimalFormat("#.#").format(size)} ${units[unitIndex]}"
     }
 
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(24.dp), // Expressive
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
@@ -920,51 +855,66 @@ private fun StorageCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(24.dp)
         ) {
-            Text(
-                text = "Storage Pools",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = pool.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Column {
+                    Text(
+                        text = "Storage Pool",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = pool.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                val statusColor = if (pool.healthy) {
+                    if (pool.warning) Color(0xFFF57C00) else Color(0xFF2E7D32)
+                } else MaterialTheme.colorScheme.error
 
                 Surface(
-                    color = if (pool.healthy)
-                        Color(0xFF2E7D32).copy(alpha = 0.12f)
-                    else
-                        MaterialTheme.colorScheme.errorContainer,
-                    shape = RoundedCornerShape(16.dp)
+                    color = statusColor.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(100.dp)
                 ) {
                     Text(
                         text = if (pool.healthy) {
                             if (pool.warning) "Warning" else "Healthy"
                         } else "Error",
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (pool.healthy) {
-                            if (pool.warning) Color(0xFFF57C00) else Color(0xFF2E7D32)
-                        } else MaterialTheme.colorScheme.onErrorContainer,
-                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Storage progress bar
+            // Animated Storage Progress
             val usedPercentage = if (pool.size > 0) (pool.allocated.toFloat() / pool.size.toFloat()) else 0f
+            val animatedProgress by animateFloatAsState(
+                targetValue = usedPercentage,
+                animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                label = "storageProgress"
+            )
+
+            val progressColor by animateColorAsState(
+                targetValue = when {
+                    usedPercentage > 0.8f -> MaterialTheme.colorScheme.error
+                    usedPercentage > 0.6f -> Color(0xFFF57C00)
+                    else -> MaterialTheme.colorScheme.primary
+                },
+                label = "progressColor"
+            )
 
             Column {
                 Row(
@@ -974,36 +924,34 @@ private fun StorageCard(
                     Text(
                         text = "Used: ${formatBytes(pool.allocated)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = "Free: ${formatBytes(pool.free)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
-                    progress = { usedPercentage },
+                    progress = { animatedProgress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp),
-                    color = when {
-                        usedPercentage > 0.8f -> MaterialTheme.colorScheme.error
-                        usedPercentage > 0.6f -> Color(0xFFF57C00)
-                        else -> MaterialTheme.colorScheme.primary
-                    },
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    color = progressColor,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     strokeCap = ProgressIndicatorDefaults.LinearStrokeCap
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Total: ${formatBytes(pool.size)} • Fragmentation: ${pool.fragmentation}%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
 
-                // Status details if there are warnings
                 if (pool.warning && !pool.status_detail.isNullOrEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -1019,30 +967,22 @@ private fun StorageCard(
 }
 
 @Composable
-private fun NoStorageCard(
-    modifier: Modifier = Modifier
-) {
+private fun NoStorageCard(modifier: Modifier = Modifier) {
     Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 imageVector = Icons.Default.Storage,
                 contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.outline
+                modifier = Modifier.size(56.dp),
+                tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -1052,7 +992,7 @@ private fun NoStorageCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "No storage pools are currently configured on this system.",
+                text = "No storage pools are currently configured.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -1070,21 +1010,13 @@ private fun SharesCard(
     onNfsShareClick: (Shares.NfsShare) -> Unit = {}
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            // SMB Shares Section
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+            // SMB Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1096,78 +1028,50 @@ private fun SharesCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(100.dp)
                 ) {
                     Text(
-                        text = "${smbShares.size} ${if (smbShares.size == 1) "Share" else "Shares"}",
+                        text = "${smbShares.size}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
 
             if (smbShares.isEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FolderShared,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No SMB shares configured",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                EmptyShareState("No SMB shares")
             } else {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 smbShares.take(5).forEach { share ->
-                    SmbShareItem(
-                        share = share,
-                        onShareClick = onSmbShareClick
-                    )
+                    SmbShareItem(share = share, onShareClick = onSmbShareClick)
                     if (share != smbShares.take(5).last()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-
                 if (smbShares.size > 5) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "And ${smbShares.size - 5} more...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp)
+                        text = "+ ${smbShares.size - 5} more...",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
             }
 
-            // Divider between sections
+            // Divider
             if (smbShares.isNotEmpty() || nfsShares.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(
-                    thickness = 2.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
+                HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // NFS Shares Section
+            // NFS Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1179,67 +1083,63 @@ private fun SharesCard(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(100.dp)
                 ) {
                     Text(
-                        text = "${nfsShares.size} ${if (nfsShares.size == 1) "Share" else "Shares"}",
+                        text = "${nfsShares.size}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
 
             if (nfsShares.isEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Storage,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "No NFS shares configured",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                EmptyShareState("No NFS shares")
             } else {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 nfsShares.take(5).forEach { share ->
-                    NfsShareItem(
-                        share = share,
-                        onShareClick = onNfsShareClick
-                    )
+                    NfsShareItem(share = share, onShareClick = onNfsShareClick)
                     if (share != nfsShares.take(5).last()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-
                 if (nfsShares.size > 5) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "And ${nfsShares.size - 5} more...",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp)
+                        text = "+ ${nfsShares.size - 5} more...",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyShareState(text: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.FolderShared,
+            contentDescription = null,
+            modifier = Modifier.size(32.dp),
+            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
     }
 }
 
@@ -1250,35 +1150,42 @@ private fun SmbShareItem(
 ) {
     Surface(
         onClick = { onShareClick(share) },
-        color = Color.Transparent,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    imageVector = if (share.timemachine?: false) Icons.Default.Backup
-                    else if (share.home?: false) Icons.Default.Home
-                    else Icons.Default.Folder,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (share.timemachine ?: false) Icons.Default.Backup
+                            else if (share.home ?: false) Icons.Default.Home
+                            else Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = share.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1292,22 +1199,20 @@ private fun SmbShareItem(
                     )
                 }
             }
+            Spacer(modifier = Modifier.width(8.dp))
+            val statusColor = if (share.enabled) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+            val contentColor = if (share.enabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
 
             Surface(
-                color = if (share.enabled)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer,
+                color = statusColor,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = if (share.enabled) "Active" else "Disabled",
+                    text = if (share.enabled) "Active" else "Off",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (share.enabled)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1321,33 +1226,40 @@ private fun NfsShareItem(
 ) {
     Surface(
         onClick = { onShareClick(share) },
-        color = Color.Transparent,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
+            modifier = Modifier.padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Storage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(24.dp)
-                )
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Storage,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = share.path.substringAfterLast('/').ifEmpty { share.path },
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1361,22 +1273,20 @@ private fun NfsShareItem(
                     )
                 }
             }
+            Spacer(modifier = Modifier.width(8.dp))
+            val statusColor = if (share.enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer
+            val contentColor = if (share.enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer
 
             Surface(
-                color = if (share.enabled)
-                    MaterialTheme.colorScheme.secondaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer,
+                color = statusColor,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = if (share.enabled) "Active" else "Disabled",
+                    text = if (share.enabled) "Active" else "Off",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (share.enabled)
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    else
-                        MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    color = contentColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1413,12 +1323,13 @@ fun ShutdownDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = shutdownReason,
                     onValueChange = { shutdownReason = it },
                     label = { Text("Shutdown reason") },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                     maxLines = 2
                 )
             }
@@ -1428,7 +1339,8 @@ fun ShutdownDialog(
                 onClick = { onConfirm(shutdownReason) },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
-                )
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Shutdown", color = MaterialTheme.colorScheme.onError)
             }
@@ -1437,9 +1349,12 @@ fun ShutdownDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(28.dp)
     )
 }
+
 private sealed class SectionItem {
     data class LoadAverages(
         val state: LoadAveragesState,
