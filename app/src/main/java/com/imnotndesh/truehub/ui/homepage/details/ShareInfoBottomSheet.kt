@@ -764,7 +764,7 @@ private fun ShareAdvancedCard(share: Shares.SmbShare) {
             AccessDetailRow("Apple Name Mangling", if (share.aapl_name_mangling == true) "Enabled" else "Disabled",
                 share.aapl_name_mangling == true
             )
-            AccessDetailRow("Access Based Enumeration", if (share.abe == true) "Enabled" else "Disabled", share.abe)
+            AccessDetailRow("Access Based Enumeration", if (share.abe == true) "Enabled" else "Disabled", share.abe?: false)
             AccessDetailRow("Shadow Copies", if (share.shadowcopy == true) "Enabled" else "Disabled",
                 share.shadowcopy == true
             )
