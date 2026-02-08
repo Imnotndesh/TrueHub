@@ -60,6 +60,8 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -70,7 +72,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -83,25 +87,29 @@ import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
-import com.imnotndesh.truehub.ui.services.apps.details.AppInfoDialog
 import com.imnotndesh.truehub.ui.services.apps.details.AppInfoPane
-import com.imnotndesh.truehub.ui.services.apps.details.RollbackVersionDialog
-import com.imnotndesh.truehub.ui.services.apps.details.UpgradeSummaryBottomSheet
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppsScreen(manager: TrueNASApiManager) {
+fun AppsScreen(
+    manager: TrueNASApiManager,
+    onNavigateToAppInfo: (Apps.AppQueryResponse) -> Unit = {},
+    onNavigateToUpgrade: (String) -> Unit = {},
+    onNavigateToRollback: (String) -> Unit = {}
+) {
     val appsScreenViewModel: AppsScreenViewModel = viewModel(
         factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
     )
     val uiState by appsScreenViewModel.uiState.collectAsState()
-    var appForUpgradeSummary by remember { mutableStateOf<String?>(null) }
-    var showRollbackDialog by remember { mutableStateOf<String?>(null) }
-    var selectedAppForInfo by remember { mutableStateOf<Apps.AppQueryResponse?>(null) }
-
     val isCompact = AdaptiveLayoutHelper.isCompact()
+    val refreshState = rememberPullToRefreshState()
 
+    // Split pane state
+    val selectedAppForInfo by remember { mutableStateOf<Apps.AppQueryResponse?>(null) }
+
+
+    // Filter Logic
     val filteredApps by remember(uiState.apps, uiState.selectedCategory) {
         derivedStateOf {
             when (uiState.selectedCategory) {
@@ -113,49 +121,6 @@ fun AppsScreen(manager: TrueNASApiManager) {
         }
     }
 
-    // Dialogs & Sheets (unchanged logic)
-    if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
-        UpgradeSummaryBottomSheet(
-            appName = appForUpgradeSummary!!,
-            upgradeSummary = uiState.upgradeSummaryResult!!,
-            onDismiss = {
-                appsScreenViewModel.clearUpgradeSummary()
-                appForUpgradeSummary = null
-            },
-            onConfirmUpgrade = {
-                appsScreenViewModel.upgradeApp(appForUpgradeSummary!!)
-                appsScreenViewModel.clearUpgradeSummary()
-                appForUpgradeSummary = null
-            },
-            isUpgrading = uiState.upgradeJobs.containsKey(appForUpgradeSummary)
-        )
-    }
-    if (showRollbackDialog != null) {
-        RollbackVersionDialog(
-            appName = showRollbackDialog!!,
-            versions = uiState.rollbackVersions,
-            isLoadingVersions = uiState.isLoadingRollbackVersions,
-            rollbackJobState = uiState.rollbackJobs[showRollbackDialog],
-            onDismiss = {
-                appsScreenViewModel.clearRollbackVersions()
-                showRollbackDialog = null
-            },
-            onConfirmRollback = { version, rollbackSnapshot ->
-                appsScreenViewModel.rollbackApp(showRollbackDialog!!, version, rollbackSnapshot)
-            },
-            onLoadVersions = {
-                appsScreenViewModel.loadRollbackVersions(showRollbackDialog!!)
-            }
-        )
-    }
-
-    if (isCompact && selectedAppForInfo != null) {
-        AppInfoDialog(
-            app = selectedAppForInfo!!,
-            onDismiss = { selectedAppForInfo = null }
-        )
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "Applications",
@@ -163,21 +128,31 @@ fun AppsScreen(manager: TrueNASApiManager) {
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
             error = uiState.error,
-            onRefresh = { appsScreenViewModel.refresh() },
             onDismissError = { appsScreenViewModel.clearError() },
             manager = manager
         )
 
-        // New Filter Bar
         AppFilterBar(
             currentCategory = uiState.selectedCategory,
-            onCategorySelected = {appsScreenViewModel.updateCategory(it)},
+            onCategorySelected = { appsScreenViewModel.updateCategory(it) },
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { appsScreenViewModel.refresh() },
+            state = refreshState,
+            indicator = {
+                Box(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    contentAlignment = Alignment.Center
+                ) {
+                    MorphingRefreshIndicator(
+                        state = refreshState,
+                        isRefreshing = uiState.isRefreshing
+                    )
+                }
+            },
             modifier = Modifier.weight(1f)
         ) {
             when {
@@ -188,7 +163,6 @@ fun AppsScreen(manager: TrueNASApiManager) {
                     EmptyContent()
                 }
                 filteredApps.isEmpty() && !uiState.isLoading && uiState.apps.isNotEmpty() -> {
-                    // Show "No results" for filter
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -211,34 +185,28 @@ fun AppsScreen(manager: TrueNASApiManager) {
                 else -> {
                     if (isCompact) {
                         AppsContent(
-                            apps = filteredApps, // Use filtered list
+                            apps = filteredApps,
                             onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
-                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                             onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
-                            onShowUpgradeSummary = { appName ->
-                                appForUpgradeSummary = appName
-                                appsScreenViewModel.loadUpgradeSummary(appName)
-                            },
+                            onShowUpgradeSummary = { appName -> onNavigateToUpgrade(appName) },
                             upgradeJobs = uiState.upgradeJobs,
-                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
-                            onAppInfoClick = { app -> selectedAppForInfo = app },
-                            selectedApp = null
+                            onShowRollbackDialog = { appName -> onNavigateToRollback(appName) },
+                            onAppInfoClick = { app -> onNavigateToAppInfo(app) },
+                            selectedApp = null,
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                         )
                     } else {
                         AppsSplitPaneContent(
-                            apps = filteredApps, // Use filtered list
+                            apps = filteredApps,
                             selectedApp = selectedAppForInfo,
                             onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
                             loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                             onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
-                            onShowUpgradeSummary = { appName ->
-                                appForUpgradeSummary = appName
-                                appsScreenViewModel.loadUpgradeSummary(appName)
-                            },
+                            onShowUpgradeSummary = { appName -> onNavigateToUpgrade(appName) },
                             upgradeJobs = uiState.upgradeJobs,
-                            onShowRollbackDialog = { appName -> showRollbackDialog = appName },
-                            onAppInfoClick = { app -> selectedAppForInfo = app },
-                            onCloseInfoPane = { selectedAppForInfo = null }
+                            onShowRollbackDialog = { appName -> onNavigateToRollback(appName) },
+                            onAppInfoClick = { app -> onNavigateToAppInfo(app) },
+                            onCloseInfoPane = { /* handle close */ }
                         )
                     }
                 }
@@ -1016,6 +984,48 @@ private fun getStatusColor(state: String): Color {
         "error", "failed" -> MaterialTheme.colorScheme.error
         "paused" -> Color(0xFFF57C00)
         else -> MaterialTheme.colorScheme.outline
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MorphingRefreshIndicator(
+    state: PullToRefreshState,
+    isRefreshing: Boolean
+) {
+    val scale = if (isRefreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
+    val cornerSize = (16 + (34 * scale)).dp
+    val rotation = state.distanceFraction * 180f
+
+    if (state.distanceFraction > 0.1f || isRefreshing) {
+        Surface(
+            modifier = Modifier
+                .padding(top = 16.dp)
+                .size(48.dp)
+                .scale(scale)
+                .graphicsLayer {
+                    rotationZ = if (isRefreshing) 0f else rotation
+                },
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(cornerSize),
+            shadowElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (isRefreshing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        strokeWidth = 3.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
     }
 }
 

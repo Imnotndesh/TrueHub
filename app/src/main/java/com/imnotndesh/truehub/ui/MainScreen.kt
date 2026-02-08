@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui
 
+import AppsScreenViewModel
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.Crossfade
@@ -32,6 +33,7 @@ import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -39,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -54,7 +57,11 @@ import com.imnotndesh.truehub.ui.homepage.HomeScreen
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
 import com.imnotndesh.truehub.ui.homepage.pools.PoolDataHolder
 import com.imnotndesh.truehub.ui.homepage.pools.PoolDetailsScreen
+import com.imnotndesh.truehub.ui.services.apps.AppDataHolder
 import com.imnotndesh.truehub.ui.services.apps.AppsScreen
+import com.imnotndesh.truehub.ui.services.apps.details.AppInfoScreen
+import com.imnotndesh.truehub.ui.services.apps.details.RollbackVersionScreen
+import com.imnotndesh.truehub.ui.services.apps.details.UpgradeSummaryScreen
 import com.imnotndesh.truehub.ui.services.containers.ContainersScreen
 import com.imnotndesh.truehub.ui.services.vm.VmsScreen
 
@@ -90,7 +97,7 @@ fun MainScreen(manager: TrueNASApiManager, rootNavController: NavController) {
                 containerColor = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxHeight(),
                 header = {
-                    // TODO: ADD LOGO HERE
+                    // Placeholder for Logo
                 }
             ) {
                 navItems.forEach { item ->
@@ -105,7 +112,6 @@ fun MainScreen(manager: TrueNASApiManager, rootNavController: NavController) {
                             )
                         },
                         icon = {
-                            // Crossfade animation for icon state change
                             Crossfade(targetState = selected, label = "iconFade") { isSelected ->
                                 Icon(
                                     imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
@@ -224,7 +230,19 @@ private fun TrueHubNavGraph(
         }
 
         composable(Screen.Apps.route) {
-            AppsScreen(manager)
+            AppsScreen(
+                manager = manager,
+                onNavigateToAppInfo = { app ->
+                    AppDataHolder.selectedApp = app
+                    navController.navigate("app_details")
+                },
+                onNavigateToUpgrade = { appName ->
+                    navController.navigate("app_upgrade/$appName")
+                },
+                onNavigateToRollback = { appName ->
+                    navController.navigate("app_rollback/$appName")
+                }
+            )
         }
 
         composable(Screen.PoolDetails.route) {
@@ -234,6 +252,73 @@ private fun TrueHubNavGraph(
                 onNavigateToFiles = { poolName: String ->
                     navController.navigate("${Screen.Files.route}/$poolName")
                 }
+            )
+        }
+
+        composable("app_details") {
+            val app = AppDataHolder.selectedApp
+            if (app != null) {
+                AppInfoScreen(
+                    app = app,
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+        composable(
+            route = "app_upgrade/{appName}",
+            arguments = listOf(navArgument("appName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val appName = backStackEntry.arguments?.getString("appName") ?: ""
+            val viewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val uiState by viewModel.uiState.collectAsState()
+            androidx.compose.runtime.LaunchedEffect(appName) {
+                viewModel.clearUpgradeSummary()
+                viewModel.loadUpgradeSummary(appName)
+            }
+
+            val summary = uiState.upgradeSummaryResult
+            val isLoading = uiState.isLoadingUpgradeSummaryForApp == appName
+
+            if (isLoading) {
+                com.imnotndesh.truehub.ui.components.LoadingScreen("Checking upgrades...")
+            } else if (summary != null) {
+                UpgradeSummaryScreen(
+                    appName = appName,
+                    summary = summary,
+                    manager = manager,
+                    isUpgrading = uiState.upgradeJobs[appName]?.state == "UPGRADING", // Matches ViewModel "UPGRADING" state
+                    onConfirmUpgrade = { viewModel.upgradeApp(appName) },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            } else if (uiState.error != null) {
+
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+            }
+        }
+
+        // App Rollback
+        composable(
+            route = "app_rollback/{appName}",
+            arguments = listOf(navArgument("appName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val appName = backStackEntry.arguments?.getString("appName") ?: ""
+            val viewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val uiState by viewModel.uiState.collectAsState()
+
+            RollbackVersionScreen(
+                appName = appName,
+                versions = uiState.rollbackVersions,
+                isLoadingVersions = uiState.isLoadingRollbackVersions,
+                rollbackJobState = uiState.rollbackJobs[appName],
+                manager = manager,
+                onLoadVersions = { viewModel.loadRollbackVersions(appName) },
+                onConfirmRollback = { version, snapshot ->
+                    viewModel.rollbackApp(appName, version, snapshot)
+                },
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -260,6 +345,7 @@ private fun TrueHubNavGraph(
         }
     }
 }
+
 private fun onNavClick(navController: NavController, route: String) {
     navController.navigate(route) {
         popUpTo(navController.graph.findStartDestination().id) {

@@ -65,7 +65,7 @@ fun UnifiedScreenHeader(
     isLoading: Boolean,
     isRefreshing: Boolean,
     error: String?,
-    onRefresh: () -> Unit,
+    onRefresh: (() -> Unit)? = null,
     onDismissError: () -> Unit,
     manager: TrueNASApiManager,
     onBackPressed: (() -> Unit)? = null,
@@ -155,14 +155,15 @@ fun UnifiedScreenHeader(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AlertsBellButton(manager = manager)
-
-                    ExpressiveIconButton(
-                        onClick = onRefresh,
-                        icon = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        enabled = !isLoading && !isRefreshing,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    onRefresh?.let{ onRefresh ->
+                        ExpressiveIconButton(
+                            onClick = onRefresh,
+                            icon = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            enabled = !isLoading && !isRefreshing,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
                     onNavigateToSettings?.let { settingsCallback ->
                         ExpressiveIconButton(
