@@ -1,25 +1,21 @@
 package com.imnotndesh.truehub.ui.services.apps
 
+import AppCategory
+import AppsScreenViewModel
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,11 +28,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -49,6 +51,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +62,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +76,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -83,6 +87,7 @@ import com.imnotndesh.truehub.ui.services.apps.details.AppInfoDialog
 import com.imnotndesh.truehub.ui.services.apps.details.AppInfoPane
 import com.imnotndesh.truehub.ui.services.apps.details.RollbackVersionDialog
 import com.imnotndesh.truehub.ui.services.apps.details.UpgradeSummaryBottomSheet
+import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +102,18 @@ fun AppsScreen(manager: TrueNASApiManager) {
 
     val isCompact = AdaptiveLayoutHelper.isCompact()
 
+    val filteredApps by remember(uiState.apps, uiState.selectedCategory) {
+        derivedStateOf {
+            when (uiState.selectedCategory) {
+                AppCategory.ALL -> uiState.apps
+                AppCategory.RUNNING -> uiState.apps.filter { it.state.equals("running", ignoreCase = true) }
+                AppCategory.STOPPED -> uiState.apps.filter { !it.state.equals("running", ignoreCase = true) }
+                AppCategory.UPDATES -> uiState.apps.filter { it.upgrade_available }
+            }
+        }
+    }
+
+    // Dialogs & Sheets (unchanged logic)
     if (appForUpgradeSummary != null && uiState.upgradeSummaryResult != null) {
         UpgradeSummaryBottomSheet(
             appName = appForUpgradeSummary!!,
@@ -132,7 +149,6 @@ fun AppsScreen(manager: TrueNASApiManager) {
         )
     }
 
-    // Show bottom sheet only on compact (phone) devices
     if (isCompact && selectedAppForInfo != null) {
         AppInfoDialog(
             app = selectedAppForInfo!!,
@@ -140,10 +156,10 @@ fun AppsScreen(manager: TrueNASApiManager) {
         )
     }
 
-    Column {
+    Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "Applications",
-            subtitle = "${uiState.apps.size} Applications",
+            subtitle = "${filteredApps.size} Applications",
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
             error = uiState.error,
@@ -151,9 +167,18 @@ fun AppsScreen(manager: TrueNASApiManager) {
             onDismissError = { appsScreenViewModel.clearError() },
             manager = manager
         )
+
+        // New Filter Bar
+        AppFilterBar(
+            currentCategory = uiState.selectedCategory,
+            onCategorySelected = {appsScreenViewModel.updateCategory(it)},
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
-            onRefresh = { appsScreenViewModel.refresh() }
+            onRefresh = { appsScreenViewModel.refresh() },
+            modifier = Modifier.weight(1f)
         ) {
             when {
                 uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
@@ -162,11 +187,31 @@ fun AppsScreen(manager: TrueNASApiManager) {
                 uiState.apps.isEmpty() && !uiState.isLoading && uiState.error != null -> {
                     EmptyContent()
                 }
+                filteredApps.isEmpty() && !uiState.isLoading && uiState.apps.isNotEmpty() -> {
+                    // Show "No results" for filter
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterList,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No apps in this category",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 else -> {
                     if (isCompact) {
-                        // Phone: Single column with bottom sheet
                         AppsContent(
-                            apps = uiState.apps,
+                            apps = filteredApps, // Use filtered list
                             onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
                             loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
                             onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
@@ -180,9 +225,8 @@ fun AppsScreen(manager: TrueNASApiManager) {
                             selectedApp = null
                         )
                     } else {
-                        // Tablet/Landscape: Split pane layout
                         AppsSplitPaneContent(
-                            apps = uiState.apps,
+                            apps = filteredApps, // Use filtered list
                             selectedApp = selectedAppForInfo,
                             onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
                             loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
@@ -202,6 +246,56 @@ fun AppsScreen(manager: TrueNASApiManager) {
         }
     }
 }
+
+// New Filter Component
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppFilterBar(
+    currentCategory: AppCategory,
+    onCategorySelected: (AppCategory) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(AppCategory.entries.toTypedArray()) { category ->
+            val isSelected = currentCategory == category
+            val animColor by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                label = "color"
+            )
+
+            FilterChip(
+                selected = isSelected,
+                onClick = { onCategorySelected(category) },
+                label = { Text(category.label) },
+                leadingIcon = if (isSelected) {
+                    {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                        )
+                    }
+                } else null,
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = animColor,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outline
+                ),
+                shape = RoundedCornerShape(12.dp) // Expressive shape
+            )
+        }
+    }
+}
+
+
 @Composable
 private fun AppsSplitPaneContent(
     apps: List<Apps.AppQueryResponse>,
@@ -216,7 +310,6 @@ private fun AppsSplitPaneContent(
     onCloseInfoPane: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
-        // Left side: App list (takes 55% when pane is open, 100% when closed)
         Box(
             modifier = Modifier
                 .weight(if (selectedApp != null) 0.55f else 1f)
@@ -236,8 +329,14 @@ private fun AppsSplitPaneContent(
         }
         AnimatedVisibility(
             visible = selectedApp != null,
-            enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-            exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+            enter = slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = spring(stiffness = Spring.StiffnessLow)
+            ) + fadeIn(),
+            exit = slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = spring(stiffness = Spring.StiffnessLow)
+            ) + fadeOut()
         ) {
             selectedApp?.let { app ->
                 Box(
@@ -254,6 +353,7 @@ private fun AppsSplitPaneContent(
         }
     }
 }
+
 @Composable
 private fun EmptyContent() {
     Column(
@@ -302,24 +402,30 @@ private fun AppsContent(
     val contentPadding = AdaptiveLayoutHelper.getContentPadding()
     val horizontalSpacing = AdaptiveLayoutHelper.getHorizontalSpacing()
 
+    // Using key for animations
     if (isCompact) {
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
         ) {
-            items(apps) { app ->
-                ServiceCard(
-                    app = app,
-                    isLoadingSummary = app.name == loadingSummaryForApp,
-                    onStartApp = onStartApp,
-                    onStopApp = onStopApp,
-                    onShowUpgradeSummary = onShowUpgradeSummary,
-                    upgradeJobs = upgradeJobs,
-                    onShowRollbackDialog = onShowRollbackDialog,
-                    onAppInfoClick = onAppInfoClick,
-                    isSelected = selectedApp?.id == app.id
-                )
+            items(
+                items = apps,
+                key = { it.id } // Key is required for animateItem
+            ) { app ->
+                Box(modifier = Modifier.animateItem()) {
+                    ServiceCard(
+                        app = app,
+                        isLoadingSummary = app.name == loadingSummaryForApp,
+                        onStartApp = onStartApp,
+                        onStopApp = onStopApp,
+                        onShowUpgradeSummary = onShowUpgradeSummary,
+                        upgradeJobs = upgradeJobs,
+                        onShowRollbackDialog = onShowRollbackDialog,
+                        onAppInfoClick = onAppInfoClick,
+                        isSelected = selectedApp?.id == app.id
+                    )
+                }
             }
 
             item {
@@ -334,18 +440,23 @@ private fun AppsContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
         ) {
-            items(apps) { app ->
-                ServiceCard(
-                    app = app,
-                    isLoadingSummary = app.name == loadingSummaryForApp,
-                    onStartApp = onStartApp,
-                    onStopApp = onStopApp,
-                    onShowUpgradeSummary = onShowUpgradeSummary,
-                    upgradeJobs = upgradeJobs,
-                    onShowRollbackDialog = onShowRollbackDialog,
-                    onAppInfoClick = onAppInfoClick,
-                    isSelected = selectedApp?.id == app.id
-                )
+            items(
+                items = apps,
+                key = { it.id }
+            ) { app ->
+                Box(modifier = Modifier.animateItem()) {
+                    ServiceCard(
+                        app = app,
+                        isLoadingSummary = app.name == loadingSummaryForApp,
+                        onStartApp = onStartApp,
+                        onStopApp = onStopApp,
+                        onShowUpgradeSummary = onShowUpgradeSummary,
+                        upgradeJobs = upgradeJobs,
+                        onShowRollbackDialog = onShowRollbackDialog,
+                        onAppInfoClick = onAppInfoClick,
+                        isSelected = selectedApp?.id == app.id
+                    )
+                }
             }
 
             item {
@@ -369,23 +480,25 @@ private fun ServiceCard(
     isSelected: Boolean = false
 ) {
     var showMoreOptions by remember { mutableStateOf(false) }
-
     val isCompact = AdaptiveLayoutHelper.isCompact()
     val cardPadding = if (isCompact) 20.dp else 16.dp
     val cardHorizontalPadding = if (isCompact) 4.dp else 0.dp
 
+    // Expressive: Animate border width or color
+    val borderColor by animateColorAsState(
+        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent, label = "border"
+    )
+
     Card(
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = RoundedCornerShape(24.dp), // Expressive: Larger corner radius
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
             else
                 MaterialTheme.colorScheme.surface
         ),
-        border = if (isSelected)
-            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-        else null,
+        border = BorderStroke(2.dp, borderColor),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = cardHorizontalPadding)
@@ -395,7 +508,7 @@ private fun ServiceCard(
                 .fillMaxWidth()
                 .padding(cardPadding)
         ) {
-            // ... keep existing header code ...
+            // Header Section
             if (isCompact) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -407,18 +520,18 @@ private fun ServiceCard(
                             model = iconUrl,
                             contentDescription = "App icon",
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(52.dp) // Expressive: slightly larger
                                 .clip(RoundedCornerShape(16.dp)),
                             contentScale = ContentScale.Crop
                         )
                     }
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
                             text = app.metadata?.title ?: app.name,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleMedium, // Expressive: TitleMedium
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -426,8 +539,8 @@ private fun ServiceCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "ID: ${app.id}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "v${app.version}", // Showing Version is often more useful than ID
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -436,9 +549,8 @@ private fun ServiceCard(
                     StatusChip(state = app.state, icon = getStatusIcon(app.state))
                 }
             } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                // Desktop/Tablet Header
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -449,12 +561,12 @@ private fun ServiceCard(
                                 model = iconUrl,
                                 contentDescription = "App icon",
                                 modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(16.dp)),
+                                    .size(64.dp)
+                                    .clip(RoundedCornerShape(18.dp)),
                                 contentScale = ContentScale.Crop
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        // Status dot for dense layout
                         Box(
                             modifier = Modifier
                                 .size(12.dp)
@@ -462,36 +574,28 @@ private fun ServiceCard(
                                 .background(getStatusColor(app.state))
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = app.metadata?.title ?: app.name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        lineHeight = 24.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "ID: ${app.id}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "v${app.version}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            // ... keep existing upgrade section code ...
-
+            // Update Section
             if (app.upgrade_available || upgradeJobs[app.name] != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-
+                Spacer(modifier = Modifier.height(16.dp))
+                // ... (Existing update logic, essentially unchanged visually) ...
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -504,7 +608,6 @@ private fun ServiceCard(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
-
                     if (upgradeJobs[app.name] == null) {
                         UpgradeButton(
                             onClick = { onShowUpgradeSummary(app.name) },
@@ -514,11 +617,10 @@ private fun ServiceCard(
                         UpgradeStatusChip(upgradeState = upgradeJobs[app.name]!!)
                     }
                 }
-
                 upgradeJobs[app.name]?.let { jobState ->
                     Spacer(modifier = Modifier.height(12.dp))
-
                     Column {
+                        // ... (Existing progress logic) ...
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -532,7 +634,6 @@ private fun ServiceCard(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-
                             Text(
                                 text = "${jobState.progress}%",
                                 style = MaterialTheme.typography.bodySmall,
@@ -540,14 +641,13 @@ private fun ServiceCard(
                                 fontWeight = FontWeight.Medium
                             )
                         }
-
                         Spacer(modifier = Modifier.height(8.dp))
-
                         LinearProgressIndicator(
                             progress = { (jobState.progress.coerceIn(0, 100).toFloat() / 100f) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(6.dp),
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)), // Expressive: Rounder caps
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,
                             strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
@@ -558,13 +658,13 @@ private fun ServiceCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // MODIFY button actions to use onAppInfoClick:
+            // Action Buttons
             if (isCompact) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (!app.state.equals("running", ignoreCase = true)){
+                    if (!app.state.equals("running", ignoreCase = true)) {
                         ActionButton(
                             text = "Start",
                             icon = Icons.Default.PlayArrow,
@@ -573,19 +673,18 @@ private fun ServiceCard(
                             onClick = { onStartApp(app.name) },
                             modifier = Modifier.weight(1f)
                         )
-                    }else{
+                    } else {
                         ActionButton(
                             text = "Stop",
                             icon = Icons.Default.Stop,
                             enabled = true,
-                            isPrimary = true,
+                            isPrimary = true, // Stop is also a primary action in context
                             onClick = { onStopApp(app.name) },
                             modifier = Modifier.weight(1f)
                         )
                     }
-
                     ActionButton(
-                        text = "View Info",
+                        text = "Details",
                         icon = Icons.Default.Info,
                         enabled = true,
                         isPrimary = false,
@@ -598,7 +697,7 @@ private fun ServiceCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (!app.state.equals("running", ignoreCase = true)){
+                    if (!app.state.equals("running", ignoreCase = true)) {
                         CompactActionButton(
                             icon = Icons.Default.PlayArrow,
                             contentDescription = "Start",
@@ -606,7 +705,7 @@ private fun ServiceCard(
                             onClick = { onStartApp(app.name) },
                             modifier = Modifier.weight(1f)
                         )
-                    }else{
+                    } else {
                         CompactActionButton(
                             icon = Icons.Default.Stop,
                             contentDescription = "Stop",
@@ -615,7 +714,6 @@ private fun ServiceCard(
                             modifier = Modifier.weight(1f)
                         )
                     }
-
                     CompactActionButton(
                         icon = Icons.Default.Info,
                         contentDescription = "View Info",
@@ -623,7 +721,6 @@ private fun ServiceCard(
                         onClick = { onAppInfoClick(app) },
                         modifier = Modifier.weight(1f)
                     )
-
                     CompactActionButton(
                         icon = Icons.Default.Settings,
                         contentDescription = "More Options",
@@ -634,25 +731,23 @@ private fun ServiceCard(
                 }
             }
 
-            // ... keep existing more options code ...
+            // More options (Expandable)
             if (isCompact) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
                     onClick = { showMoreOptions = !showMoreOptions },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp), // Expressive
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = null,
@@ -667,7 +762,6 @@ private fun ServiceCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-
                         Icon(
                             imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                             contentDescription = if (showMoreOptions) "Collapse" else "Expand",
@@ -679,12 +773,10 @@ private fun ServiceCard(
 
             AnimatedVisibility(
                 visible = showMoreOptions,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+                enter = expandVertically(animationSpec = spring()) + fadeIn(),
+                exit = shrinkVertically(animationSpec = spring()) + fadeOut()
             ) {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
                     ActionButton(
                         text = "Rollback Version",
                         icon = Icons.Default.Refresh,
@@ -698,6 +790,7 @@ private fun ServiceCard(
         }
     }
 }
+
 @Composable
 private fun CompactActionButton(
     icon: ImageVector,
@@ -706,13 +799,20 @@ private fun CompactActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Expressive: Animate color change on state
+    val containerColor by animateColorAsState(
+        if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+        label = "container"
+    )
+    val contentColor by animateColorAsState(
+        if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "content"
+    )
+
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = if (isPrimary)
-            MaterialTheme.colorScheme.primary
-        else
-            MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(16.dp), // Expressive: Rounder
+        color = containerColor,
         modifier = modifier
     ) {
         Box(
@@ -724,15 +824,13 @@ private fun CompactActionButton(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(22.dp),
-                tint = if (isPrimary)
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                modifier = Modifier.size(24.dp),
+                tint = contentColor
             )
         }
     }
 }
+
 @Composable
 private fun UpgradeButton(
     onClick: () -> Unit,
@@ -740,7 +838,7 @@ private fun UpgradeButton(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(100.dp), // Expressive: Pill shape
         color = MaterialTheme.colorScheme.primaryContainer,
         enabled = !isLoading
     ) {
@@ -748,13 +846,13 @@ private fun UpgradeButton(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isLoading){
+            if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-            }else{
+            } else {
                 Icon(
                     imageVector = Icons.Default.CloudUpload,
                     contentDescription = null,
@@ -762,61 +860,52 @@ private fun UpgradeButton(
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Update",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
 }
 
 @Composable
-private fun UpgradeStatusChip(
-    upgradeState: System.UpgradeJobState
-) {
+private fun UpgradeStatusChip(upgradeState: System.UpgradeJobState) {
+    val containerColor = when (upgradeState.state.lowercase()) {
+        "success" -> MaterialTheme.colorScheme.primaryContainer
+        "failed", "aborted" -> MaterialTheme.colorScheme.errorContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
     Surface(
-        color = when (upgradeState.state.lowercase()) {
-            "success" -> MaterialTheme.colorScheme.primaryContainer
-            "failed", "aborted" -> MaterialTheme.colorScheme.errorContainer
-            else -> MaterialTheme.colorScheme.secondaryContainer
-        },
-        shape = RoundedCornerShape(20.dp)
+        color = containerColor,
+        shape = RoundedCornerShape(100.dp) // Expressive: Pill shape
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             when (upgradeState.state.lowercase()) {
-                "success" -> {
-                    Icon(
-                        imageVector = Icons.Default.CloudUpload,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                "failed", "aborted" -> {
-                    Icon(
-                        imageVector = Icons.Default.Error,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-                else -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
+                "success" -> Icon(
+                    Icons.Default.CloudUpload,
+                    null,
+                    Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                "failed", "aborted" -> Icon(
+                    Icons.Default.Error,
+                    null,
+                    Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+                else -> CircularProgressIndicator(
+                    Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
-
-            Spacer(modifier = Modifier.width(6.dp))
-
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = when (upgradeState.state.lowercase()) {
                     "upgrading" -> "Upgrading..."
@@ -831,20 +920,17 @@ private fun UpgradeStatusChip(
                     "failed", "aborted" -> MaterialTheme.colorScheme.onErrorContainer
                     else -> MaterialTheme.colorScheme.onSecondaryContainer
                 },
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
 }
 
 @Composable
-private fun StatusChip(
-    state: String,
-    icon: ImageVector
-) {
+private fun StatusChip(state: String, icon: ImageVector) {
     Surface(
         color = getStatusColor(state).copy(alpha = 0.12f),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(100.dp), // Expressive: Pill shape
         modifier = Modifier.padding(0.dp)
     ) {
         Row(
@@ -862,7 +948,7 @@ private fun StatusChip(
                 text = state.lowercase().replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.labelMedium,
                 color = getStatusColor(state),
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Bold
             )
         }
     }
@@ -877,15 +963,27 @@ private fun ActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val containerColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.surfaceContainerHigh
+            isPrimary -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.surfaceContainer
+        }, label = "btnColor"
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+            isPrimary -> MaterialTheme.colorScheme.onPrimary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }, label = "contentColor"
+    )
+
     Surface(
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        color = when {
-            !enabled -> MaterialTheme.colorScheme.surfaceVariant
-            isPrimary -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        },
+        shape = RoundedCornerShape(16.dp), // Expressive
+        color = containerColor,
         modifier = modifier
     ) {
         Row(
@@ -897,22 +995,14 @@ private fun ActionButton(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
-                tint = when {
-                    !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    isPrimary -> MaterialTheme.colorScheme.onPrimary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                tint = contentColor
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Medium,
-                color = when {
-                    !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    isPrimary -> MaterialTheme.colorScheme.onPrimary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                }
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor
             )
         }
     }

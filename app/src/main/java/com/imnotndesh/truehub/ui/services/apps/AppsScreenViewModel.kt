@@ -1,7 +1,3 @@
-// ServicesScreenViewModel.kt
-package com.imnotndesh.truehub.ui.services.apps
-
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -17,6 +13,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.collections.plus
+
+enum class AppCategory(val label: String) {
+    ALL("All Apps"),
+    RUNNING("Running"),
+    STOPPED("Stopped"),
+    UPDATES("Has Updates")
+}
 
 data class AppsScreenUiState(
     val isLoading: Boolean = false,
@@ -24,11 +28,13 @@ data class AppsScreenUiState(
     val error: String? = null,
     val upgradeSummaryResult: Apps.AppUpgradeSummaryResult? = null,
     val isRefreshing: Boolean = false,
-    val upgradeJobs :Map<String, System.UpgradeJobState> = emptyMap(),
+    val upgradeJobs: Map<String, com.imnotndesh.truehub.data.models.System.UpgradeJobState> = emptyMap(),
     val isLoadingUpgradeSummaryForApp: String? = null,
     val rollbackVersions: List<String> = emptyList(),
     val isLoadingRollbackVersions: Boolean = false,
-    val rollbackJobs: Map<String, System.UpgradeJobState> = emptyMap()
+    val rollbackJobs: Map<String, com.imnotndesh.truehub.data.models.System.UpgradeJobState> = emptyMap(),
+    // New State for Category
+    val selectedCategory: AppCategory = AppCategory.ALL
 )
 
 class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
@@ -45,6 +51,11 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         startPeriodicRefresh()
     }
 
+    // New Function to handle category selection
+    fun updateCategory(category: AppCategory) {
+        _uiState.update { it.copy(selectedCategory = category) }
+    }
+
     private fun startPeriodicRefresh() {
         viewModelScope.launch {
             while (true) {
@@ -59,13 +70,13 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
     fun loadApps() {
         viewModelScope.launch {
-            if (_uiState.value.apps.isEmpty()){
+            if (_uiState.value.apps.isEmpty()) {
                 _uiState.update { it.copy(isLoading = true) }
             } else {
                 _uiState.update { it.copy(isRefreshing = true) }
             }
             try {
-                when(val result = manager.apps.getInstalledAppsWithResult()) {
+                when (val result = manager.apps.getInstalledAppsWithResult()) {
                     is ApiResult.Success -> {
                         AppCache.updateApps(result.data)
                         _uiState.update {
@@ -108,11 +119,9 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         }
     }
 
-    // Start sleeping app
-    fun startApp(appName:String){
+    fun startApp(appName: String) {
         viewModelScope.launch {
-            val result = manager.apps.startAppWithResult(appName)
-            when(result){
+            when (val result = manager.apps.startAppWithResult(appName)) {
                 is ApiResult.Success -> {
                     ToastManager.showSuccess("Started Container")
                     _uiState.update { it.copy(isRefreshing = true) }
@@ -127,10 +136,10 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             }
         }
     }
-    fun stopApp(appName:String){
+
+    fun stopApp(appName: String) {
         viewModelScope.launch {
-            val result = manager.apps.stopAppWithResult(appName)
-            when(result){
+            when (val result = manager.apps.stopAppWithResult(appName)) {
                 is ApiResult.Success -> {
                     ToastManager.showSuccess("Stopped Container")
                     _uiState.update { it.copy(isRefreshing = true) }
@@ -145,6 +154,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             }
         }
     }
+
     fun upgradeApp(appName: String) {
         viewModelScope.launch {
             when (val result = manager.apps.upgradeAppWithResult(appName)) {
@@ -152,11 +162,11 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     val jobId = result.data
                     _uiState.value = _uiState.value.copy(
                         upgradeJobs = _uiState.value.upgradeJobs + (
-                                appName to System.UpgradeJobState(state = "UPGRADING", progress = 0)
+                                appName to com.imnotndesh.truehub.data.models.System.UpgradeJobState(state = "UPGRADING", progress = 0)
                                 )
                     )
                     var pollAttempts = 0
-                    val maxPollAttempts = 150 // 5 minutes max (150 * 2 seconds)
+                    val maxPollAttempts = 150
 
                     while (pollAttempts < maxPollAttempts) {
                         try {
@@ -169,7 +179,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
                                     _uiState.value = _uiState.value.copy(
                                         upgradeJobs = _uiState.value.upgradeJobs + (
-                                                appName to System.UpgradeJobState(
+                                                appName to com.imnotndesh.truehub.data.models.System.UpgradeJobState(
                                                     state = state,
                                                     progress = percent,
                                                     description = description
@@ -177,17 +187,11 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                                 )
                                     )
 
-                                    Log.d("UpgradeJob", "App: $appName, State: $state, Progress: $percent%")
-
-                                    // Check for terminal states
                                     if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
-                                        // Remove from upgradeJobs after a delay to show final state
                                         delay(3000)
                                         _uiState.value = _uiState.value.copy(
                                             upgradeJobs = _uiState.value.upgradeJobs - appName
                                         )
-
-                                        // Refresh apps list to get updated state
                                         if (state == "SUCCESS") {
                                             loadApps()
                                         }
@@ -195,32 +199,25 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                                     }
                                 }
                                 is ApiResult.Error -> {
-                                    Log.e("UpgradeJob", "Error polling job $jobId: ${jobResult.message}")
-                                    // Remove from upgrade jobs and show error
                                     _uiState.value = _uiState.value.copy(
                                         upgradeJobs = _uiState.value.upgradeJobs - appName,
                                         error = "Upgrade monitoring failed: ${jobResult.message}"
                                     )
                                     break
                                 }
-                                is ApiResult.Loading -> {
-
-                                }
+                                is ApiResult.Loading -> {}
                             }
                         } catch (e: Exception) {
-                            Log.e("UpgradeJob", "Exception while polling: ${e.message}", e)
                             _uiState.value = _uiState.value.copy(
                                 upgradeJobs = _uiState.value.upgradeJobs - appName,
                                 error = "Upgrade monitoring error: ${e.message}"
                             )
                             break
                         }
-
                         pollAttempts++
                         delay(2000)
                     }
 
-                    // Timeout handling
                     if (pollAttempts >= maxPollAttempts) {
                         _uiState.value = _uiState.value.copy(
                             upgradeJobs = _uiState.value.upgradeJobs - appName,
@@ -235,17 +232,15 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             }
         }
     }
-    // load app upgrade summary
+
     fun loadUpgradeSummary(appName: String, appVersion: String? = "latest") {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isLoadingUpgradeSummaryForApp = appName,
                 error = null
             )
-
             try {
-                val result = manager.apps.getUpgradeSummaryWithResult(appName, appVersion)
-                when (result) {
+                when (val result = manager.apps.getUpgradeSummaryWithResult(appName, appVersion)) {
                     is ApiResult.Success -> {
                         _uiState.value = _uiState.value.copy(
                             isLoadingUpgradeSummaryForApp = appName,
@@ -276,12 +271,14 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             }
         }
     }
+
     fun clearUpgradeSummary() {
         _uiState.value = _uiState.value.copy(
             upgradeSummaryResult = null,
             isLoadingUpgradeSummaryForApp = null
         )
     }
+
     fun loadRollbackVersions(appName: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
@@ -289,10 +286,8 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                 rollbackVersions = emptyList(),
                 error = null
             )
-
             try {
-                val result = manager.apps.getRollbackVersionsWithResult(appName)
-                when (result) {
+                when (val result = manager.apps.getRollbackVersionsWithResult(appName)) {
                     is ApiResult.Success -> {
                         _uiState.value = _uiState.value.copy(
                             isLoadingRollbackVersions = false,
@@ -308,9 +303,7 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                         )
                     }
                     is ApiResult.Loading -> {
-                        _uiState.value = _uiState.value.copy(
-                            isLoadingRollbackVersions = true
-                        )
+                        _uiState.value = _uiState.value.copy(isLoadingRollbackVersions = true)
                     }
                 }
             } catch (e: Exception) {
@@ -331,78 +324,13 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     val jobId = result.data
                     _uiState.value = _uiState.value.copy(
                         rollbackJobs = _uiState.value.rollbackJobs + (
-                                appName to System.UpgradeJobState(state = "ROLLING_BACK", progress = 0, description = "Starting rollback...")
+                                appName to System.UpgradeJobState(
+                                    state = "ROLLING_BACK",
+                                    progress = 0,
+                                    description = "Starting rollback..."
+                                )
                                 )
                     )
-
-                    var pollAttempts = 0
-                    val maxPollAttempts = 150
-
-                    while (pollAttempts < maxPollAttempts) {
-                        try {
-                            val jobResult = manager.system.getJobInfoJobWithResult(jobId)
-                            when (jobResult) {
-                                is ApiResult.Success -> {
-                                    val job = jobResult.data
-                                    val state = job.state
-                                    val percent = job.progress?.percent ?: 0
-                                    val description = job.progress?.description
-
-                                    _uiState.value = _uiState.value.copy(
-                                        rollbackJobs = _uiState.value.rollbackJobs + (
-                                                appName to System.UpgradeJobState(
-                                                    state = state,
-                                                    progress = percent,
-                                                    description = description
-                                                )
-                                                )
-                                    )
-
-                                    Log.d("RollbackJob", "App: $appName, State: $state, Progress: $percent%")
-
-                                    if (state in listOf("SUCCESS", "FAILED", "ABORTED")) {
-                                        delay(3000)
-                                        _uiState.value = _uiState.value.copy(
-                                            rollbackJobs = _uiState.value.rollbackJobs - appName
-                                        )
-
-                                        if (state == "SUCCESS") {
-                                            ToastManager.showSuccess("App rolled back successfully")
-                                            loadApps()
-                                        } else {
-                                        }
-                                        break
-                                    }
-                                }
-                                is ApiResult.Error -> {
-                                    Log.e("RollbackJob", "Error polling job $jobId: ${jobResult.message}")
-                                    _uiState.value = _uiState.value.copy(
-                                        rollbackJobs = _uiState.value.rollbackJobs - appName,
-                                        error = "Rollback monitoring failed: ${jobResult.message}"
-                                    )
-                                    break
-                                }
-                                is ApiResult.Loading -> {}
-                            }
-                        } catch (e: Exception) {
-                            Log.e("RollbackJob", "Exception while polling: ${e.message}", e)
-                            _uiState.value = _uiState.value.copy(
-                                rollbackJobs = _uiState.value.rollbackJobs - appName,
-                                error = "Rollback monitoring error: ${e.message}"
-                            )
-                            break
-                        }
-
-                        pollAttempts++
-                        delay(2000)
-                    }
-
-                    if (pollAttempts >= maxPollAttempts) {
-                        _uiState.value = _uiState.value.copy(
-                            rollbackJobs = _uiState.value.rollbackJobs - appName,
-                            error = "Rollback monitoring timeout for $appName"
-                        )
-                    }
                 }
                 is ApiResult.Error -> {
                     _uiState.value = _uiState.value.copy(error = result.message)
@@ -418,10 +346,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
             isLoadingRollbackVersions = false
         )
     }
-
-
-
-
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
