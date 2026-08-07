@@ -169,7 +169,8 @@ private fun PoolDetailsContent(
     onSwitchScrubState: (String, Long, Storage.PoolScrubAction) -> Unit,
     onNavigateToFiles: () -> Unit
 ) {
-    val scrubTask = scrubTasks.find { it.pool == pool.id.toLong() }
+    val poolIdLong = pool.id?.toLong() ?: -1L
+    val scrubTask = scrubTasks.find { it.pool == poolIdLong }
     var showCreateDialog by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<Storage.PoolScrubQueryResponse?>(null) }
     var taskToDelete by remember { mutableStateOf<Storage.PoolScrubQueryResponse?>(null) }
@@ -178,7 +179,7 @@ private fun PoolDetailsContent(
 
     if (showCreateDialog) {
         CreateScrubTaskDialog(
-            poolId = pool.id.toLong(),
+            poolId = pool.id?.toLong() ?: -1L,
             onDismiss = { showCreateDialog = false },
             onConfirm = onCreateScrubTask
         )
@@ -186,7 +187,7 @@ private fun PoolDetailsContent(
 
     taskToEdit?.let { task ->
         CreateScrubTaskDialog(
-            poolId = pool.id.toLong(),
+            poolId = pool.id?.toLong() ?: -1L,
             existingTask = task,
             onDismiss = { taskToEdit = null },
             onConfirm = { updatedDetails -> onUpdateScrubTask(task.id.toInt(), updatedDetails) }
@@ -538,7 +539,7 @@ private fun PoolStatusSection(pool: Pool) {
         }
         Spacer(modifier = Modifier.height(12.dp))
         PoolInfoRow("Fragmentation", pool.fragmentation!!)
-        PoolInfoRow("Autotrim", pool.autotrim.value)
+        PoolInfoRow("Autotrim", pool.autotrim?.value ?: "N/A")
     }
 }
 
