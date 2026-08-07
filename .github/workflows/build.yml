@@ -52,7 +52,7 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleGithubDebug --no-daemon
         env:
           SIGNING_KEY_ALIAS: androiddebugkey
           SIGNING_KEY_PASSWORD: android
@@ -61,8 +61,8 @@ jobs:
 
       - name: Sign APK
         run: |
-          # Find the unsigned APK
-          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -1)
+          # Find the unsigned APK (github flavor)
+          APK_PATH=$(find app/build/outputs/apk/github/debug -name "*.apk" | head -1)
           
           # Sign the APK using apksigner
           $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
@@ -70,11 +70,11 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out app/build/outputs/apk/debug/app-debug-signed.apk \
+            --out app/build/outputs/apk/github/debug/app-debug-signed.apk \
             "$APK_PATH"
           
           # Verify the signature
-          $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/debug/app-debug-signed.apk
+          $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/github/debug/app-debug-signed.apk
 
       - name: Get version from tag
         id: version
@@ -87,13 +87,13 @@ jobs:
 
       - name: Rename APK
         run: |
-          mv app/build/outputs/apk/debug/app-debug-signed.apk \
-             app/build/outputs/apk/debug/app-${{ steps.version.outputs.version }}.apk
+          mv app/build/outputs/apk/github/debug/app-debug-signed.apk \
+             app/build/outputs/apk/github/debug/app-${{ steps.version.outputs.version }}.apk
 
       - name: Get APK info
         id: apk_info
         run: |
-          APK_PATH="app/build/outputs/apk/debug/app-${{ steps.version.outputs.version }}.apk"
+          APK_PATH="app/build/outputs/apk/github/debug/app-${{ steps.version.outputs.version }}.apk"
           APK_SIZE=$(stat -c%s "$APK_PATH")
           APK_SIZE_MB=$(echo "scale=2; $APK_SIZE / 1024 / 1024" | bc)
           
@@ -164,7 +164,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build debug APK (unsigned)
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleGithubDebug --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
@@ -172,5 +172,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-apk-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/github/debug/*.apk
           retention-days: 7
