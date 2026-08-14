@@ -301,6 +301,20 @@ class HomeViewModel(
         }
     }
 
+    fun rebootSystem(reason: String = "") {
+        viewModelScope.launch {
+            try {
+                ToastManager.showInfo("Initiating system restart...")
+                val result = apiManager.system.rebootSystem(reason)
+                when (result) {
+                    is ApiResult.Success -> ToastManager.showSuccess("System restart initiated successfully")
+                    is ApiResult.Error -> ToastManager.showError(result.message)
+                    is ApiResult.Loading -> { /* no-op */ }
+                }
+            } catch (_: Exception) { /* fail silent */ }
+        }
+    }
+
     fun loadUserData() {
         viewModelScope.launch {
             try {

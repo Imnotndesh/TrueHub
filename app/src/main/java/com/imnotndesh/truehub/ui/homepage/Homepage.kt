@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.SystemUpdateAlt
@@ -161,8 +162,12 @@ fun HomeScreen(
     }
     if (showShutdownDialog) {
         ShutdownDialog(
-            onConfirm = { reason ->
+            onShutdown = { reason ->
                 viewModel.shutdownSystem(reason)
+                showShutdownDialog = false
+            },
+            onRestart = { reason ->
+                viewModel.rebootSystem(reason)
                 showShutdownDialog = false
             },
             onDismiss = { showShutdownDialog = false }
@@ -870,20 +875,33 @@ private fun NfsShareItem(share: Shares.NfsShare, onShareClick: (Shares.NfsShare)
 }
 
 @Composable
-fun ShutdownDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+fun ShutdownDialog(onShutdown: (String) -> Unit, onRestart: (String) -> Unit, onDismiss: () -> Unit) {
     var shutdownReason by remember { mutableStateOf("User requested shutdown") }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.PowerSettingsNew, null, tint = MaterialTheme.colorScheme.error) },
-        title = { Text("Shutdown TrueNAS", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) },
+        title = { Text("Power Control", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Are you sure you want to shutdown the TrueNAS system?", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Select an action to power control the TrueNAS system.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(value = shutdownReason, onValueChange = { shutdownReason = it }, label = { Text("Shutdown reason") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), maxLines = 2)
+                OutlinedTextField(value = shutdownReason, onValueChange = { shutdownReason = it }, label = { Text("Reason") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), maxLines = 2)
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(shutdownReason) }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error), shape = RoundedCornerShape(12.dp)) { Text("Shutdown", color = MaterialTheme.colorScheme.onError) } },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onRestart(shutdownReason) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Icon(Icons.Default.RestartAlt, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Restart") }
+                Button(
+                    onClick = { onShutdown(shutdownReason) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape = RoundedCornerShape(12.dp)
+                ) { Icon(Icons.Default.PowerSettingsNew, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Shutdown", color = MaterialTheme.colorScheme.onError) }
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(28.dp)
