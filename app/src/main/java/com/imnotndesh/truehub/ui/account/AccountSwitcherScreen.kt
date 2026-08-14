@@ -25,6 +25,7 @@ import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
+import com.imnotndesh.truehub.ui.setup.ServerConfigBottomSheet
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,13 +37,31 @@ fun AccountSwitcherScreen(
     val scope = rememberCoroutineScope()
 
     var profiles by remember { mutableStateOf<List<AccountProfile>>(emptyList()) }
+    var savedServers by remember { mutableStateOf<List<SavedServer>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+
     var showDeleteDialog by remember { mutableStateOf<AccountProfile?>(null) }
+    var showDeleteAllDialog by remember { mutableStateOf(false) }
+    var showAddMenu by remember { mutableStateOf(false) }
+    var showServerPicker by remember { mutableStateOf(false) }
+    var showSetupSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        loadProfiles(context) { loadedProfiles ->
-            profiles = loadedProfiles
+        val servers = MultiAccountPrefs.getServers(context)
+        savedServers = servers
+        loadProfiles(context) { loaded ->
+            profiles = loaded
             isLoading = false
+        }
+    }
+
+    fun reload() {
+        scope.launch {
+            val servers = MultiAccountPrefs.getServers(context)
+            savedServers = servers
+            loadProfiles(context) { loaded ->
+                profiles = loaded
+            }
         }
     }
 
@@ -62,7 +81,7 @@ fun AccountSwitcherScreen(
                     text = "Select Account",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onBackground, // Use onBackground for better contrast over the wave background
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
 
@@ -104,35 +123,64 @@ fun AccountSwitcherScreen(
                     }
                 }
 
-                // Add New Account Button
-                Button(
-                    onClick = onAddNewAccount,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                // Split button: primary action + dropdown of additional options
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SplitButtonRow(
+                        primaryText = "Add New Account",
+                        primaryIcon = Icons.Default.Add,
+                        onPrimaryClick = {
+                            // If multiple saved servers exist, ask the user which server to add an account to.
+                            if (savedServers.size > 1) {
+                                showServerPicker = true
+                            } else {
+                                onAddNewAccount()
+                            }
+                        },
+                        onMenuClick = { showAddMenu = true }
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Add New Account",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
 
+                    DropdownMenu(
+                        expanded = showAddMenu,
+                        onDismissRequest = { showAddMenu = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add New Account") },
+                            leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+                            onClick = {
+                                showAddMenu = false
+                                if (savedServers.size > 1) {
+                                    showServerPicker = true
+                                } else {
+                                    onAddNewAccount()
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Add another server") },
+                            leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                            onClick = {
+                                showAddMenu = false
+                                showSetupSheet = true
+                            }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        DropdownMenuItem(
+                            text = { Text("Delete all saved credentials", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showAddMenu = false
+                                showDeleteAllDialog = true
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
+
+        // ── Delete a single account ─────────────────────────────
         showDeleteDialog?.let { profile ->
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
@@ -145,9 +193,7 @@ fun AccountSwitcherScreen(
                         onClick = {
                             scope.launch {
                                 MultiAccountPrefs.deleteAccount(context, profile.account.id)
-                                loadProfiles(context) { loadedProfiles ->
-                                    profiles = loadedProfiles
-                                }
+                                reload()
                                 showDeleteDialog = null
                             }
                         }
@@ -162,7 +208,211 @@ fun AccountSwitcherScreen(
                 }
             )
         }
+
+        // ── Delete all saved credentials ────────────────────────
+        if (showDeleteAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteAllDialog = false },
+                title = { Text("Delete All Credentials") },
+                text = {
+                    Text("Are you sure you want to delete ALL saved accounts and credentials? This cannot be undone.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteAllDialog = false
+                            scope.launch {
+                                val accounts = MultiAccountPrefs.getAccounts(context)
+                                accounts.forEach { account ->
+                                    MultiAccountPrefs.deleteAccount(context, account.id)
+                                }
+                                reload()
+                            }
+                        }
+                    ) {
+                        Text("Delete All", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteAllDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // ── Server picker for adding an account ────────────────
+        if (showServerPicker) {
+            ServerPickerDialog(
+                servers = savedServers,
+                onDismiss = { showServerPicker = false },
+                onSelect = { server ->
+                    showServerPicker = false
+                    onAddNewAccount()
+                }
+            )
+        }
+
+        // ── Add a new server (setup screen) ────────────────────
+        if (showSetupSheet) {
+            ServerConfigBottomSheet(
+                onDismiss = { showSetupSheet = false },
+                onConfigured = { url, insecure ->
+                    scope.launch {
+                        val server = SavedServer(
+                            serverUrl = url,
+                            insecure = insecure
+                        )
+                        MultiAccountPrefs.saveServer(context, server)
+                        reload()
+                    }
+                    showSetupSheet = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+private fun SplitButtonRow(
+    primaryText: String,
+    primaryIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    onPrimaryClick: () -> Unit,
+    onMenuClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onPrimaryClick,
+            modifier = Modifier
+                .weight(1f)
+                .height(56.dp),
+            shape = RoundedCornerShape(
+                topStart = 12.dp,
+                bottomStart = 12.dp,
+                topEnd = 0.dp,
+                bottomEnd = 0.dp
+            ),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+        ) {
+            Icon(
+                imageVector = primaryIcon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                primaryText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Button(
+            onClick = onMenuClick,
+            modifier = Modifier
+                .width(56.dp)
+                .height(56.dp),
+            shape = RoundedCornerShape(
+                topStart = 0.dp,
+                bottomStart = 0.dp,
+                topEnd = 12.dp,
+                bottomEnd = 12.dp
+            ),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+        ) {
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "More options")
+        }
+    }
+}
+
+@Composable
+private fun ServerPickerDialog(
+    servers: List<SavedServer>,
+    onDismiss: () -> Unit,
+    onSelect: (SavedServer) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Choose Server") },
+        text = {
+            Column {
+                Text(
+                    "Multiple servers are saved. Pick which server to add an account to:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                if (servers.isEmpty()) {
+                    Text("No servers saved.")
+                } else {
+                    servers.forEach { server ->
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(server) }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Dns,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = server.nickname ?: "Unnamed Server",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                server.serverUrl.let {
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
