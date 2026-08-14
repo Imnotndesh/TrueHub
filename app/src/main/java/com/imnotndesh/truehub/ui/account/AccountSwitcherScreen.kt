@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.AccountProfile
 import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
@@ -193,6 +194,7 @@ fun AccountSwitcherScreen(
                         onClick = {
                             scope.launch {
                                 MultiAccountPrefs.deleteAccount(context, profile.account.id)
+                                PersonalizationManager.deleteForUser(context, profile.account.id)
                                 reload()
                                 showDeleteDialog = null
                             }
@@ -225,6 +227,7 @@ fun AccountSwitcherScreen(
                                 val accounts = MultiAccountPrefs.getAccounts(context)
                                 accounts.forEach { account ->
                                     MultiAccountPrefs.deleteAccount(context, account.id)
+                                    PersonalizationManager.deleteForUser(context, account.id)
                                 }
                                 reload()
                             }

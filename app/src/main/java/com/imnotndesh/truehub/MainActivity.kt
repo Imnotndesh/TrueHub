@@ -41,7 +41,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
-import com.imnotndesh.truehub.data.helpers.Prefs
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.MainScreen
 import com.imnotndesh.truehub.ui.Screen
 import com.imnotndesh.truehub.ui.account.AccountSwitcherScreen
@@ -61,7 +61,6 @@ import com.imnotndesh.truehub.ui.settings.screens.AboutScreen
 import com.imnotndesh.truehub.ui.settings.screens.LicensesScreen
 import com.imnotndesh.truehub.ui.settings.screens.ThemeScreen
 import com.imnotndesh.truehub.ui.settings.sheets.ChangePasswordScreen
-import com.imnotndesh.truehub.ui.theme.AppTheme
 import com.imnotndesh.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.launch
 
@@ -75,15 +74,10 @@ class MainActivity : ComponentActivity() {
         handleWidgetIntent(intent)
 
         setContent {
-            var currentTheme by rememberSaveable { mutableStateOf(Prefs.loadTheme(this)) }
-            var isBlackMode by remember { mutableStateOf(Prefs.loadBlackMode(this)) }
-            TrueHubAppTheme(theme = currentTheme, isBlackMode = isBlackMode) {
+            val personalization by PersonalizationManager.state.collectAsState()
+            TrueHubAppTheme(theme = personalization.theme, isBlackMode = personalization.blackMode) {
                 MainActivityContent(
-                    viewModel = viewModel,
-                    currentTheme = currentTheme,
-                    onThemeChanged = { newTheme ->
-                        currentTheme = newTheme
-                    }
+                    viewModel = viewModel
                 )
             }
         }
@@ -120,9 +114,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun MainActivityContent(
-    viewModel: MainViewModel,
-    currentTheme: AppTheme,
-    onThemeChanged: (AppTheme) -> Unit
+    viewModel: MainViewModel
 ) {
     val context = LocalContext.current
     val appState by viewModel.appState.collectAsState()
@@ -158,9 +150,7 @@ fun MainActivityContent(
                     startRoute = (appState as AppState.Ready).startRoute,
                     navController = navController,
                     viewModel = viewModel,
-                    manager = manager,
-                    onThemeChanged = onThemeChanged,
-                    currentTheme = currentTheme
+                    manager = manager
                 )
             }
             is AppState.Error -> {
@@ -171,9 +161,7 @@ fun MainActivityContent(
                     startRoute = (appState as AppState.Error).fallbackRoute,
                     navController = navController,
                     viewModel = viewModel,
-                    manager = manager,
-                    onThemeChanged = onThemeChanged,
-                    currentTheme = currentTheme
+                    manager = manager
                 )
             }
             is AppState.NoInternet -> {
@@ -192,8 +180,6 @@ fun MainActivityContent(
                     navController = navController,
                     viewModel = viewModel,
                     manager = manager,
-                    onThemeChanged = onThemeChanged,
-                    currentTheme = currentTheme,
                     totpUsername = (appState as AppState.TotpRequired).username
                 )
             }
@@ -211,8 +197,6 @@ fun MainActivityContent(
 
 @Composable
 private fun AppNavigation(
-    currentTheme: AppTheme,
-    onThemeChanged: (AppTheme) -> Unit,
     startRoute: String,
     navController: NavHostController,
     viewModel: MainViewModel,
@@ -221,7 +205,9 @@ private fun AppNavigation(
 ) {
     val context = LocalContext.current
     val pendingNav by viewModel.pendingNavigation.collectAsState()
-    var isBlackMode by remember { mutableStateOf(Prefs.loadBlackMode(context)) }
+    val personalization by PersonalizationManager.state.collectAsState()
+    val userKey by viewModel.currentUserKey.collectAsState()
+    val personalizationUserKey = userKey ?: PersonalizationManager.DEFAULT_USER_KEY
     LaunchedEffect(pendingNav) {
         val route = pendingNav ?: return@LaunchedEffect
         if (navController.currentDestination?.route != Screen.Main.route) {
@@ -431,11 +417,18 @@ private fun AppNavigation(
         composable(Screen.Theme.route) {
             ThemeScreen(
                 manager = manager,
-                currentTheme = currentTheme,
-                onThemeSelected = { newTheme -> onThemeChanged(newTheme) },
+                userKey = personalizationUserKey,
+                currentTheme = personalization.theme,
+                onThemeSelected = { newTheme ->
+                    val userKey = viewModel.currentUserKey.value ?: PersonalizationManager.DEFAULT_USER_KEY
+                    PersonalizationManager.saveTheme(context, userKey, newTheme)
+                },
                 onNavigateBack = { navController.popBackStack() },
-                isBlackModeEnabled = isBlackMode,
-                onBlackModeToggled = { isToggled -> Prefs.saveBlackMode(context,isToggled) }
+                isBlackModeEnabled = personalization.blackMode,
+                onBlackModeToggled = { isToggled ->
+                    val userKey = viewModel.currentUserKey.value ?: PersonalizationManager.DEFAULT_USER_KEY
+                    PersonalizationManager.saveBlackMode(context, userKey, isToggled)
+                }
             )
         }
     }

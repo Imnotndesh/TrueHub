@@ -14,15 +14,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.SystemUpdateAlt
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.outlined.SystemUpdateAlt
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -58,6 +67,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.imnotndesh.truehub.MainViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.NavbarDestination
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -131,6 +142,19 @@ private data class NavItem(
     val unselectedIcon: ImageVector
 )
 
+private fun destinationToNavItem(destination: NavbarDestination): NavItem? {
+    return when (destination) {
+        NavbarDestination.HOME -> NavItem(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home)
+        NavbarDestination.APPS -> NavItem(Screen.Apps, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps)
+        NavbarDestination.CONTAINERS -> NavItem(Screen.Containers, "Containers", Icons.Filled.Inventory, Icons.Outlined.Inventory2)
+        NavbarDestination.VMS -> NavItem(Screen.Vms, "VMs", Icons.Filled.Computer, Icons.Outlined.Computer)
+        NavbarDestination.SETTINGS -> NavItem(Screen.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
+        NavbarDestination.INSTANCE_SETTINGS -> NavItem(Screen.InstanceConfigScreen, "Instance", Icons.Filled.Tune, Icons.Outlined.Tune)
+        NavbarDestination.UPDATES -> NavItem(Screen.SystemUpdateScreen, "Updates", Icons.Filled.SystemUpdateAlt, Icons.Outlined.SystemUpdateAlt)
+        NavbarDestination.MARKETPLACE -> NavItem(Screen.Marketplace, "Marketplace", Icons.Filled.Storefront, Icons.Outlined.Storefront)
+    }
+}
+
 @Composable
 fun MainScreen(
     manager: TrueNASApiManager,
@@ -139,6 +163,8 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val configuration = LocalConfiguration.current
+    val personalization by PersonalizationManager.state.collectAsState()
+    val isCompactNav = personalization.compactNav
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val routesWithoutBottomBar = remember {
         setOf(
@@ -186,13 +212,10 @@ fun MainScreen(
             )
     }
 
-    val navItems = remember {
-        listOf(
-            NavItem(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home),
-            NavItem(Screen.Apps, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps),
-            NavItem(Screen.Containers, "Containers", Icons.Filled.Inventory, Icons.Outlined.Inventory2),
-            NavItem(Screen.Vms, "VMs", Icons.Filled.Computer, Icons.Outlined.Computer)
-        )
+    val navItems = remember(personalization.navbarDestinations) {
+        personalization.navbarDestinations.mapNotNull { destination ->
+            destinationToNavItem(destination)
+        }
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -231,10 +254,16 @@ fun MainScreen(
                         NavigationRailItem(
                             selected = selected,
                             onClick = { onNavClick(navController, item.screen.route) },
-                            label = { Text(item.title, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+                            label = if (isCompactNav) null else {
+                                { Text(item.title, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) }
+                            },
                             icon = {
                                 Crossfade(targetState = selected, label = "iconFade") { isSelected ->
-                                    Icon(if (isSelected) item.selectedIcon else item.unselectedIcon, item.title)
+                                    Icon(
+                                        if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                        item.title,
+                                        modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
+                                    )
                                 }
                             },
                             colors = NavigationRailItemDefaults.colors(
@@ -266,11 +295,13 @@ fun MainScreen(
                                 NavigationBarItem(
                                     selected = selected,
                                     onClick = { onNavClick(navController, item.screen.route) },
-                                    label = {
-                                        Text(
-                                            item.title,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                        )
+                                    label = if (isCompactNav) null else {
+                                        {
+                                            Text(
+                                                item.title,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
                                     },
                                     icon = {
                                         Crossfade(
@@ -279,7 +310,8 @@ fun MainScreen(
                                         ) { isSelected ->
                                             Icon(
                                                 if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                                item.title
+                                                item.title,
+                                                modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
                                             )
                                         }
                                     },

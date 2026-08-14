@@ -9,6 +9,7 @@ import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.LoginExResult
 import com.imnotndesh.truehub.data.models.LoginMechanisms
@@ -46,6 +47,10 @@ class MainViewModel : ViewModel() {
     private val _manager = MutableStateFlow<TrueNASApiManager?>(null)
     val manager: StateFlow<TrueNASApiManager?> = _manager.asStateFlow()
 
+    // Active user key used to scope personalization (theme, navbar, etc.).
+    private val _currentUserKey = MutableStateFlow<String?>(null)
+    val currentUserKey: StateFlow<String?> = _currentUserKey.asStateFlow()
+
     private var hasInitialized = false
     private val _pendingNavigation = MutableStateFlow<String?>(null)
     val pendingNavigation: StateFlow<String?> = _pendingNavigation.asStateFlow()
@@ -56,6 +61,13 @@ class MainViewModel : ViewModel() {
 
     fun clearPendingNavigation() {
         _pendingNavigation.value = null
+    }
+
+    /** Set the active user and load their personalization from disk. */
+    fun setActiveUser(context: Context, accountId: String?) {
+        val key = accountId ?: PersonalizationManager.DEFAULT_USER_KEY
+        _currentUserKey.value = key
+        PersonalizationManager.loadForUser(context, key)
     }
     fun initializeApp(context: Context) {
         if (hasInitialized) return
@@ -91,6 +103,7 @@ class MainViewModel : ViewModel() {
                             manager = attemptLoginWithToken(context, server, account, token)
                             if (manager != null) {
                                 _manager.value = manager
+                                setActiveUser(context, accountId)
                                 _appState.value = AppState.Ready(Screen.Main.route)
                                 return@launch
                             }
@@ -106,6 +119,7 @@ class MainViewModel : ViewModel() {
                                 }
                                 TotpResult.SUCCESS -> {
                                     _manager.value = totpManager.first
+                                    setActiveUser(context, accountId)
                                     _appState.value = AppState.Ready(Screen.Main.route)
                                     return@launch
                                 }
@@ -203,6 +217,7 @@ class MainViewModel : ViewModel() {
                         account.id,
                         tokenResult.data
                     )
+                    setActiveUser(context, account.id)
                     manager
                 } else null
             } else null
