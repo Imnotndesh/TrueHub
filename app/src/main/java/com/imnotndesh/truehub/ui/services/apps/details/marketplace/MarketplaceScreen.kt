@@ -71,6 +71,7 @@ import coil.compose.AsyncImage
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import kotlinx.coroutines.delay
@@ -91,7 +92,6 @@ fun MarketplaceScreen(
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(initialCategory) }
-    val refreshState = rememberPullToRefreshState()
 
     BackHandler(enabled = selectedCategory != null) {
         selectedCategory = null
@@ -182,10 +182,9 @@ fun MarketplaceScreen(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 } else {
-                    PullToRefreshBox(
+                    PullToRefreshContent(
                         isRefreshing = uiState.isRefreshing,
                         onRefresh = { viewModel.loadMarketplaceApps() },
-                        state = refreshState,
                         modifier = Modifier.fillMaxSize()
                     ) {
                         LazyColumn(

@@ -87,7 +87,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -121,6 +120,7 @@ import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.data.models.isAsleep
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoPane
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
@@ -143,7 +143,6 @@ fun AppsScreen(
     )
     val uiState by appsScreenViewModel.uiState.collectAsState()
     val isCompact = AdaptiveLayoutHelper.isCompact()
-    val refreshState = rememberPullToRefreshState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val activeJobs by JobRepository.activeJobs.collectAsState()
@@ -379,21 +378,9 @@ fun AppsScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        PullToRefreshBox(
+        PullToRefreshContent(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { appsScreenViewModel.refresh() },
-            state = refreshState,
-            indicator = {
-                Box(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MorphingRefreshIndicator(
-                        state = refreshState,
-                        isRefreshing = uiState.isRefreshing
-                    )
-                }
-            },
             modifier = Modifier.weight(1f)
         ) {
             when {

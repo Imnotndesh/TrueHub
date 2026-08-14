@@ -53,23 +53,32 @@ class JobNotificationService : Service() {
         if (jobId != -1) {
             handler.removeCallbacksAndMessages(jobId)
 
-            val notification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
-
-            if (activeJobsTracker.isEmpty()) {
-                activeJobsTracker.add(jobId)
-                startForeground(jobId, notification)
-            } else {
-                activeJobsTracker.add(jobId)
-                notificationManager.notify(jobId, notification)
-            }
-
             if (isDone) {
+                // Job finished: build a distinct, non-ongoing completion notification and
+                // demote it out of the foreground/live state so it visibly shows "Done"
+                // instead of vanishing abruptly.
+                val doneNotification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
                 activeJobsTracker.remove(jobId)
+
+                if (activeJobsTracker.isEmpty()) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
+                notificationManager.notify(jobId, doneNotification)
+
                 val token = jobId
                 handler.postAtTime({
                     notificationManager.cancel(jobId)
                     checkAndShutdownService()
-                }, token, android.os.SystemClock.uptimeMillis() + 2500)
+                }, token, android.os.SystemClock.uptimeMillis() + 6000)
+            } else {
+                val notification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
+                if (activeJobsTracker.isEmpty()) {
+                    activeJobsTracker.add(jobId)
+                    startForeground(jobId, notification)
+                } else {
+                    activeJobsTracker.add(jobId)
+                    notificationManager.notify(jobId, notification)
+                }
             }
         }
 
@@ -91,14 +100,15 @@ class JobNotificationService : Service() {
         statusText: String,
         isDone: Boolean
     ): Notification {
-        val titleText = if (isDone) "Complete: $appName" else appName
-        val explicitStatus = if (isDone) "Infrastructure setup configured successfully." else statusText
+        val titleText = if (isDone) "✓ Completed: $appName" else appName
+        val explicitStatus = if (isDone) "Task finished successfully." else statusText
         val channelId = channelForType(type)
 
         val builder = NotificationCompat.Builder(this, channelId)
+            .setAutoCancel(isDone)
             .setContentTitle(titleText)
             .setContentText(explicitStatus)
-            .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_launcher_monochrome)
+            .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_stat_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setOnlyAlertOnce(true)
@@ -114,6 +124,12 @@ class JobNotificationService : Service() {
         if (!isDone) {
             builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText("$progress%")
+        } else {
+            // For the completed (non-promoted) notification, show the full-size launcher
+            // icon so the app branding reads clearly in the expanded notification.
+            builder.setLargeIcon(
+                android.graphics.BitmapFactory.decodeResource(resources, com.imnotndesh.truehub.R.mipmap.ic_launcher)
+            )
         }
 
         if (!isDone) {

@@ -216,7 +216,7 @@ class AlertsWorker(
             )
 
             val notification = NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_launcher_monochrome)
+                .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_stat_notification)
                 .setContentTitle("TrueNAS Alert: ${alert.level}")
                 .setContentText(alert.formatted ?: "A new system alert has been triggered.")
                 .setStyle(NotificationCompat.BigTextStyle().bigText(alert.formatted))

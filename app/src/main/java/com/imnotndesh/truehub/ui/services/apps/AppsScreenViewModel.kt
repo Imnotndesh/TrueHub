@@ -13,7 +13,6 @@ import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.data.models.isAsleep
-import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -157,7 +156,6 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     fun upgradeAllApps(context: Context, wakeStoppedApps: Boolean = false) {
         viewModelScope.launch {
             if (_uiState.value.apps.none { it.upgrade_available }) {
-                ToastManager.showInfo("No updates available")
                 return@launch
             }
 
@@ -439,12 +437,11 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                     loadApps()
                 }
                 is ApiResult.Error -> {
-                    ToastManager.showSuccess("Failed to Start Application")
-                    _uiState.update { it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else null) }
+                    _uiState.update {
+                        it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else "Failed to start $appName")
+                    }
                 }
-                is ApiResult.Loading -> {
-                    ToastManager.showInfo("Starting Container")
-                }
+                is ApiResult.Loading -> { /* action in progress; UI reflects via refresh */ }
             }
         }
     }
@@ -453,16 +450,15 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         viewModelScope.launch {
             when (val result = manager.apps.stopAppWithResult(appName)) {
                 is ApiResult.Success -> {
-                    ToastManager.showSuccess("Stopped Container")
                     _uiState.update { it.copy(isRefreshing = true) }
                     loadApps()
                 }
                 is ApiResult.Error -> {
-                    _uiState.update { it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else null) }
+                    _uiState.update {
+                        it.copy(error = if (_uiState.value.apps.isEmpty()) result.message else "Failed to stop $appName")
+                    }
                 }
-                is ApiResult.Loading -> {
-                    ToastManager.showInfo("Stopping Container")
-                }
+                is ApiResult.Loading -> { /* action in progress; UI reflects via refresh */ }
             }
         }
     }
