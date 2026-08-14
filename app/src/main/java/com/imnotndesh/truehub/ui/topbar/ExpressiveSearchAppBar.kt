@@ -781,6 +781,7 @@ private fun AppFallbackIcon(result: SearchResult) {
         is SearchResult.ContainerResult -> Icons.Default.Inventory
         is SearchResult.VmResult -> Icons.Default.Computer
         is SearchResult.NavigationResult -> Icons.Default.Search
+        is SearchResult.InstanceSettingsResult -> Icons.Default.Settings
     }
     Icon(
         imageVector = icon,

@@ -166,6 +166,17 @@ sealed class SearchResult {
         override val category = SearchCategory.VMS
         override val route = Screen.VmDetails.route
     }
+
+    // ── Instance Settings ────────────────────────────────────
+    data class InstanceSettingsResult(
+        override val id: String,
+        override val title: String,
+        override val subtitle: String,
+        override val relevanceScore: Float,
+        override val route: String
+    ) : SearchResult() {
+        override val category = SearchCategory.INSTANCE_SETTINGS
+    }
 }
 
 enum class SearchCategory(val displayName: String) {
@@ -179,7 +190,8 @@ enum class SearchCategory(val displayName: String) {
     APPS("Installed Apps"),
     MARKETPLACE("Marketplace"),
     CONTAINERS("Containers"),
-    VMS("VMs")
+    VMS("VMs"),
+    INSTANCE_SETTINGS("Instance Settings")
 }
 
 enum class AppAction {
@@ -335,6 +347,11 @@ class SearchViewModel(
             // ── 1. Static Screen / Subsection Registry ────────
             if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.NAVIGATION) {
                 results.addAll(searchScreenRegistry(lowerQuery))
+            }
+
+            // ── 1.5 Instance Settings registry ────────────────
+            if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.INSTANCE_SETTINGS) {
+                results.addAll(searchInstanceSettingsRegistry(lowerQuery))
             }
 
             // ── 2. Pools ──────────────────────────────────────
@@ -664,6 +681,69 @@ class SearchViewModel(
         ScreenEntry("nav_change_password", "Change Password", "Change your password", Screen.ChangePassword.route,
             listOf("change password", "password", "credentials")),
     )
+
+    // ── Instance Settings registry — every section reachable from InstanceConfigScreen ──
+    private val instanceSettingsRegistry: List<ScreenEntry> = listOf(
+        // Core configuration
+        ScreenEntry("is_general", "General Settings", "Hostname, timezone, base options",
+            Screen.GeneralSystemSettingsScreen.route,
+            listOf("general settings", "hostname", "timezone", "gui", "https", "language", "console", "motd")),
+        ScreenEntry("is_advanced", "Advanced Settings", "Sysctl, tunables, kernel, developer options",
+            Screen.AdvancedSystemSettingsScreen.route,
+            listOf("advanced settings", "sysctl", "kernel", "tunables", "developer", "crash reporting")),
+        ScreenEntry("is_network", "Network", "Interfaces, routes, DNS, configuration",
+            Screen.NetworkScreen.route,
+            listOf("network", "interfaces", "ip", "dns", "gateway", "routes", "link")),
+        ScreenEntry("is_boot", "Boot", "Boot environments and boot pool",
+            Screen.BootScreen.route,
+            listOf("boot", "boot environments", "boot pool", "startup", "recovery")),
+        ScreenEntry("is_services", "Services", "Manage and configure running services",
+            Screen.ServicesScreen.route,
+            listOf("services", "ssh", "nfs", "smb", "ftp", "rsync", "iscsi", "snmp")),
+        ScreenEntry("is_users", "Users", "Manage local user accounts",
+            Screen.UserListScreen.route,
+            listOf("users", "accounts", "local users", "user list")),
+        ScreenEntry("is_api_keys", "API Keys", "Manage API key access",
+            Screen.ApiKeyListScreen.route,
+            listOf("api keys", "keys", "tokens", "bearer", "access")),
+
+        // Monitoring & compliance
+        ScreenEntry("is_alerts", "Alert Settings", "Notification levels and delivery",
+            Screen.AlertServicesList.route,
+            listOf("alerts", "alert services", "notifications", "email", "webhook")),
+        ScreenEntry("is_audit_config", "Audit Config", "Audit logging and retention settings",
+            Screen.AuditConfigScreen.route,
+            listOf("audit", "audit config", "retention", "logging", "zfs dataset")),
+        ScreenEntry("is_audit_logs", "Audit Logs", "View and export audit entries",
+            Screen.AuditLogsScreen.route,
+            listOf("audit logs", "logs", "audit entries", "export")),
+
+        // System information
+        ScreenEntry("is_truenas_connect", "TrueNAS Connect", "Configure the TrueNAS cloud connection",
+            Screen.TrueNasConnectScreen.route,
+            listOf("truenas connect", "cloud", "connect", "ixsystems")),
+        ScreenEntry("is_truecommand", "TrueCommand", "Centralized instance management",
+            Screen.TrueCommandScreen.route,
+            listOf("truecommand", "fleet", "management", "cluster")),
+        ScreenEntry("is_system_info", "System Information", "Version, identifiers, state and features",
+            Screen.SystemInformationScreen.route,
+            listOf("system information", "system info", "version", "platform", "hardware", "uuid")),
+    )
+
+    private fun searchInstanceSettingsRegistry(lowerQuery: String): List<SearchResult.InstanceSettingsResult> {
+        return instanceSettingsRegistry.mapNotNull { entry ->
+            val relevance = calculateRelevance(lowerQuery, entry.title, entry.subtitle, *entry.keywords.toTypedArray())
+            if (relevance > 0) {
+                SearchResult.InstanceSettingsResult(
+                    id = entry.id,
+                    title = entry.title,
+                    subtitle = "Instance Setting • ${entry.subtitle}",
+                    relevanceScore = relevance + 0.5f,
+                    route = entry.route
+                )
+            } else null
+        }
+    }
 
     private fun searchScreenRegistry(lowerQuery: String): List<SearchResult.NavigationResult> {
         return screenRegistry.mapNotNull { entry ->
