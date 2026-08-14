@@ -16,8 +16,15 @@ import com.imnotndesh.truehub.data.workers.CancelJobReceiver
 class JobNotificationService : Service() {
 
     private companion object {
-        const val CHANNEL_ID = "truehub_middleware_jobs"
-        const val CHANNEL_NAME = "System Provisioning Status"
+        // Reuse the same channel identities as AlertsWorker so users get one consistent
+        // two-channel split (System vs Informational) across the whole app.
+        const val CHANNEL_SYSTEM = "truehub_system_channel"
+        const val CHANNEL_INFORMATIONAL = "truehub_informational_channel"
+
+        fun channelForType(type: String?): String = when {
+            type.equals("SYSTEM_UPDATE", ignoreCase = true) -> CHANNEL_SYSTEM
+            else -> CHANNEL_INFORMATIONAL
+        }
     }
 
     private val notificationManager by lazy {
@@ -37,6 +44,7 @@ class JobNotificationService : Service() {
         if (intent == null) return START_NOT_STICKY
 
         val jobId = intent.getIntExtra("id", -1)
+        val type = intent.getStringExtra("type")
         val appName = intent.getStringExtra("name") ?: "System Task"
         val progress = intent.getIntExtra("progress", 0)
         val isDone = intent.getBooleanExtra("done", false)
@@ -45,7 +53,7 @@ class JobNotificationService : Service() {
         if (jobId != -1) {
             handler.removeCallbacksAndMessages(jobId)
 
-            val notification = buildJobNotification(jobId, appName, progress, statusText, isDone)
+            val notification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
 
             if (activeJobsTracker.isEmpty()) {
                 activeJobsTracker.add(jobId)
@@ -77,6 +85,7 @@ class JobNotificationService : Service() {
 
     private fun buildJobNotification(
         jobId: Int,
+        type: String?,
         appName: String,
         progress: Int,
         statusText: String,
@@ -84,16 +93,28 @@ class JobNotificationService : Service() {
     ): Notification {
         val titleText = if (isDone) "Complete: $appName" else appName
         val explicitStatus = if (isDone) "Infrastructure setup configured successfully." else statusText
+        val channelId = channelForType(type)
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle(titleText)
             .setContentText(explicitStatus)
-            .setSmallIcon(if (isDone) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_sys_download)
+            .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_launcher_monochrome)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setOnlyAlertOnce(true)
             .setOngoing(!isDone)
-            .setProgress(100, if (isDone) 100 else progress, false)
+            .setStyle(
+                NotificationCompat.ProgressStyle()
+                    .addProgressSegment(NotificationCompat.ProgressStyle.Segment(100))
+                    .setProgress(if (isDone) 100 else progress)
+            )
+
+        // Request OS promotion as a Live Update (Android 15+ / API 35+). This is a no-op
+        // on older platforms and only applies while the job is still in progress.
+        if (!isDone) {
+            builder.setRequestPromotedOngoing(true)
+            builder.setShortCriticalText("$progress%")
+        }
 
         if (!isDone) {
             val cancelIntent = Intent(this, CancelJobReceiver::class.java).apply {
@@ -116,15 +137,25 @@ class JobNotificationService : Service() {
         return builder.build()
     }
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
+        val systemChannel = NotificationChannel(
+            CHANNEL_SYSTEM,
+            "System",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Tracks ongoing middleware application container deployments"
+            description = "System update and maintenance progress"
             setShowBadge(false)
         }
-        notificationManager.createNotificationChannel(channel)
+        val informationalChannel = NotificationChannel(
+            CHANNEL_INFORMATIONAL,
+            "Informational",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Application install, update, and deployment progress"
+            setShowBadge(false)
+        }
+        notificationManager.createNotificationChannels(
+            listOf(systemChannel, informationalChannel)
+        )
     }
 
     override fun onDestroy() {

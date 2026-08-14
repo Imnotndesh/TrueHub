@@ -11,6 +11,8 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.utils.AppCache
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.data.models.canUpgradeNow
+import com.imnotndesh.truehub.data.models.isAsleep
 import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -144,19 +146,81 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         }
     }
 
-    fun upgradeAllApps(context: Context) {
+    /**
+     * Upgrades all apps that currently allow it.
+     *
+     * When [wakeStoppedApps] is true, apps that have updates but are asleep
+     * (STOPPED) will first be started and polled until they reach a RUNNING
+     * state before being upgraded. Otherwise only the apps already in a
+     * non-stopped state (RUNNING/DEPLOYING) are upgraded.
+     */
+    fun upgradeAllApps(context: Context, wakeStoppedApps: Boolean = false) {
         viewModelScope.launch {
-            val appsToUpdate = _uiState.value.apps.filter { it.upgrade_available }
-            if (appsToUpdate.isEmpty()) {
+            if (_uiState.value.apps.none { it.upgrade_available }) {
                 ToastManager.showInfo("No updates available")
                 return@launch
             }
 
-            appsToUpdate.forEach { app ->
+            // Apps we can upgrade right now without waking anything.
+            val readyApps = _uiState.value.apps.filter { it.canUpgradeNow() }
+            // Apps that need to be started before they can be upgraded.
+            val sleepingApps = _uiState.value.apps.filter { it.upgrade_available && it.isAsleep() }
+
+            readyApps.forEach { app ->
                 upgradeAppToLatest(app.name, context)
                 delay(500.milliseconds)
             }
+
+            if (wakeStoppedApps && sleepingApps.isNotEmpty()) {
+                val woken = startAppsAndWaitForRunning(sleepingApps)
+                woken.forEach { app ->
+                    upgradeAppToLatest(app.name, context)
+                    delay(500.milliseconds)
+                }
+            }
         }
+    }
+
+    /**
+     * Starts the given asleep apps and polls their state until each reaches
+     * RUNNING (or the wait budget is exhausted). Returns the apps that reached
+     * RUNNING and should therefore be upgraded.
+     */
+    private suspend fun startAppsAndWaitForRunning(
+        apps: List<Apps.AppQueryResponse>
+    ): List<Apps.AppQueryResponse> {
+        val woken = mutableListOf<Apps.AppQueryResponse>()
+
+        apps.forEach { app ->
+            // Fire the start request (ignore errors here; some states may report
+            // that a start is already in progress, which is fine).
+            manager.apps.startAppWithResult(app.name)
+
+            // Poll until the app reports RUNNING or the budget runs out.
+            var reachedRunning = false
+            repeat(20) {
+                when (val q = manager.apps.getAppByName(app.name)) {
+                    is ApiResult.Success -> {
+                        if (q.data?.state.equals("RUNNING", ignoreCase = true)) {
+                            reachedRunning = true
+                            return@repeat
+                        }
+                    }
+                    else -> {}
+                }
+                delay(1500.milliseconds)
+            }
+
+            if (reachedRunning) {
+                woken.add(app)
+            } else {
+                _uiState.update {
+                    it.copy(error = "Started ${app.name} but it did not reach RUNNING; it will not be upgraded.")
+                }
+            }
+        }
+
+        return woken
     }
 
     private suspend fun upgradeAppToLatest(appName: String, context: Context) {

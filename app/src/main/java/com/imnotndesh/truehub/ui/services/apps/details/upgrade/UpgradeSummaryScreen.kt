@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -98,7 +99,9 @@ fun UpgradeSummaryScreen(
     summary: Apps.AppUpgradeSummaryResult,
     manager: TrueNASApiManager,
     onConfirmUpgrade: (String, Boolean) -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    canUpgrade: Boolean = true,
+    appState: String = ""
 ) {
 
     val activeJobs by JobRepository.activeJobs.collectAsState()
@@ -156,6 +159,8 @@ fun UpgradeSummaryScreen(
                     summary = summary,
                     currentVersion = currentVersion,
                     currentHumanVersion = currentHumanVersion,
+                    canUpgrade = canUpgrade,
+                    appState = appState,
                     onConfirmUpgrade = {selectedVersion, backup -> onConfirmUpgrade(selectedVersion, backup)},
                     onNavigateBack = onNavigateBack,
                     modifier = Modifier
@@ -353,6 +358,8 @@ private fun ReviewView(
     currentVersion: String,
     currentHumanVersion: String? = null,
     onNavigateBack: () -> Unit,
+    canUpgrade: Boolean = true,
+    appState: String = "",
     modifier: Modifier = Modifier
 ) {
     val availableVersions = summary.available_versions_for_upgrade
@@ -547,6 +554,40 @@ private fun ReviewView(
             }
         }
 
+        if (!canUpgrade) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (appState.isBlank()) {
+                            "This app must be running before it can be updated."
+                        } else {
+                            "${appState.uppercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} apps cannot be updated. Start the app first, then you can upgrade it."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -564,12 +605,15 @@ private fun ReviewView(
                 Text("Cancel")
             }
             Button(
-                onClick = { onConfirmUpgrade(selectedVersion, takeBackup) },
+                onClick = { if (canUpgrade) onConfirmUpgrade(selectedVersion, takeBackup) },
+                enabled = canUpgrade,
                 modifier = Modifier.weight(1f).height(50.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                 )
             ) {
                 Icon(Icons.Default.CloudUpload, null, modifier = Modifier.size(18.dp))

@@ -41,8 +41,33 @@ class AlertsWorker(
 
     companion object {
         const val WORK_NAME = "TrueNAS_Alerts_Sync"
-        private const val CHANNEL_ID = "truehub_alerts_channel"
+
+        // Two channels we expose to users for independent toggling.
+        const val CHANNEL_SYSTEM = "truehub_system_channel"
+        const val CHANNEL_INFORMATIONAL = "truehub_informational_channel"
+
         private val SEEN_ALERTS_KEY = stringSetPreferencesKey("seen_alerts_ids")
+
+        /**
+         * Routes a TrueNAS alert to the correct channel based on its textual content.
+         *
+         * - System updates: text mentions "truenas version" or "system update".
+         * - Application updates: text mentions "applications" or "updates are available".
+         * - Everything else falls back to informational.
+         */
+        fun channelForAlert(alert: System.AlertResponse): String {
+            val haystack = buildString {
+                alert.formatted?.let { append(it.lowercase()) }
+                append(' ')
+                append(alert.text.lowercase())
+            }
+
+            return when {
+                haystack.contains("truenas version") || haystack.contains("system update") -> CHANNEL_SYSTEM
+                haystack.contains("applications") || haystack.contains("updates are available") -> CHANNEL_INFORMATIONAL
+                else -> CHANNEL_INFORMATIONAL
+            }
+        }
 
         fun schedule(context: Context) {
             val constraints = Constraints.Builder()
@@ -161,13 +186,22 @@ class AlertsWorker(
         }
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            CHANNEL_ID, "System Alerts", NotificationManager.IMPORTANCE_HIGH
-        ).apply { description = "Notifications for TrueNAS system alerts" }
-        notificationManager.createNotificationChannel(channel)
+
+        // Two independently-toggleable channels, matching the user-facing grouping we want.
+        val systemChannel = NotificationChannel(
+            CHANNEL_SYSTEM, "System", NotificationManager.IMPORTANCE_HIGH
+        ).apply { description = "System-level update and maintenance notifications" }
+        val informationalChannel = NotificationChannel(
+            CHANNEL_INFORMATIONAL, "Informational", NotificationManager.IMPORTANCE_DEFAULT
+        ).apply { description = "Informational and application update notifications" }
+
+        notificationManager.createNotificationChannels(
+            listOf(systemChannel, informationalChannel)
+        )
 
         alerts.forEach { alert ->
             val notificationId = alert.uuid.hashCode()
+            val channelId = channelForAlert(alert)
 
             val dismissIntent = Intent(context, DismissAlertReceiver::class.java).apply {
                 action = DismissAlertReceiver.ACTION_DISMISS_ALERT
@@ -181,8 +215,8 @@ class AlertsWorker(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_launcher_monochrome)
                 .setContentTitle("TrueNAS Alert: ${alert.level}")
                 .setContentText(alert.formatted ?: "A new system alert has been triggered.")
                 .setStyle(NotificationCompat.BigTextStyle().bigText(alert.formatted))

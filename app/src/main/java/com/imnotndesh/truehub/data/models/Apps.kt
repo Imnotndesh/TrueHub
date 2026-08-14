@@ -413,3 +413,30 @@ object Apps {
         val custom_compose_config_string : String = ""
     )
 }
+
+/**
+ * App states in which an upgrade can be safely triggered. TrueNAS rejects
+ * upgrades while an app is in a STOPPED state, so we gate the UI on these.
+ */
+val AppUpdatableStates: Set<String> = setOf("RUNNING", "DEPLOYING")
+
+/**
+ * Whether this app is in a state that permits an upgrade
+ * (i.e. it is not STOPPED / asleep).
+ */
+fun Apps.AppQueryResponse.isUpgradableState(): Boolean =
+    state.uppercase() in AppUpdatableStates
+
+/**
+ * Whether this app has an update pending AND is currently in a state that
+ * permits an upgrade to be triggered.
+ */
+fun Apps.AppQueryResponse.canUpgradeNow(): Boolean =
+    upgrade_available && isUpgradableState()
+
+/**
+ * Whether this app is asleep (STOPPED) and would need to be started before
+ * an upgrade can be triggered.
+ */
+fun Apps.AppQueryResponse.isAsleep(): Boolean =
+    state.equals("STOPPED", ignoreCase = true)

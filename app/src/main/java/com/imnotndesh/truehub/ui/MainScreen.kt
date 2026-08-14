@@ -59,6 +59,7 @@ import androidx.navigation.navArgument
 import com.imnotndesh.truehub.MainViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
@@ -862,6 +863,8 @@ private fun TrueHubNavGraph(
                     currentVersion = currentVersion,
                     currentHumanVersion = currentHumanVersion,
                     manager = manager,
+                    canUpgrade = currentApp?.canUpgradeNow() ?: false,
+                    appState = currentApp?.state ?: "",
                     onConfirmUpgrade = { version, backup ->
                         viewModel.upgradeApp(appName, context, version, backup)
                     },

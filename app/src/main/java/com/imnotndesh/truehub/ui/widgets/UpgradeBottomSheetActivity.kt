@@ -29,6 +29,7 @@ import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.WidgetDataStore
+import com.imnotndesh.truehub.data.models.AppUpdatableStates
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.Config
 import com.imnotndesh.truehub.data.models.LoginMethod
@@ -66,6 +67,7 @@ class UpgradeBottomSheetActivity : ComponentActivity() {
         var manager by remember { mutableStateOf<TrueNASApiManager?>(null) }
         var summary by remember { mutableStateOf<Apps.AppUpgradeSummaryResult?>(null) }
         var currentVersion by remember { mutableStateOf("") }
+        var appState by remember { mutableStateOf("") }
         var trackingJobId by remember { mutableStateOf<Int?>(null) }
         var isLoading by remember { mutableStateOf(true) }
         var loadFailed by remember { mutableStateOf(false) }
@@ -127,6 +129,7 @@ class UpgradeBottomSheetActivity : ComponentActivity() {
             if (appsResult is ApiResult.Success) {
                 appsResult.data.find { it.name == appName }?.let { app ->
                     currentVersion = app.version ?: ""
+                    appState = app.state.orEmpty()
                 }
             }
 
@@ -151,6 +154,8 @@ class UpgradeBottomSheetActivity : ComponentActivity() {
                         currentHumanVersion = null,
                         summary = summary!!,
                         manager = manager!!,
+                        canUpgrade = appState.uppercase() in AppUpdatableStates,
+                        appState = appState,
                         onConfirmUpgrade = { selectedVersion, backup ->
                             scope.launch {
                                 when (val result = manager!!.apps.upgradeAppWithResult(
