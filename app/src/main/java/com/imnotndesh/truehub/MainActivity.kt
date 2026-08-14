@@ -75,7 +75,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val personalization by PersonalizationManager.state.collectAsState()
-            TrueHubAppTheme(theme = personalization.theme, isBlackMode = personalization.blackMode) {
+            val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
+            TrueHubAppTheme(
+                theme = personalization.theme,
+                darkTheme = systemDark || personalization.blackMode,
+                isBlackMode = personalization.blackMode
+            ) {
                 MainActivityContent(
                     viewModel = viewModel
                 )
