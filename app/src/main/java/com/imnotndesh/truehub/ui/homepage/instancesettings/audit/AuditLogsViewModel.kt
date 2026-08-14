@@ -35,6 +35,10 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
         queryLogs(currentService, forceRefresh = true)
     }
 
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     fun queryLogs(service: String, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             _uiState.update {
