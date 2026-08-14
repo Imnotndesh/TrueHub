@@ -199,15 +199,17 @@ fun MainScreen(
     val currentRoute = navBackStackEntry?.destination?.route
     val pendingNav by viewModel.pendingNavigation.collectAsState()
     LaunchedEffect(pendingNav) {
-        when (pendingNav) {
-            Screen.Apps.route -> navController.navigate(Screen.Apps.route) {
+        val target = pendingNav
+        when (target) {
+            Screen.Apps.route,
+            Screen.Marketplace.route,
+            Screen.InstanceConfigScreen.route,
+            Screen.SystemUpdateScreen.route -> navController.navigate(
+                target
+            ) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
-            }
-            Screen.SystemUpdateScreen.route -> navController.navigate(Screen.SystemUpdateScreen.route) {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
             }
             else -> return@LaunchedEffect
         }

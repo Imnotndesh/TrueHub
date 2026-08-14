@@ -101,6 +101,14 @@ class MainActivity : ComponentActivity() {
                 viewModel.requestNavigateTo(Screen.Apps.route)
             "com.imnotndesh.truehub.OPEN_SYSTEM_UPDATE" ->
                 viewModel.requestNavigateTo(Screen.SystemUpdateScreen.route)
+            "com.imnotndesh.truehub.OPEN_INSTALL_APP" ->
+                viewModel.requestNavigateTo(Screen.Marketplace.route)
+            "com.imnotndesh.truehub.OPEN_UPDATE_APPS" ->
+                viewModel.requestNavigateTo(Screen.Apps.route)
+            "com.imnotndesh.truehub.OPEN_CONFIGURE_INSTANCE" ->
+                viewModel.requestNavigateTo(Screen.InstanceConfigScreen.route)
+            "com.imnotndesh.truehub.OPEN_UPDATE_INSTANCE" ->
+                viewModel.requestNavigateTo(Screen.SystemUpdateScreen.route)
         }
     }
 

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="install_app"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_install_app_short"
+        android:shortcutLongLabel="@string/shortcut_install_app_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.imnotndesh.truehub.OPEN_INSTALL_APP"
+            android:targetPackage="com.imnotndesh.truehub"
+            android:targetClass="com.imnotndesh.truehub.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="update_apps"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_update_apps_short"
+        android:shortcutLongLabel="@string/shortcut_update_apps_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.imnotndesh.truehub.OPEN_UPDATE_APPS"
+            android:targetPackage="com.imnotndesh.truehub"
+            android:targetClass="com.imnotndesh.truehub.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="configure_instance"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_configure_instance_short"
+        android:shortcutLongLabel="@string/shortcut_configure_instance_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.imnotndesh.truehub.OPEN_CONFIGURE_INSTANCE"
+            android:targetPackage="com.imnotndesh.truehub"
+            android:targetClass="com.imnotndesh.truehub.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="update_instance"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_monochrome"
+        android:shortcutShortLabel="@string/shortcut_update_instance_short"
+        android:shortcutLongLabel="@string/shortcut_update_instance_long"
+        android:shortcutDisabledMessage="@string/shortcut_disabled">
+        <intent
+            android:action="com.imnotndesh.truehub.OPEN_UPDATE_INSTANCE"
+            android:targetPackage="com.imnotndesh.truehub"
+            android:targetClass="com.imnotndesh.truehub.MainActivity" />
+    </shortcut>
+
+</shortcuts>

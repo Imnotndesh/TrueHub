@@ -4,4 +4,14 @@
     <string name="AppUpdateWidgetDescription">View pending TrueNAS app updates</string>
     <string name="PoolWidgetDescription">Monitor TrueNAS storage pool health</string>
     <string name="quick_launch_widget_description">Launch into apps web UI from home screen</string>
+
+    <string name="shortcut_disabled">This shortcut is currently unavailable.</string>
+    <string name="shortcut_install_app_short">Install App</string>
+    <string name="shortcut_install_app_long">Install a new application</string>
+    <string name="shortcut_update_apps_short">Update Apps</string>
+    <string name="shortcut_update_apps_long">Update installed applications</string>
+    <string name="shortcut_configure_instance_short">Configure Instance</string>
+    <string name="shortcut_configure_instance_long">Configure the TrueNAS instance</string>
+    <string name="shortcut_update_instance_short">Update Instance</string>
+    <string name="shortcut_update_instance_long">Update the TrueNAS instance</string>
 </resources>
