@@ -21,7 +21,7 @@ data class PersonalizationState(
     val theme: AppTheme = AppTheme.TRUEHUB,
     val blackMode: Boolean = false,
     val compactNav: Boolean = false,
-    val navbarDestinations: List<NavbarDestination> = NavbarDestination.entries.toList()
+    val navbarDestinations: List<NavbarDestination> = NavbarDestination.defaults
 )
 
 object PersonalizationManager {
@@ -86,7 +86,7 @@ object PersonalizationManager {
             .edit {
                 putString(key(userKey, "navbar"), destinations.joinToString(",") { it.name })
             }
-        _state.value = _state.value.copy(navbarDestinations = destinations)
+        _state.value = _state.value.copy(navbarDestinations = effectiveDestinations(destinations))
     }
 
     /** Removes all personalization for a user (called when an account is deleted). */
@@ -117,7 +117,6 @@ object PersonalizationManager {
             NavbarDestination.APPS,
             NavbarDestination.CONTAINERS,
             NavbarDestination.VMS,
-            NavbarDestination.SETTINGS,
             NavbarDestination.INSTANCE_SETTINGS,
             NavbarDestination.UPDATES,
             NavbarDestination.MARKETPLACE
@@ -145,7 +144,7 @@ object PersonalizationManager {
     ): List<NavbarDestination> {
         val raw = prefs.getString(key(userKey, "navbar"), null)
         if (raw.isNullOrBlank()) {
-            return NavbarDestination.entries.toList()
+            return NavbarDestination.defaults
         }
         val parsed = raw.split(",").mapNotNull { name ->
             runCatching { NavbarDestination.valueOf(name.trim()) }.getOrNull()

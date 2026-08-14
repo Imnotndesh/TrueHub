@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Tune
@@ -28,7 +27,6 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.Tune
@@ -148,7 +146,6 @@ private fun destinationToNavItem(destination: NavbarDestination): NavItem? {
         NavbarDestination.APPS -> NavItem(Screen.Apps, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps)
         NavbarDestination.CONTAINERS -> NavItem(Screen.Containers, "Containers", Icons.Filled.Inventory, Icons.Outlined.Inventory2)
         NavbarDestination.VMS -> NavItem(Screen.Vms, "VMs", Icons.Filled.Computer, Icons.Outlined.Computer)
-        NavbarDestination.SETTINGS -> NavItem(Screen.Settings, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
         NavbarDestination.INSTANCE_SETTINGS -> NavItem(Screen.InstanceConfigScreen, "Instance", Icons.Filled.Tune, Icons.Outlined.Tune)
         NavbarDestination.UPDATES -> NavItem(Screen.SystemUpdateScreen, "Updates", Icons.Filled.SystemUpdateAlt, Icons.Outlined.SystemUpdateAlt)
         NavbarDestination.MARKETPLACE -> NavItem(Screen.Marketplace, "Marketplace", Icons.Filled.Storefront, Icons.Outlined.Storefront)
@@ -166,57 +163,13 @@ fun MainScreen(
     val personalization by PersonalizationManager.state.collectAsState()
     val isCompactNav = personalization.compactNav
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val routesWithoutBottomBar = remember {
-        setOf(
-            Screen.AppConfigScreen.route,
-            Screen.Settings.route,
-            Screen.AppUpgrade.route,
-            Screen.RollbackVersion.route,
-            Screen.AppDetailsScreen.route,
-            Screen.Marketplace.route,
-            Screen.MarketplaceAppDetails.route,
-            Screen.MarketplaceCategory.route,
-            Screen.CatalogInstall.route,
-            Screen.SystemUpdateScreen.route,
-            Screen.AlertClassesConfig.route,
-            Screen.AlertServicesList.route,
-            Screen.AlertServiceDetail.route,
-            Screen.AlertServiceCreate.route,
-            Screen.UserListScreen.route,
-            Screen.UserDetailScreen.route,
-            Screen.UserCreateScreen.route,
-            Screen.ApiKeyListScreen.route,
-            Screen.ApiKeyDetailScreen.route,
-            Screen.ApiKeyCreateScreen.route,
-            Screen.GeneralSystemSettingsScreen.route,
-            Screen.GeneralSystemSettingsEditScreen.route,
-            Screen.AdvancedSystemSettingsScreen.route,
-            Screen.AdvancedSystemSettingsEditScreen.route,
-            Screen.AuditConfigScreen.route,
-            Screen.AuditLogsScreen.route,
-            Screen.NetworkScreen.route,
-            Screen.NetworkEditScreen.route,
-            Screen.BootScreen.route,
-            Screen.BootPoolScreen.route,
-            Screen.BootEnvironmentsScreen.route,
-            Screen.BootEnvironmentDetailScreen.route,
-            Screen.SystemInformationScreen.route,
-            Screen.SoftwareInformationScreen.route,
-            Screen.HardwareInformationScreen.route,
-            Screen.TrueNasConnectScreen.route,
-            Screen.TrueCommandScreen.route,
-            Screen.InstanceConfigScreen.route,
-            Screen.ServicesScreen.route,
-            Screen.ServicesDetailScreen.route,
-            Screen.DiskInfo.route
-            )
-    }
 
     val navItems = remember(personalization.navbarDestinations) {
         personalization.navbarDestinations.mapNotNull { destination ->
             destinationToNavItem(destination)
         }
     }
+    val navRoutes = remember(navItems) { navItems.map { it.screen.route }.toSet() }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -284,7 +237,7 @@ fun MainScreen(
             }
         } else {
             Scaffold(
-                bottomBar = {if (currentRoute !in routesWithoutBottomBar){
+                bottomBar = {if (currentRoute in navRoutes){
                     run {
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surface,

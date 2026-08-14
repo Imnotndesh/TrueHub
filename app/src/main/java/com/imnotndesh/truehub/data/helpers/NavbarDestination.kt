@@ -21,7 +21,6 @@ enum class NavbarDestination(
     APPS("Apps", Screen.Apps.route),
     CONTAINERS("Containers", Screen.Containers.route),
     VMS("VMs", Screen.Vms.route),
-    SETTINGS("Settings", Screen.Settings.route),
     INSTANCE_SETTINGS("Instance Settings", Screen.InstanceConfigScreen.route),
     UPDATES("Updates", Screen.SystemUpdateScreen.route),
     MARKETPLACE("Marketplace", Screen.Marketplace.route);
@@ -29,5 +28,9 @@ enum class NavbarDestination(
     companion object {
         val required get() = entries.filter { it.isRequired }
         val optional get() = entries.filter { !it.isRequired }
+
+        /** Sensible default for a brand-new user with no saved personalization. */
+        val defaults: List<NavbarDestination>
+            get() = listOf(HOME, APPS, INSTANCE_SETTINGS)
     }
 }
