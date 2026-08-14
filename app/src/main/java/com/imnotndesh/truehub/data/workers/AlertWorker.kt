@@ -42,20 +42,27 @@ class AlertsWorker(
     companion object {
         const val WORK_NAME = "TrueNAS_Alerts_Sync"
 
-        // Two channels we expose to users for independent toggling.
+        // Channels we expose to users for independent toggling.
         const val CHANNEL_SYSTEM = "truehub_system_channel"
         const val CHANNEL_INFORMATIONAL = "truehub_informational_channel"
+        const val CHANNEL_WARNING = "truehub_warning_channel"
 
         private val SEEN_ALERTS_KEY = stringSetPreferencesKey("seen_alerts_ids")
 
         /**
-         * Routes a TrueNAS alert to the correct channel based on its textual content.
+         * Routes a TrueNAS alert to the correct channel based on its level and text.
          *
+         * - Warning/critical levels → dedicated high-priority warning channel.
          * - System updates: text mentions "truenas version" or "system update".
          * - Application updates: text mentions "applications" or "updates are available".
          * - Everything else falls back to informational.
          */
         fun channelForAlert(alert: System.AlertResponse): String {
+            val level = alert.level.lowercase()
+            if (level == "warning" || level == "critical") {
+                return CHANNEL_WARNING
+            }
+
             val haystack = buildString {
                 alert.formatted?.let { append(it.lowercase()) }
                 append(' ')
@@ -187,16 +194,19 @@ class AlertsWorker(
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Two independently-toggleable channels, matching the user-facing grouping we want.
+        // Independently-toggleable channels, matching the user-facing grouping we want.
         val systemChannel = NotificationChannel(
             CHANNEL_SYSTEM, "System", NotificationManager.IMPORTANCE_HIGH
         ).apply { description = "System-level update and maintenance notifications" }
         val informationalChannel = NotificationChannel(
             CHANNEL_INFORMATIONAL, "Informational", NotificationManager.IMPORTANCE_DEFAULT
         ).apply { description = "Informational and application update notifications" }
+        val warningChannel = NotificationChannel(
+            CHANNEL_WARNING, "Warnings", NotificationManager.IMPORTANCE_HIGH
+        ).apply { description = "High-priority warnings and critical alerts" }
 
         notificationManager.createNotificationChannels(
-            listOf(systemChannel, informationalChannel)
+            listOf(systemChannel, informationalChannel, warningChannel)
         )
 
         alerts.forEach { alert ->

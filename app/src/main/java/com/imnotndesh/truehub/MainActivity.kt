@@ -96,8 +96,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleWidgetIntent(intent: Intent?) {
-        if (intent?.action == "com.imnotndesh.truehub.OPEN_APPS") {
-            viewModel.requestNavigateTo(Screen.Apps.route)
+        when (intent?.action) {
+            "com.imnotndesh.truehub.OPEN_APPS" ->
+                viewModel.requestNavigateTo(Screen.Apps.route)
+            "com.imnotndesh.truehub.OPEN_SYSTEM_UPDATE" ->
+                viewModel.requestNavigateTo(Screen.SystemUpdateScreen.route)
         }
     }
 

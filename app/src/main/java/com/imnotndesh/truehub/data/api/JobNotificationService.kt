@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import com.imnotndesh.truehub.MainActivity
 import com.imnotndesh.truehub.data.workers.CancelJobReceiver
 
 class JobNotificationService : Service() {
@@ -118,6 +119,22 @@ class JobNotificationService : Service() {
                     .addProgressSegment(NotificationCompat.ProgressStyle.Segment(100))
                     .setProgress(if (isDone) 100 else progress)
             )
+
+        // For system updates, make the live-update card tappable to open the update
+        // screen in-app (SPECIFICALLY for SYSTEM_UPDATE jobs).
+        if (type.equals("SYSTEM_UPDATE", ignoreCase = true)) {
+            val openUpdateIntent = Intent(this, MainActivity::class.java).apply {
+                action = "com.imnotndesh.truehub.OPEN_SYSTEM_UPDATE"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val contentPendingIntent = PendingIntent.getActivity(
+                this,
+                jobId,
+                openUpdateIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.setContentIntent(contentPendingIntent)
+        }
 
         // Request OS promotion as a Live Update (Android 15+ / API 35+). This is a no-op
         // on older platforms and only applies while the job is still in progress.

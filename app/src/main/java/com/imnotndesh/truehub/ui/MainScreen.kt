@@ -199,14 +199,19 @@ fun MainScreen(
     val currentRoute = navBackStackEntry?.destination?.route
     val pendingNav by viewModel.pendingNavigation.collectAsState()
     LaunchedEffect(pendingNav) {
-        if (pendingNav == Screen.Apps.route) {
-            navController.navigate(Screen.Apps.route) {
+        when (pendingNav) {
+            Screen.Apps.route -> navController.navigate(Screen.Apps.route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
             }
-            viewModel.clearPendingNavigation()
+            Screen.SystemUpdateScreen.route -> navController.navigate(Screen.SystemUpdateScreen.route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+            }
+            else -> return@LaunchedEffect
         }
+        viewModel.clearPendingNavigation()
     }
 
     var showSearch by remember { mutableStateOf(false) }
