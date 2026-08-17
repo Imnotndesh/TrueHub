@@ -94,6 +94,7 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootEnvironments
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootPoolScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsEditScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.AppImageManagementScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkScreen
@@ -115,6 +116,7 @@ import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigPageValues
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
+import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppAdvancedInfoScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppDetailsScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppInstallScreen
@@ -418,7 +420,16 @@ private fun TrueHubNavGraph(
                 },
                 onNavigateToTrueCommand = {
                     navController.navigate(Screen.TrueCommandScreen.route)
+                },
+                onNavigateToAppImageManagement = {
+                    navController.navigate(Screen.AppImageManagementScreen.route)
                 }
+            )
+        }
+        composable(Screen.AppImageManagementScreen.route) {
+            AppImageManagementScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.SystemInformationScreen.route) {
@@ -747,6 +758,9 @@ private fun TrueHubNavGraph(
                     AppDataHolder.selectedApp = app
                     navController.navigate(Screen.AppDetailsScreen.route)
                 },
+                onOpenAdvanced = { appId ->
+                    navController.navigate(Screen.AppAdvancedInfoScreen.createRoute(appId))
+                },
                 onNavigateToUpgrade = { appName ->
                     navController.navigate(Screen.AppUpgrade.createRoute(appName)) },
                 onNavigateToRollback = { navController.navigate(Screen.RollbackVersion.createRoute(it)) },
@@ -815,7 +829,22 @@ private fun TrueHubNavGraph(
                         appTrain
                     )
                     navController.navigate(Screen.AppConfigScreen.route)
+                },
+                onOpenAdvanced = { appId ->
+                    navController.navigate(Screen.AppAdvancedInfoScreen.createRoute(appId))
                 }
+            )
+        }
+
+        composable(
+            route = Screen.AppAdvancedInfoScreen.route,
+            arguments = listOf(navArgument("appId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val appId = backStackEntry.arguments?.getString("appId").orEmpty()
+            AppAdvancedInfoScreen(
+                manager = manager,
+                appId = appId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

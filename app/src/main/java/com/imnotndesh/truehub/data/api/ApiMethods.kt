@@ -310,6 +310,18 @@ object ApiMethods {
         const val APP_ROLLBACK_VERSIONS ="app.rollback_versions"
         const val DELETE_APP = "app.delete"
         const val SIMILAR_APPS = "app.similar"
+
+        // ── Container images (app.image.*) ──────────────────
+        const val IMAGE_QUERY = "app.image.query"
+        const val IMAGE_GET_INSTANCE = "app.image.get_instance"
+        const val IMAGE_PULL = "app.image.pull"
+        const val IMAGE_DELETE = "app.image.delete"
+        const val IMAGE_DOCKERHUB_RATE_LIMIT = "app.image.dockerhub_rate_limit"
+
+        // ── iX volumes (app.ix_volume.*) ────────────────────
+        const val IX_VOLUME_EXISTS = "app.ix_volume.exists"
+        const val IX_VOLUME_QUERY = "app.ix_volume.query"
+
         const val LATEST_APPS_TRAIN = "latest"
         const val STABLE_APPS_TRAIN = "stable"
     }

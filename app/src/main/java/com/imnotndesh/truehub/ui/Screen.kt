@@ -27,6 +27,11 @@ sealed class Screen(val route:String, val title:String) {
     object AppConfigScreen : Screen("app_config", "Application config")
     object InstanceConfigScreen : Screen("instance_config", "TrueNAS Instance Configuration")
     object AppDetailsScreen : Screen("app_details", "Application details page")
+    object AppAdvancedInfoScreen : Screen("app_advanced_info/{appId}", "Advanced Application Information") {
+        fun createRoute(appId: String): String {
+            return "app_advanced_info/$appId"
+        }
+    }
     object SystemUpdateScreen : Screen("system_update", "TrueNAS Version Update")
     object MarketplaceCategory : Screen("marketplace?category={category}", "Marketplace Category") {
         fun createRoute(category: String): String {
@@ -93,5 +98,6 @@ sealed class Screen(val route:String, val title:String) {
     object HardwareInformationScreen : Screen("hardware_information", "Hardware Information")
     object TrueNasConnectScreen : Screen("truenas_connect", "TrueNAS Connect")
     object TrueCommandScreen : Screen("truecommand", "TrueCommand")
+    object AppImageManagementScreen : Screen("app_image_management", "App Image Management")
 
 }

@@ -114,6 +114,7 @@ object Apps {
     data class ActiveWorkloads(
         val containers: Int = 0,
         @field:Json("used_ports") val usedPorts: List<UsedPort>? = null,
+        @field:Json("used_host_ips") val usedHostIps: List<String>? = null,
         @field:Json("container_details") val containerDetails: List<ContainerDetail>? = null,
         val volumes: List<Volume>? = null,
         val images: List<String>? = null,
@@ -386,25 +387,30 @@ object Apps {
         STOPPING
     }
 
+    /**
+     * Rich per-instance model returned by `app.get_instance`.
+     * Mirrors the `AppEntry`/`AppQueryResponse` shape used across the app.
+     */
     @JsonClass(generateAdapter = true)
     @Suppress("PropertyName")
     data class AppInstanceResponse(
-        val name : String,
-        val id : Int,
-        val state : AppInstanceState,
-        val upgrade_available: Boolean,
-        val latest_version: String? = null,
-        val image_Updates_available : Boolean,
-        val custom_app : Boolean,
-        val migrated : Boolean,
-        val human_version: String,
-        val version : String,
-        val metadata : Map<String?,Any?> ?= emptyMap(),
-        val activeWorkloads: ActiveWorkloads ? = null,
-        val notes :String ?= null,
-        val portals: Map<String, String>? = emptyMap(),
-        val version_details : Map<String,Any>? = null,
-        val config : Map<String,Any>?= null
+        val name: String,
+        val id: String,
+        val state: AppInstanceState,
+        @field:Json("upgrade_available") val upgradeAvailable: Boolean = false,
+        @field:Json("latest_version") val latestVersion: String? = null,
+        @field:Json("image_updates_available") val imageUpdatesAvailable: Boolean = false,
+        @field:Json("custom_app") val customApp: Boolean = false,
+        val migrated: Boolean = false,
+        @field:Json("migrated_from_kubernetes") val migratedFromKubernetes: Boolean = false,
+        @field:Json("human_version") val humanVersion: String? = null,
+        val version: String? = null,
+        val metadata: Metadata? = null,
+        @field:Json("active_workloads") val activeWorkloads: ActiveWorkloads? = null,
+        val notes: String? = null,
+        val portals: Map<String, String>? = null,
+        @field:Json("version_details") val versionDetails: Map<String, Any?>? = null,
+        val config: Map<String, Any?>? = null
     )
     @Suppress("PropertyName")
     data class UpdateAppConfigOptions(
@@ -418,6 +424,99 @@ object Apps {
     // available (consumable-by-apps) storage in the configured apps pool.
     @Suppress("PropertyName")
     data class AvailableAppStorage(val availableBytes: Long = 0L)
+
+    // ─────────────────────────────────────────────────────────────
+    // Container images (app.image.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /** `app.image.get_instance` → a single container image. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImageEntry(
+        val id: String,
+        @field:Json("repo_tags") val repoTags: List<String> = emptyList(),
+        @field:Json("repo_digests") val repoDigests: List<String> = emptyList(),
+        val size: Long = 0,
+        val dangling: Boolean = false,
+        @field:Json("update_available") val updateAvailable: Boolean = false,
+        val created: String? = null,
+        val author: String? = null,
+        val comment: String? = null,
+        @field:Json("parsed_repo_tags") val parsedRepoTags: List<AppImageParsedRepoTags>? = null
+    )
+
+    /** One item returned by `app.image.query`. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImageQueryResultItem(
+        val id: String,
+        @field:Json("repo_tags") val repoTags: List<String> = emptyList(),
+        @field:Json("repo_digests") val repoDigests: List<String> = emptyList(),
+        val size: Long = 0,
+        val dangling: Boolean = false,
+        @field:Json("update_available") val updateAvailable: Boolean = false,
+        val created: String? = null,
+        val author: String? = null,
+        val comment: String? = null,
+        @field:Json("parsed_repo_tags") val parsedRepoTags: List<AppImageParsedRepoTags>? = null
+    )
+
+    /** Parsed tag breakdown for an image reference (docker.io/library/nginx:1.25 → parts). */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImageParsedRepoTags(
+        val reference: String,
+        val image: String,
+        val tag: String? = null,
+        val registry: String? = null,
+        @field:Json("complete_tag") val completeTag: String? = null,
+        @field:Json("reference_is_digest") val referenceIsDigest: Boolean = false
+    )
+
+    /** Credentials for pulling from a private registry. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImageAuthConfig(
+        val username: String,
+        val password: String,
+        @field:Json("registry_uri") val registryUri: String? = null
+    )
+
+    /** Arguments for `app.image.pull`. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImagePullArgs(
+        val image: String,
+        @field:Json("auth_config") val authConfig: AppImageAuthConfig? = null
+    )
+
+    /** Options for `app.image.delete`. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppImageDeleteOptions(val force: Boolean = false)
+
+    /** `app.image.dockerhub_rate_limit` → Docker Hub rate limit info. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class ContainerImagesDockerhubRateLimitResult(
+        @field:Json("total_pull_limit") val totalPullLimit: Int? = null,
+        @field:Json("total_time_limit_in_secs") val totalTimeLimitInSecs: Int? = null,
+        @field:Json("remaining_pull_limit") val remainingPullLimit: Int? = null,
+        @field:Json("remaining_time_limit_in_secs") val remainingTimeLimitInSecs: Int? = null,
+        val error: String? = null
+    )
+
+    // ─────────────────────────────────────────────────────────────
+    // iX volumes (app.ix_volume.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /** One item returned by `app.ix_volume.query`. */
+    @JsonClass(generateAdapter = true)
+    @Suppress("PropertyName")
+    data class AppIxVolumeQueryResultItem(
+        @field:Json("app_name") val appName: String? = null,
+        val name: String? = null
+    )
 }
 
 /**

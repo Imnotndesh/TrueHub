@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Key
@@ -78,6 +79,7 @@ fun InstanceConfigScreen(
     onNavigateToSystemInformation: () -> Unit = {},
     onNavigateToTrueNasConnect: () -> Unit = {},
     onNavigateToTrueCommand: () -> Unit = {},
+    onNavigateToAppImageManagement: () -> Unit = {},
 
 ) {
     Column(
@@ -151,6 +153,20 @@ fun InstanceConfigScreen(
                         onClick = onNavigateToApiKeys
                     ),
 
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            InstanceConfigSection(
+                title = "App Management",
+                items = listOf(
+                    InstanceConfigItem(
+                        icon = Icons.Default.Image,
+                        name = "App Image Management",
+                        description = "View, pull, and delete Docker images",
+                        onClick = onNavigateToAppImageManagement
+                    )
                 )
             )
 

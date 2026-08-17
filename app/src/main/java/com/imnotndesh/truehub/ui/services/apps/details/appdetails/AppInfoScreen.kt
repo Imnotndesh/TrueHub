@@ -21,14 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Launch
-import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Apps
@@ -44,7 +43,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Update
@@ -102,7 +100,6 @@ import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
-import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
@@ -113,7 +110,8 @@ fun AppInfoScreen(
     onDeleteSuccess: () -> Unit,
     onEditClick: (String,String) -> Unit,
     onNavigateToMarketplaceCategory: (String) -> Unit = {},
-    onNavigateToMarketplaceAppDetails: (String) -> Unit = {}
+    onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
+    onOpenAdvanced: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: AppDetailsViewModel = viewModel(
@@ -121,7 +119,6 @@ fun AppInfoScreen(
         key = app.name
     )
     var showDeleteConfigDialog by remember { mutableStateOf(false) }
-    var activeScreenshotIndex by remember { mutableStateOf<Int?>(null) }
     val deletionJobId by viewModel.deletionJobId.collectAsState()
     val activeJobs by JobRepository.activeJobs.collectAsState()
     val currentDeletionJob = deletionJobId?.let { activeJobs[it] }
@@ -275,6 +272,58 @@ fun AppInfoScreen(
                 }
             }
 
+            // Advanced info entry (opens the get_instance-driven deep-dive screen).
+            Card(
+                onClick = { onOpenAdvanced(app.id) },
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Build,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Advanced Information",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Workloads, ports, storage, notes and screenshots",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Open advanced information",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
             ExpressiveSection(title = "Basic Information", icon = Icons.Default.Info) {
                 ExpressiveInfoCard {
                     InfoRow(label = "App Name", value = app.metadata?.title ?: app.name)
@@ -387,37 +436,6 @@ fun AppInfoScreen(
                                 textView.text = HtmlCompat.fromHtml(description, HtmlCompat.FROM_HTML_MODE_LEGACY)
                             }
                         )
-                    }
-                }
-            }
-
-            app.metadata?.screenshots?.let { screenshots ->
-                if (screenshots.isNotEmpty()) {
-                    ExpressiveSection(title = "Screenshots", icon = Icons.Default.Photo) {
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            itemsIndexed(screenshots) { index, screenshotUrl ->
-                                Card(
-                                    shape = RoundedCornerShape(16.dp),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                                    modifier = Modifier
-                                        .width(240.dp)
-                                        .height(140.dp)
-                                        .clickable {
-                                            activeScreenshotIndex = index
-                                        }
-                                ) {
-                                    AsyncImage(
-                                        model = screenshotUrl,
-                                        contentDescription = "Screenshot $index",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -586,28 +604,6 @@ fun AppInfoScreen(
                 }
             }
 
-            app.notes?.let { notes ->
-                if (notes.isNotBlank()) {
-                    ExpressiveSection(title = "Notes", icon = Icons.AutoMirrored.Filled.Note) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            ),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Box(modifier = Modifier.padding(16.dp)) {
-                                MarkdownText(
-                                    markdown = notes,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
             ExpressiveSection(title = "Danger Zone", icon = Icons.Default.Build) {
                 Card(
                     colors = CardDefaults.cardColors(
@@ -672,13 +668,6 @@ fun AppInfoScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-    if (activeScreenshotIndex != null && !app.metadata?.screenshots.isNullOrEmpty()) {
-        ScreenshotViewer(
-            screenshots = app.metadata.screenshots,
-            initialIndex = activeScreenshotIndex!!,
-            onDismiss = { activeScreenshotIndex = null }
-        )
     }
 }
 

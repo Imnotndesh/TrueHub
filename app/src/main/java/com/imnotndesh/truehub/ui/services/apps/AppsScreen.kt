@@ -133,6 +133,7 @@ import kotlin.time.Duration.Companion.milliseconds
 fun AppsScreen(
     manager: TrueNASApiManager,
     onNavigateToAppInfo: (Apps.AppQueryResponse) -> Unit = {},
+    onOpenAdvanced: (String) -> Unit = {},
     onNavigateToUpgrade: (String) -> Unit,
     onNavigateToRollback: (String) -> Unit = {},
     onNavigateToMarketplace: () -> Unit = {},
@@ -459,6 +460,7 @@ fun AppsScreen(
                                     }
                                 },
                                 onCloseInfoPane = { selectedAppForInfo = null },
+                                onOpenAdvanced = onOpenAdvanced,
                                 isSelectionMode = isSelectionMode,
                                 selectedAppIds = selectedAppIds,
                                 onToggleSelection = { appId ->
@@ -666,6 +668,7 @@ private fun AppsSplitPaneContent(
     onShowRollbackDialog: (String) -> Unit,
     onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
     onCloseInfoPane: () -> Unit,
+    onOpenAdvanced: (String) -> Unit = {},
     isSelectionMode: Boolean = false,
     selectedAppIds: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -711,7 +714,8 @@ private fun AppsSplitPaneContent(
                 ) {
                     AppInfoPane(
                         app = app,
-                        onClose = onCloseInfoPane
+                        onClose = onCloseInfoPane,
+                        onOpenAdvanced = onOpenAdvanced
                     )
                 }
             }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,15 +15,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Launch
-import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Apps
@@ -39,7 +35,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Update
@@ -53,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,7 +70,8 @@ import dev.jeziellago.compose.markdowntext.MarkdownText
 @Composable
 fun AppInfoPane(
     app: Apps.AppQueryResponse,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onOpenAdvanced: (String) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -89,7 +86,7 @@ fun AppInfoPane(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                AppInfoPaneHeader(app = app, onClose = onClose)
+                AppInfoPaneHeader(app = app, onClose = onClose, onOpenAdvanced = onOpenAdvanced)
 
                 ServiceInfoSection(title = "Basic Information", icon = Icons.Default.Info) {
                     ServiceInfoRow("App Name", app.metadata?.title ?: app.name)
@@ -179,34 +176,6 @@ fun AppInfoPane(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
                         )
-                    }
-                }
-
-                app.metadata?.screenshots?.let { screenshots ->
-                    if (screenshots.isNotEmpty()) {
-                        ServiceInfoSection(title = "Screenshots", icon = Icons.Default.Photo) {
-                            LazyRow(
-                                contentPadding = PaddingValues(horizontal = 2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(screenshots) { url ->
-                                    Card(
-                                        shape = RoundedCornerShape(12.dp),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                                        modifier = Modifier
-                                            .width(180.dp)
-                                            .height(110.dp)
-                                    ) {
-                                        AsyncImage(
-                                            model = url,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -363,23 +332,6 @@ fun AppInfoPane(
                     }
                 }
 
-                app.notes?.let { notes ->
-                    if (notes.isNotBlank()) {
-                        ServiceInfoSection(title = "Notes", icon = Icons.AutoMirrored.Filled.Note) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                MarkdownText(
-                                    markdown = notes,
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -388,7 +340,8 @@ fun AppInfoPane(
 @Composable
 private fun AppInfoPaneHeader(
     app: Apps.AppQueryResponse,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onOpenAdvanced: (String) -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -396,17 +349,34 @@ private fun AppInfoPaneHeader(
             .height(180.dp)
     ) {
         WavyGradientBackground {
-            IconButton(
-                onClick = onClose,
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(16.dp)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                TextButton(onClick = { onOpenAdvanced(app.id) }) {
+                    Icon(
+                        imageVector = Icons.Default.Build,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Advanced",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
             Column(
                 modifier = Modifier
