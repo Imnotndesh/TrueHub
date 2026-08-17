@@ -1,18 +1,20 @@
 package com.imnotndesh.truehub.ui.settings.logging
 
 import android.app.Application
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -70,6 +72,7 @@ fun AppLoggingScreen(
 
     var enabled by remember { mutableStateOf(LoggingPrefs.isEnabled(app)) }
     var fileSink by remember { mutableStateOf(LoggingPrefs.isFileSinkEnabled(app)) }
+    var logcatSink by remember { mutableStateOf(LoggingPrefs.isLogcatEnabled(app)) }
     var format by remember { mutableStateOf(LoggingPrefs.format(app)) }
     var entries by remember { mutableStateOf<List<InternalLogger.Entry>>(InternalLogger.snapshot()) }
     var exporting by remember { mutableStateOf(false) }
@@ -84,6 +87,7 @@ fun AppLoggingScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        modifier = Modifier.padding(WindowInsets.systemBars.asPaddingValues()),
         topBar = {
             com.imnotndesh.truehub.ui.components.UnifiedScreenHeader(
                 title = "App Logging",
@@ -118,6 +122,15 @@ fun AppLoggingScreen(
                         onCheckedChange = {
                             enabled = it
                             TrueHubLogger.setLoggingEnabled(app, it)
+                        }
+                    )
+                    ToggleRow(
+                        title = "Log to Logcat",
+                        subtitle = "Print each line to Logcat (capture still works even when off)",
+                        checked = logcatSink,
+                        onCheckedChange = {
+                            logcatSink = it
+                            InternalLogger.setLogcatEnabled(app, it)
                         }
                     )
                     ToggleRow(

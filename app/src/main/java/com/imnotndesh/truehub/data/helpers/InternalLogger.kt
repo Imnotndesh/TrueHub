@@ -59,6 +59,7 @@ object InternalLogger {
 
     @Volatile private var enabled = false
     @Volatile private var fileSinkEnabled = false
+    @Volatile private var logcatEnabled = true
 
     private val logDir: AtomicReference<File?> = AtomicReference(null)
     @Volatile private var appContext: Context? = null
@@ -69,6 +70,7 @@ object InternalLogger {
         appContext = app
         enabled = LoggingPrefs.isEnabled(app)
         fileSinkEnabled = LoggingPrefs.isFileSinkEnabled(app)
+        logcatEnabled = LoggingPrefs.isLogcatEnabled(app)
         logDir.set(File(app.filesDir, "logs").apply { mkdirs() })
     }
 
@@ -86,6 +88,14 @@ object InternalLogger {
 
     fun isFileSinkEnabled(): Boolean = fileSinkEnabled
 
+    /** Whether log lines are also printed to Logcat (independent of buffer/file capture). */
+    fun isLogcatEnabled(): Boolean = logcatEnabled
+
+    fun setLogcatEnabled(context: Context, on: Boolean) {
+        logcatEnabled = on
+        LoggingPrefs.setLogcatEnabled(context, on)
+    }
+
     // ── Logging API (mirrors TrueHubLogger so call sites stay the same) ──
     fun d(tag: String, message: String) = log('D', tag, message, null)
     fun i(tag: String, message: String) = log('I', tag, message, null)
@@ -100,12 +110,15 @@ object InternalLogger {
             if (buffer.size >= BUFFER_CAPACITY) buffer.removeFirst()
             buffer.addLast(entry)
         }
-        // Logcat path (cheap, direct).
-        when (level) {
-            'D' -> Log.d(tag, message, throwable)
-            'I' -> Log.i(tag, message, throwable)
-            'W' -> Log.w(tag, message, throwable)
-            'E' -> Log.e(tag, message, throwable)
+        // Logcat path (cheap, direct) — independent toggle so capture can stay on while
+        // keeping Logcat quiet (or vice-versa).
+        if (logcatEnabled) {
+            when (level) {
+                'D' -> Log.d(tag, message, throwable)
+                'I' -> Log.i(tag, message, throwable)
+                'W' -> Log.w(tag, message, throwable)
+                'E' -> Log.e(tag, message, throwable)
+            }
         }
         // Async file path.
         if (fileSinkEnabled) executor.execute { appendToFile(entry) }

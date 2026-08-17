@@ -25,6 +25,7 @@ object LoggingPrefs {
     private const val KEY_VISIBLE = "visible"
     private const val KEY_FORMAT = "format"
     private const val KEY_FILE_SINK = "file_sink"
+    private const val KEY_LOGCAT_SINK = "logcat_sink"
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -51,10 +52,17 @@ object LoggingPrefs {
         prefs(context).edit { putString(KEY_FORMAT, format.id) }
     }
 
-    /** Whether to write log lines to a local file in addition to Logcat. */
+    /** Whether to write log lines to a local file. */
     fun isFileSinkEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_FILE_SINK, false)
 
     fun setFileSinkEnabled(context: Context, enabled: Boolean) {
         prefs(context).edit { putBoolean(KEY_FILE_SINK, enabled) }
+    }
+
+    /** Whether to print log lines to Logcat. Defaults to true (the classic developer behaviour). */
+    fun isLogcatEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_LOGCAT_SINK, true)
+
+    fun setLogcatEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit { putBoolean(KEY_LOGCAT_SINK, enabled) }
     }
 }
