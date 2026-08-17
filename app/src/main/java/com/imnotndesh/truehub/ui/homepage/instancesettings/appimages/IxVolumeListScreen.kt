@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -132,7 +132,9 @@ fun IxVolumeListScreen(
                                 }
                             }
                         } else {
-                            items(items, key = { it.name ?: it.appName ?: it.toString() }) { volume ->
+                            // Index-based keys: iX volumes can share names (e.g. multiple "config"
+                            // volumes), which would otherwise crash Lazy with duplicate keys.
+                            itemsIndexed(items, key = { i, _ -> "ixv_$i" }) { _, volume ->
                                 IxVolumeRow(volume)
                             }
                         }
