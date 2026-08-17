@@ -40,16 +40,35 @@ class AppsService(val manager: TrueNASApiManager) {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Query docker images (`app.image.query`).
+     * Query docker images (`app.image.query`) with optional pagination.
+     *
+     * Localised/paginated reads are important with large registries: [offset]/[limit]
+     * let callers page through results, and [parseTags] can be turned off for cheap
+     * list screens (tag breakdowns can then be fetched per-image via get_instance).
      *
      * @param parseTags When true, request normalized (`parsed_repo_tags`) tag breakdowns.
+     *   Defaults to false for efficient bulk list reads.
+     * @param offset Skip this many results (for pagination).
+     * @param limit Max number of results to return (0 = no limit).
      * @param filters Optional query filters.
      */
-    suspend fun queryImagesWithResult(parseTags: Boolean = true, filters: List<Any> = emptyList()): ApiResult<List<Apps.AppImageQueryResultItem>> {
+    suspend fun queryImagesWithResult(
+        parseTags: Boolean = false,
+        offset: Int = 0,
+        limit: Int = 0,
+        filters: List<Any> = emptyList()
+    ): ApiResult<List<Apps.AppImageQueryResultItem>> {
         val type = Types.newParameterizedType(List::class.java, Apps.AppImageQueryResultItem::class.java)
         return manager.callWithResult(
             method = ApiMethods.Apps.IMAGE_QUERY,
-            params = listOf(filters, mapOf("extra" to mapOf("parse_tags" to parseTags))),
+            params = listOf(
+                filters,
+                mapOf(
+                    "extra" to mapOf("parse_tags" to parseTags),
+                    "offset" to offset,
+                    "limit" to limit
+                )
+            ),
             resultType = type
         )
     }

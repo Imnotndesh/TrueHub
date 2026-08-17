@@ -33,10 +33,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NetworkCheck
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Card
@@ -222,30 +220,21 @@ private fun AdvancedInstanceContent(
             }
         }
 
-        // Basic Information
-        ExpressiveSection(title = "Basic Information", icon = Icons.Default.Info) {
+        // Workloads overview — top-level get_instance summary (exhausts active_workloads).
+        val workloads = instance.activeWorkloads
+        ExpressiveSection(title = "Workloads Overview", icon = Icons.Default.NetworkCheck) {
             ExpressiveInfoCard {
-                InfoRow(label = "ID", value = instance.id)
+                InfoRow(label = "Containers", value = "${workloads?.containers ?: 0}")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow(label = "Name", value = instance.name)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow(label = "State", value = instance.state)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow(label = "Version", value = instance.humanVersion ?: instance.version ?: "Unknown")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                InfoRow(label = "Catalog Train", value = instance.metadata?.train ?: "Unknown")
-                if (instance.latestVersion != null) {
+                workloads?.usedHostIps?.let { ips ->
+                    InfoRow(label = "Host IPs", value = ips.size.toString())
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    InfoRow(label = "Upgrade Available", value = if (instance.upgrade_available) "Yes (${instance.latestVersion})" else "No")
                 }
-                if (instance.customApp) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    InfoRow(label = "Type", value = "Custom Application")
-                }
-                if (instance.migratedFromKubernetes) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    InfoRow(label = "Migrated", value = "From Kubernetes")
-                }
+                InfoRow(label = "Image Updates", value = if (instance.image_Updates_available) "Available" else "Up to date")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                InfoRow(label = "Type", value = if (instance.customApp) "Custom Application" else "Catalog")
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                InfoRow(label = "Migrated", value = if (instance.migratedFromKubernetes) "From Kubernetes" else "No")
             }
         }
 
@@ -555,16 +544,48 @@ private fun AdvancedNetworkCard(network: Apps.Network) {
                     }
                 }
             }
-            network.driver?.let { Text("Driver: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            network.driver?.let { DetailLine("Driver", it) }
+            network.scope?.let { DetailLine("Scope", it) }
+            network.created?.let { DetailLine("Created", it) }
+            network.id?.let { DetailLine("ID", it) }
+            network.enableIPv6?.let { DetailLine("IPv6", if (it) "Enabled" else "Disabled") }
+            network.ipam?.driver?.let { DetailLine("IPAM Driver", it) }
             network.ipam?.config?.let { configs ->
                 configs.forEach { config ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        config.subnet?.let { Text("Subnet: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        config.gateway?.let { Text("GW: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (config.subnet != null || config.gateway != null) {
+                        DetailLine(
+                            "Subnet",
+                            listOfNotNull(config.subnet, config.gateway?.let { "GW: $it" }).joinToString("  ·  ")
+                        )
                     }
                 }
             }
+            val labels = network.labels
+            if (!labels.isNullOrEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                Text(
+                    text = "Labels",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                labels.forEach { (k, v) ->
+                    Text(
+                        text = "$k: $v",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun DetailLine(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 

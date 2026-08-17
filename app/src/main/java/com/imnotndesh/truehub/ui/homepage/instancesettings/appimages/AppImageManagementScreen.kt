@@ -16,13 +16,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -30,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -45,6 +50,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,27 +76,49 @@ fun AppImageManagementScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    var images by remember { mutableStateOf<List<Apps.AppImageQueryResultItem>?>(null) }
+    // ── paged image list state ──────────────────────────────────
+    val pageSize = 60
+    var images by remember { mutableStateOf<List<Apps.AppImageQueryResultItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var isLoadingMore by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(true) }
+    var total by remember { mutableStateOf<Int?>(null) }
+    var searchQuery by remember { mutableStateOf("" ) }
+
     var ixVolumes by remember { mutableStateOf<List<Apps.AppIxVolumeQueryResultItem>?>(null) }
     var rateLimit by remember { mutableStateOf<Apps.ContainerImagesDockerhubRateLimitResult?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-
     var showPullDialog by remember { mutableStateOf(false) }
     var selectedImageId by remember { mutableStateOf<String?>(null) }
-    val appScope = rememberCoroutineScope()
 
-    suspend fun refresh() {
-        error = null
-        images = null
-        ixVolumes = null
-        rateLimit = null
-        isLoading = true
-        when (val result = manager.apps.queryImagesWithResult(parseTags = true)) {
-            is ApiResult.Success -> images = result.data
+    val appScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
+    suspend fun loadImages(reset: Boolean) {
+        val offset = if (reset) 0 else images.size
+        val result = manager.apps.queryImagesWithResult(
+            parseTags = true,
+            offset = offset,
+            limit = pageSize
+        )
+        when (result) {
+            is ApiResult.Success -> {
+                val page = result.data
+                images = if (reset) page else images + page
+                hasMore = page.size >= pageSize
+                if (reset) total = page.size // size of first page; refined below
+            }
             is ApiResult.Error -> error = result.message ?: "Failed to load images"
             is ApiResult.Loading -> {}
         }
+    }
+
+    suspend fun refresh() {
+        error = null
+        ixVolumes = null
+        rateLimit = null
+        isLoading = true
+        loadImages(reset = true)
         when (val result = manager.apps.queryIxVolumesWithResult()) {
             is ApiResult.Success -> ixVolumes = result.data
             is ApiResult.Error -> error = result.message ?: "Failed to load iX volumes"
@@ -106,6 +134,32 @@ fun AppImageManagementScreen(
 
     LaunchedEffect(Unit) { refresh() }
 
+    // Locally filter the loaded images by the search query.
+    val filtered = remember(searchQuery, images) {
+        if (searchQuery.isBlank()) images
+        else images.filter { img ->
+            val label = img.parsedRepoTags?.firstOrNull()?.completeTag
+                ?: img.repoTags.firstOrNull()
+                ?: img.id
+            label.contains(searchQuery, ignoreCase = true) ||
+                img.id.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    // Load the next page as the user scrolls toward the end of the list.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisible ->
+                val loaded = images.size
+                val threshold = (loaded - pageSize / 2).coerceAtLeast(0)
+                if (hasMore && !isLoadingMore && loaded > 0 && lastVisible != null && lastVisible >= threshold) {
+                    isLoadingMore = true
+                    loadImages(reset = false)
+                    isLoadingMore = false
+                }
+            }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,7 +174,7 @@ fun AppImageManagementScreen(
     ) {
         UnifiedScreenHeader(
             title = "App Image Management",
-            subtitle = "${images?.size ?: 0} image(s)",
+            subtitle = "${total ?: images.size} image(s) · ${images.size} loaded",
             isLoading = isLoading,
             isRefreshing = false,
             error = error,
@@ -133,7 +187,7 @@ fun AppImageManagementScreen(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { innerPadding ->
-            if (isLoading && images == null) {
+            if (isLoading && images.isEmpty()) {
                 LoadingScreen("Loading images…")
             } else {
                 PullToRefreshBox(
@@ -144,6 +198,7 @@ fun AppImageManagementScreen(
                         .padding(innerPadding)
                 ) {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -165,6 +220,24 @@ fun AppImageManagementScreen(
                             }
                         }
 
+                        item {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text("Search images…") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { searchQuery = "" }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                        }
+                                    }
+                                },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         rateLimit?.let { rl -> item { DockerHubRateLimitCard(rl) } }
 
                         val vols = ixVolumes
@@ -183,9 +256,7 @@ fun AppImageManagementScreen(
                             item { Spacer(modifier = Modifier.height(4.dp)) }
                         }
 
-                        val imgs = images
-                        if (imgs != null) {
-                            item {
+                        item {
                                 Text(
                                     text = "Docker Images",
                                     style = MaterialTheme.typography.titleMedium,
@@ -193,16 +264,16 @@ fun AppImageManagementScreen(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
-                            if (imgs.isEmpty()) {
+                            if (filtered.isEmpty()) {
                                 item {
                                     Text(
-                                        text = "No images found. Pull one from a registry.",
+                                        text = if (searchQuery.isBlank()) "No images found. Pull one from a registry." else "No images match your search.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             } else {
-                                items(imgs, key = { it.id }) { image ->
+                                items(filtered, key = { it.id }) { image ->
                                     ImageRow(
                                         image = image,
                                         onDetail = { selectedImageId = image.id },
@@ -210,12 +281,29 @@ fun AppImageManagementScreen(
                                     )
                                 }
                             }
+                            if (hasMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isLoadingMore) {
+                                            CircularProgressIndicator(modifier = Modifier.size(26.dp), strokeWidth = 2.dp)
+                                        } else {
+                                            Text(
+                                                text = "Scroll for more image(s)…",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }
 
     if (showPullDialog) {
         PullImageDialog(

@@ -38,12 +38,10 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.BasicAlertDialog
@@ -470,107 +468,6 @@ fun AppInfoScreen(
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                 onChipClick = {}
                             )
-                        }
-                    }
-                }
-            }
-
-            app.portals?.let { portals ->
-                if (portals.isNotEmpty()) {
-                    ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
-                        portals.forEach { (name, url) ->
-                            ServicePortalCard(name = name, url = url)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-
-            app.activeWorkloads?.let { workloads ->
-                val hasPorts = !workloads.usedPorts.isNullOrEmpty()
-                val hasNetworks = !workloads.networks.isNullOrEmpty()
-                if (hasPorts || hasNetworks) {
-                    ExpressiveSection(title = "Network & Ports", icon = Icons.Default.NetworkCheck) {
-                        if (hasPorts) {
-                            Text(
-                                text = "Exposed Ports",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                            )
-                            workloads.usedPorts.forEach { port ->
-                                ServicePortCard(port = port)
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                        if (hasNetworks) {
-                            if (hasPorts) Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Docker Networks",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                            )
-                            workloads.networks.forEach { network ->
-                                ServiceNetworkCard(network = network)
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-            }
-
-            app.activeWorkloads?.containerDetails?.let { containers ->
-                if (containers.isNotEmpty()) {
-                    ExpressiveSection(title = "Containers", icon = Icons.Default.Apps) {
-                        containers.forEach { container ->
-                            ServiceContainerCard(container = container)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-
-            app.activeWorkloads?.images?.let { images ->
-                if (images.isNotEmpty()) {
-                    ExpressiveSection(title = "Container Images", icon = Icons.Default.Image) {
-                        ServiceImagesCard(images = images)
-                    }
-                }
-            }
-
-            val volumes = app.activeWorkloads?.volumes
-            val hostMounts = app.metadata?.hostMounts
-            if (!volumes.isNullOrEmpty() || !hostMounts.isNullOrEmpty()) {
-                ExpressiveSection(title = "Storage & Mounts", icon = Icons.Default.Storage) {
-                    volumes?.forEach { volume ->
-                        ServiceVolumeCard(volume = volume)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    hostMounts?.forEach { mount ->
-                        ServiceHostMountCard(mount = mount)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-            }
-
-            app.metadata?.runAsContext?.let { contexts ->
-                if (contexts.isNotEmpty()) {
-                    ExpressiveSection(title = "Security Context", icon = Icons.Default.AccountBox) {
-                        contexts.forEach { ctx ->
-                            ServiceRunAsContextCard(context = ctx)
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                    }
-                }
-            }
-
-            app.metadata?.capabilities?.let { capabilities ->
-                if (capabilities.isNotEmpty()) {
-                    ExpressiveSection(title = "Capabilities", icon = Icons.Default.Build) {
-                        capabilities.forEach { capability ->
-                            ServiceCapabilityCard(capability = capability)
-                            Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
                 }
