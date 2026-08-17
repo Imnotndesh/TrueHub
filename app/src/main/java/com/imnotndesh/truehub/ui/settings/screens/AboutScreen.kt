@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.LoggingPrefs
 import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import kotlinx.coroutines.delay
@@ -76,6 +77,10 @@ fun AboutScreen(
     var showEasterEgg by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
     val context = LocalContext.current
+
+    // Hidden "App Logging" reveal: 5 taps on the "Performance Tracking" card toggles it.
+    var loggingTapCount by remember { mutableIntStateOf(0) }
+    var loggingVisible by remember { mutableStateOf(LoggingPrefs.isVisible(context)) }
 
     LaunchedEffect(tapCount) {
         if (tapCount > 0) {
@@ -201,10 +206,19 @@ fun AboutScreen(
                             description = "Real-time monitoring of your TrueNAS system"
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                        // 5 taps toggles the hidden App Logging entry (persisted, never auto-resets).
                         FeatureCard(
                             icon = Icons.Default.Speed,
                             title = "Performance Tracking",
-                            description = "Track CPU, memory, and disk performance"
+                            description = "Track CPU, memory, and disk performance",
+                            onClick = {
+                                loggingTapCount++
+                                if (loggingTapCount >= 5) {
+                                    loggingTapCount = 0
+                                    loggingVisible = !loggingVisible
+                                    LoggingPrefs.setVisible(context, loggingVisible)
+                                }
+                            }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         FeatureCard(
@@ -350,13 +364,15 @@ private fun AboutInfoSection(
 private fun FeatureCard(
     icon: ImageVector,
     title: String,
-    description: String
+    description: String,
+    onClick: () -> Unit = {}
 ) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

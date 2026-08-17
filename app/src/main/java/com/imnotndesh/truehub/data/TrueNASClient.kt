@@ -34,9 +34,6 @@ class TrueNASClient(private val config: ClientConfig) {
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .build()
     }
-    init {
-        TrueHubLogger.isLoggingEnabled = config.enableDebugLogging
-    }
     private val logName = "TrueNAS-Client"
 
     private var webSocket: WebSocket? = null

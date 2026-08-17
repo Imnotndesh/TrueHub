@@ -58,6 +58,7 @@ import com.imnotndesh.truehub.ui.settings.SettingsEvent
 import com.imnotndesh.truehub.ui.settings.SettingsScreen
 import com.imnotndesh.truehub.ui.settings.SettingsScreenViewModel
 import com.imnotndesh.truehub.ui.settings.screens.AboutScreen
+import com.imnotndesh.truehub.ui.settings.logging.AppLoggingScreen
 import com.imnotndesh.truehub.ui.settings.screens.LicensesScreen
 import com.imnotndesh.truehub.ui.settings.screens.ThemeScreen
 import com.imnotndesh.truehub.ui.settings.sheets.ChangePasswordScreen
@@ -320,6 +321,9 @@ private fun AppNavigation(
                 onNavigateToLicenses = {
                     navController.navigate(Screen.Licenses.route)
                 },
+                onNavigateToLogging = {
+                    navController.navigate(Screen.AppLogging.route)
+                },
                 onNavigateToLogin = {
                     navController.navigate(Screen.AccountSwitcher.route) {
                         popUpTo(Screen.Settings.route) { inclusive = true }
@@ -332,6 +336,14 @@ private fun AppNavigation(
                     navController.popBackStack()
                 }
             )
+        }
+        composable(Screen.AppLogging.route) {
+            manager?.let {
+                AppLoggingScreen(
+                    manager = it,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
         composable(Screen.ChangePassword.route) {
             val context = LocalContext.current
