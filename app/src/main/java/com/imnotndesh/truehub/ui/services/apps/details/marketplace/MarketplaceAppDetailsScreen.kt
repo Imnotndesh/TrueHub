@@ -47,6 +47,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -83,9 +84,11 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
+import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.formatBytes
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDetailsViewModel
 import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
@@ -123,6 +126,18 @@ fun MarketplaceAppDetailsScreen(
     LaunchedEffect(app.name) {
         delay(1500.milliseconds)
         appsViewModel.preloadCatalogDetails(app.name, app.train)
+    }
+
+    // Available app-storage in the configured apps pool (used by the capacity gauge).
+    var availableAppStorage by remember { mutableStateOf<Long?>(null) }
+    var availableStorageLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        when (val result = manager.apps.getAvailableSpaceWithResult()) {
+            is ApiResult.Success -> availableAppStorage = result.data
+            else -> availableAppStorage = null
+        }
+        availableStorageLoading = false
     }
 
     Scaffold(
@@ -244,6 +259,12 @@ fun MarketplaceAppDetailsScreen(
                     )
 
                     HealthStatusCard(healthy = app.healthy, errorMsg = app.healthy_error)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    AvailableAppStorageCard(
+                        availableBytes = availableAppStorage,
+                        isLoading = availableStorageLoading
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
                     ElevatedCard(
@@ -564,6 +585,135 @@ private fun HealthStatusCard(healthy: Boolean?, errorMsg: String?) {
                 }
             }
         }
+    }
+}
+
+/** Reference pool capacity (bytes) used to normalise the available-space gauge. */
+private const val APPS_POOL_REFERENCE_BYTES: Long = 1L shl 40 // 1 TiB
+
+@Composable
+private fun AvailableAppStorageCard(
+    availableBytes: Long?,
+    isLoading: Boolean
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Available App Storage",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Space in the apps pool consumable by applications",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (isLoading) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Checking available space…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (availableBytes == null) {
+                Text(
+                    text = "Unable to retrieve available space",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val reference = APPS_POOL_REFERENCE_BYTES.coerceAtLeast(availableBytes)
+                val fillFraction = (availableBytes.toFloat() / reference).coerceIn(0f, 1f)
+                val barColor = storageBarColor(availableBytes = availableBytes)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatBytes(availableBytes),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = barColor
+                    )
+                    Text(
+                        text = "available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { fillFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = barColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Low",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "High",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun storageBarColor(availableBytes: Long): Color {
+    return when {
+        availableBytes <= 10L shl 30 -> MaterialTheme.colorScheme.error          // < ~10 GiB → red (mostly full)
+        availableBytes <= 20L shl 30 -> MaterialTheme.colorScheme.tertiary       // 10–20 GiB → amber-ish
+        else -> MaterialTheme.colorScheme.primary                                // plenty → calm/primary
     }
 }
 

@@ -172,6 +172,19 @@ class AppsService(val manager: TrueNASApiManager) {
         )
     }
 
+    /**
+     * Get the available disk space (in bytes) in the configured apps pool that apps can consume.
+     *
+     * @return Available space in bytes, or an [ApiResult.Error] on failure.
+     */
+    suspend fun getAvailableSpaceWithResult(): ApiResult<Long> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.APP_AVAILABLE_SPACE,
+            params = listOf(),
+            resultType = Long::class.java
+        )
+    }
+
     suspend fun queryMarketplaceAvailableItems(): ApiResult<List<Apps.AppAvailableItem>>{
         val type = Types.newParameterizedType(List::class.java,Apps.AppAvailableItem::class.java)
         return  manager.callWithResult(

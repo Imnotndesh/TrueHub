@@ -412,6 +412,12 @@ object Apps {
         val custom_compose_config : Map<String,Any> ?= emptyMap(),
         val custom_compose_config_string : String = ""
     )
+
+    // (2026-02-13) The datapoint from the server arrives as a bare integer (bytes).
+    // Keep a thin model here so callers/UI have a single, typed representation of the
+    // available (consumable-by-apps) storage in the configured apps pool.
+    @Suppress("PropertyName")
+    data class AvailableAppStorage(val availableBytes: Long = 0L)
 }
 
 /**
