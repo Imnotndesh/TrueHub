@@ -14,6 +14,7 @@ sealed class Screen(val route:String, val title:String) {
     object Licenses : Screen("licenses","Licenses")
     object ShareInfo : Screen ("share_info","Exposed shares details")
     object About : Screen("about","About")
+    object AppLogging : Screen("app_logging","App Logging")
     object Theme : Screen("theme","Theme")
     object AccountSwitcher : Screen("account_switcher","account_switcher")
     object PoolDetails : Screen("pool_details", "Pool Details")
@@ -99,5 +100,7 @@ sealed class Screen(val route:String, val title:String) {
     object TrueNasConnectScreen : Screen("truenas_connect", "TrueNAS Connect")
     object TrueCommandScreen : Screen("truecommand", "TrueCommand")
     object AppImageManagementScreen : Screen("app_image_management", "App Image Management")
+    object IxVolumeListScreen : Screen("ix_volume_list", "iX Volumes")
+    object DockerImageListScreen : Screen("docker_image_list", "Docker Images")
 
 }

@@ -95,6 +95,8 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootPoolScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.AppImageManagementScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.DockerImageListScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.IxVolumeListScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkScreen
@@ -428,6 +430,24 @@ private fun TrueHubNavGraph(
         }
         composable(Screen.AppImageManagementScreen.route) {
             AppImageManagementScreen(
+                manager = manager,
+                onNavigateToIxVolumes = {
+                    navController.navigate(Screen.IxVolumeListScreen.route)
+                },
+                onNavigateToDockerImages = {
+                    navController.navigate(Screen.DockerImageListScreen.route)
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.IxVolumeListScreen.route) {
+            IxVolumeListScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.DockerImageListScreen.route) {
+            DockerImageListScreen(
                 manager = manager,
                 onNavigateBack = { navController.popBackStack() }
             )
