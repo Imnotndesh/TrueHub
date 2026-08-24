@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
     id("org.ajoberstar.grgit") version "5.3.3"
 }
 val versionInfo = grgit.let { git ->
@@ -66,6 +67,9 @@ android {
     buildFeatures {
         compose = true
     }
+    ksp {
+        arg("appfunctions:aggregateAppFunctions", "true")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -73,6 +77,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.appfunctions)
+    ksp(libs.androidx.appfunctions.compiler)
     implementation(libs.androidx.compose.material3.window.size.class1)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.runtime.saveable)

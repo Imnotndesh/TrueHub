@@ -1,12 +1,15 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.audit
 
+import android.os.SystemClock
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,6 +47,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,6 +87,29 @@ fun AuditLogsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/gzip")
+    ) { uri ->
+        if (uri != null) {
+            val reportName = uiState.reportName
+            if (reportName != null) {
+                scope.launch {
+                    viewModel.downloadAuditReport(reportName, uri, context.contentResolver)
+                }
+            }
+        } else {
+            viewModel.resetAuditExport()
+        }
+    }
+
+    LaunchedEffect(uiState.downloadState) {
+        if (uiState.downloadState == DownloadState.Ready) {
+            val timestamp = SystemClock.elapsedRealtimeNanos()
+            filePickerLauncher.launch("audit_report_$timestamp.tar.gz")
+        }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedService by remember { mutableStateOf("MIDDLEWARE") }
@@ -105,31 +133,32 @@ fun AuditLogsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             if (showContent && !uiState.isRefreshing) {
+                val downloadState = uiState.downloadState
                 FloatingActionButton(
                     onClick = {
-                        scope.launch {
-                            val path = viewModel.exportLogs(selectedService)
-                            snackbarHostState.showSnackbar(
-                                if (path != null) "Export: $path" else "Export failed"
-                            )
+                        when {
+                            downloadState == DownloadState.Idle || downloadState == DownloadState.Error -> {
+                                scope.launch { viewModel.startAuditExport(selectedService, context) }
+                            }
+                            downloadState == DownloadState.Success -> {
+                                viewModel.resetAuditExport()
+                            }
                         }
                     },
                     shape = RoundedCornerShape(16.dp),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
-                    if (uiState.isExporting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Download,
-                            contentDescription = "Export logs",
-                            modifier = Modifier.size(22.dp)
-                        )
+                    when (downloadState) {
+                        DownloadState.Downloading, DownloadState.Generating -> {
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                        }
+                        DownloadState.Success -> {
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Export complete")
+                        }
+                        else -> {
+                            Icon(Icons.Default.Download, contentDescription = "Export logs")
+                        }
                     }
                 }
             }

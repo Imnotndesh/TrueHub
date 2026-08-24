@@ -1,16 +1,23 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.audit
 
+import android.content.ContentResolver
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.models.System
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 data class AuditLogsUiState(
     val logs: List<System.AuditQueryResultItem> = emptyList(),
@@ -18,8 +25,12 @@ data class AuditLogsUiState(
     val isRefreshing: Boolean = false,
     val isExporting: Boolean = false,
     val exportPath: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val reportName: String? = null,
+    val downloadState: DownloadState = DownloadState.Idle
 )
+
+enum class DownloadState { Idle, Generating, Ready, Downloading, Success, Error }
 
 class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
@@ -68,27 +79,99 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
         }
     }
 
-    /** Export logs. audit.export is a job that returns a file path string. */
-    suspend fun exportLogs(service: String): String? {
-        _uiState.update { it.copy(isExporting = true) }
+    fun startAuditExport(service: String, context: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(downloadState = DownloadState.Generating, reportName = null, error = null) }
+            val args = System.AuditExportArgs(
+                services = listOf(service),
+                exportFormat = "CSV",
+                queryOptions = System.AuditQueryOptions(limit = 200)
+            )
+            when (val result = manager.system.auditExport(args)) {
+                is ApiResult.Success -> {
+                    val jobId = result.data.toIntOrNull()
+                    if (jobId != null) {
+                        GlobalJobTracker.startTracking(
+                            context = context.applicationContext,
+                            manager = manager,
+                            jobId = jobId,
+                            appName = "audit_export_$service",
+                            showNotif = false,
+                            type = "AUDIT_EXPORT"
+                        )
+                        pollExportJob(jobId)
+                    } else {
+                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Unexpected export response") }
+                    }
+                }
+                is ApiResult.Error -> {
+                    _uiState.update { it.copy(downloadState = DownloadState.Error, error = result.message) }
+                }
+                is ApiResult.Loading -> { }
+            }
+        }
+    }
 
-        val args = System.AuditExportArgs(
-            services = listOf(service),
-            exportFormat = "JSON",
-            queryOptions = System.AuditQueryOptions(limit = 200)
+    private suspend fun pollExportJob(jobId: Int) {
+        var attempts = 0
+        while (attempts < 60) {
+            val result = manager.system.getJobInfoJobWithResult(jobId)
+            if (result is ApiResult.Success) {
+                val job = result.data
+                when (job.state) {
+                    "SUCCESS" -> {
+                        val path = job.result as? String
+                        if (path != null) {
+                            val reportName = File(path).name
+                            _uiState.update { it.copy(reportName = reportName, downloadState = DownloadState.Ready) }
+                        } else {
+                            _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export result missing path") }
+                        }
+                        return
+                    }
+                    "FAILED", "ABORTED" -> {
+                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export job ${job.state}") }
+                        return
+                    }
+                    else -> { /* still running */ }
+                }
+            }
+            attempts++
+            delay(2000.milliseconds)
+        }
+        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export timed out") }
+    }
+
+    suspend fun downloadAuditReport(reportName: String, uri: Uri, contentResolver: ContentResolver) {
+        _uiState.update { it.copy(downloadState = DownloadState.Downloading) }
+        val downloadArgs = System.CoreDownloadArgs(
+            method = "audit.download_report",
+            args = listOf(mapOf("report_name" to reportName)),
+            filename = reportName
         )
-
-        return when (val result = manager.system.auditExport(args)) {
+        when (val result = manager.system.coreDownload(downloadArgs)) {
             is ApiResult.Success -> {
-                _uiState.update { it.copy(isExporting = false, exportPath = result.data) }
-                result.data
+                val downloadUrl = result.data.downloadUrl
+                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val success = manager.downloadFile(downloadUrl, outputStream)
+                    if (success) {
+                        _uiState.update { it.copy(downloadState = DownloadState.Success) }
+                    } else {
+                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Download failed") }
+                    }
+                } ?: run {
+                    _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Cannot open output stream") }
+                }
             }
             is ApiResult.Error -> {
-                _uiState.update { it.copy(isExporting = false, error = result.message) }
-                null
+                _uiState.update { it.copy(downloadState = DownloadState.Error, error = result.message) }
             }
-            is ApiResult.Loading -> null
+            is ApiResult.Loading -> { }
         }
+    }
+
+    fun resetAuditExport() {
+        _uiState.update { it.copy(reportName = null, downloadState = DownloadState.Idle) }
     }
 
     @Suppress("UNCHECKED_CAST")

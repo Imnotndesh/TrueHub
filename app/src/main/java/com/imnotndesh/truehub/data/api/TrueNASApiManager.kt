@@ -9,11 +9,12 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.TrueNASRpcException
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
-import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.LoginExResult
 import com.imnotndesh.truehub.data.models.LoginMechanisms
+import com.imnotndesh.truehub.data.models.LoginMethod
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.OutputStream
 import java.lang.reflect.Type
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -126,6 +127,9 @@ class TrueNASApiManager(
         }
         val msg = result.message.lowercase()
         return msg.contains("enotauthenticated") || msg.contains("invalid session")
+    }
+    suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
+        return client.downloadFile(urlPath, outputStream)
     }
 
     private suspend fun attemptRecovery() {

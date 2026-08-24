@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.io.OutputStream
 import java.lang.reflect.Type
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -33,6 +34,15 @@ class TrueNASClient(private val config: ClientConfig) {
         OkHttpClient.Builder()
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .build()
+    }
+    val baseHttpUrl: String by lazy {
+        var url = config.serverUrl
+        url = url.replace("ws://", "http://").replace("wss://", "https://")
+        val lastSlash = url.lastIndexOf('/')
+        if (lastSlash > url.indexOf("://") + 2) {
+            url = url.substring(0, lastSlash)
+        }
+        url
     }
     private val logName = "TrueNAS-Client"
 
@@ -102,7 +112,27 @@ class TrueNASClient(private val config: ClientConfig) {
             false
         }
     }
-
+    suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
+        val request = okhttp3.Request.Builder()
+            .url(baseHttpUrl + urlPath)
+            .get()
+            .build()
+        return try {
+            val response = client.newCall(request).execute()
+            response.use {
+                if (it.isSuccessful) {
+                    it.body?.byteStream()?.use { input ->
+                        input.copyTo(outputStream)
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
     private fun handleMessage(text: String) {
         try {
             val resp = responseAdapter.fromJson(text)
