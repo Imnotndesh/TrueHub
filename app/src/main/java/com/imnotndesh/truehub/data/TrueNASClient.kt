@@ -32,17 +32,17 @@ class TrueNASClient(private val config: ClientConfig) {
         createUnsafeClient()
     } else {
         OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .build()
     }
     val baseHttpUrl: String by lazy {
-        var url = config.serverUrl
-        url = url.replace("ws://", "http://").replace("wss://", "https://")
-        val lastSlash = url.lastIndexOf('/')
-        if (lastSlash > url.indexOf("://") + 2) {
-            url = url.substring(0, lastSlash)
-        }
-        url
+        val uri = java.net.URI(config.serverUrl)
+        val scheme = uri.scheme?.replace("ws", "http") ?: "http"
+        val host = uri.host ?: "localhost"
+        val port = uri.port
+        if (port != -1) "$scheme://$host:$port" else "$scheme://$host"
     }
     private val logName = "TrueNAS-Client"
 
@@ -112,24 +112,45 @@ class TrueNASClient(private val config: ClientConfig) {
             false
         }
     }
-    suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
-        val request = okhttp3.Request.Builder()
-            .url(baseHttpUrl + urlPath)
-            .get()
+    private val downloadClient: OkHttpClient by lazy {
+        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+        val sslContext = SSLContext.getInstance("SSL")
+        sslContext.init(null, trustAllCerts, SecureRandom())
+        OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
             .build()
+    }
+    suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
+        val url = baseHttpUrl + urlPath
+        android.util.Log.d("TrueNASClient", "Downloading from: $url")
+        val request = okhttp3.Request.Builder().url(url).get().build()
         return try {
-            val response = client.newCall(request).execute()
+            val response = downloadClient.newCall(request).execute()
             response.use {
+                android.util.Log.d("TrueNASClient", "Response code: ${it.code}")
                 if (it.isSuccessful) {
                     it.body?.byteStream()?.use { input ->
                         input.copyTo(outputStream)
                     }
                     true
                 } else {
+                    android.util.Log.e("TrueNASClient", "Download failed: ${it.code} ${it.message}")
+                    it.body?.string()?.let { body ->
+                        android.util.Log.e("TrueNASClient", "Error body: $body")
+                    }
                     false
                 }
             }
         } catch (e: Exception) {
+            android.util.Log.e("TrueNASClient", "Download exception", e)
             false
         }
     }
@@ -279,6 +300,8 @@ class TrueNASClient(private val config: ClientConfig) {
         return OkHttpClient.Builder()
             .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
             .hostnameVerifier { _, _ -> true }
+            .followRedirects(true)
+            .followSslRedirects(true)
             .connectTimeout(config.connectionTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
             .apply {
                 if (config.serverUrl.startsWith("ws://")) {

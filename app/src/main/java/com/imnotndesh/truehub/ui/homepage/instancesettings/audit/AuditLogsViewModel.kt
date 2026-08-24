@@ -10,12 +10,14 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.models.System
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -89,20 +91,16 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
             )
             when (val result = manager.system.auditExport(args)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data.toIntOrNull()
-                    if (jobId != null) {
-                        GlobalJobTracker.startTracking(
-                            context = context.applicationContext,
-                            manager = manager,
-                            jobId = jobId,
-                            appName = "audit_export_$service",
-                            showNotif = false,
-                            type = "AUDIT_EXPORT"
-                        )
-                        pollExportJob(jobId)
-                    } else {
-                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Unexpected export response") }
-                    }
+                    val jobId = result.data
+                    GlobalJobTracker.startTracking(
+                        context = context.applicationContext,
+                        manager = manager,
+                        jobId = jobId,
+                        appName = "audit_export_$service",
+                        showNotif = false,
+                        type = "AUDIT_EXPORT"
+                    )
+                    pollExportJob(jobId)
                 }
                 is ApiResult.Error -> {
                     _uiState.update { it.copy(downloadState = DownloadState.Error, error = result.message) }
@@ -152,15 +150,15 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
         when (val result = manager.system.coreDownload(downloadArgs)) {
             is ApiResult.Success -> {
                 val downloadUrl = result.data.downloadUrl
-                contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    val success = manager.downloadFile(downloadUrl, outputStream)
-                    if (success) {
-                        _uiState.update { it.copy(downloadState = DownloadState.Success) }
-                    } else {
-                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Download failed") }
-                    }
-                } ?: run {
-                    _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Cannot open output stream") }
+                val success = withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        manager.downloadFile(downloadUrl, outputStream)
+                    } ?: false
+                }
+                if (success) {
+                    _uiState.update { it.copy(downloadState = DownloadState.Success) }
+                } else {
+                    _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Download failed") }
                 }
             }
             is ApiResult.Error -> {
