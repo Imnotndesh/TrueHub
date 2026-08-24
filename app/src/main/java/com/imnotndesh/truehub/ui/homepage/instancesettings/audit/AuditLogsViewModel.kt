@@ -9,9 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
+import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.System
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import kotlin.time.Duration.Companion.milliseconds
 
 data class AuditLogsUiState(
     val logs: List<System.AuditQueryResultItem> = emptyList(),
@@ -27,6 +26,7 @@ data class AuditLogsUiState(
     val isRefreshing: Boolean = false,
     val isExporting: Boolean = false,
     val exportPath: String? = null,
+    val exportJobProgress: String? = null,
     val error: String? = null,
     val reportName: String? = null,
     val downloadState: DownloadState = DownloadState.Idle
@@ -92,15 +92,17 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
             when (val result = manager.system.auditExport(args)) {
                 is ApiResult.Success -> {
                     val jobId = result.data
+                    // Track with notifications enabled
                     GlobalJobTracker.startTracking(
                         context = context.applicationContext,
                         manager = manager,
                         jobId = jobId,
                         appName = "audit_export_$service",
-                        showNotif = false,
+                        showNotif = true,          // ← enable notification
                         type = "AUDIT_EXPORT"
                     )
-                    pollExportJob(jobId)
+                    // Listen for job completion via JobRepository
+                    monitorExportJob(jobId)
                 }
                 is ApiResult.Error -> {
                     _uiState.update { it.copy(downloadState = DownloadState.Error, error = result.message) }
@@ -110,14 +112,42 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
         }
     }
 
-    private suspend fun pollExportJob(jobId: Int) {
-        var attempts = 0
-        while (attempts < 60) {
-            val result = manager.system.getJobInfoJobWithResult(jobId)
-            if (result is ApiResult.Success) {
-                val job = result.data
-                when (job.state) {
-                    "SUCCESS" -> {
+    private suspend fun monitorExportJob(jobId: Int) {
+        JobRepository.activeJobs.collect { jobs ->
+            val tracked = jobs.values.find { it.jobId == jobId }
+
+            if (tracked == null) {
+                val result = manager.system.getJobInfoJobWithResult(jobId)
+                if (result is ApiResult.Success) {
+                    val job = result.data
+                    when (job.state) {
+                        "SUCCESS" -> {
+                            val path = job.result as? String
+                            if (path != null) {
+                                val reportName = File(path).name
+                                _uiState.update { it.copy(reportName = reportName, downloadState = DownloadState.Ready) }
+                            } else {
+                                _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export result missing path") }
+                            }
+                        }
+                        "FAILED", "ABORTED" -> {
+                            _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export ${job.state}") }
+                        }
+                        else -> { /* still running – repo may have missed update */ }
+                    }
+                }
+                return@collect
+            }
+
+            // Update progress description
+            _uiState.update { it.copy(exportJobProgress = tracked.description) }
+
+            when (tracked.state) {
+                "SUCCESS" -> {
+                    // Job finished – fetch final result to get report path
+                    val result = manager.system.getJobInfoJobWithResult(jobId)
+                    if (result is ApiResult.Success) {
+                        val job = result.data
                         val path = job.result as? String
                         if (path != null) {
                             val reportName = File(path).name
@@ -125,19 +155,18 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
                         } else {
                             _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export result missing path") }
                         }
-                        return
                     }
-                    "FAILED", "ABORTED" -> {
-                        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export job ${job.state}") }
-                        return
-                    }
-                    else -> { /* still running */ }
+                    JobRepository.removeJob(jobId)
+                    return@collect
                 }
+                "FAILED", "ABORTED" -> {
+                    _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export ${tracked.state}") }
+                    JobRepository.removeJob(jobId)
+                    return@collect
+                }
+                else -> { /* still running – continue collecting */ }
             }
-            attempts++
-            delay(2000.milliseconds)
         }
-        _uiState.update { it.copy(downloadState = DownloadState.Error, error = "Export timed out") }
     }
 
     suspend fun downloadAuditReport(reportName: String, uri: Uri, contentResolver: ContentResolver) {
@@ -169,7 +198,11 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
     }
 
     fun resetAuditExport() {
-        _uiState.update { it.copy(reportName = null, downloadState = DownloadState.Idle) }
+        _uiState.update { it.copy(reportName = null, downloadState = DownloadState.Idle, exportPath = null) }
+        viewModelScope.launch {
+            _uiState.value.reportName?.let {
+            }
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

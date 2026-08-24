@@ -151,7 +151,7 @@ fun AuditLogsScreen(
                 ) {
                     when (downloadState) {
                         DownloadState.Downloading, DownloadState.Generating -> {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         DownloadState.Success -> {
                             Icon(Icons.Default.CheckCircle, contentDescription = "Export complete")
