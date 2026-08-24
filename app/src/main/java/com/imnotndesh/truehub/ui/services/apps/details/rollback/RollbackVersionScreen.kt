@@ -1,39 +1,80 @@
 package com.imnotndesh.truehub.ui.services.apps.details.rollback
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.ServerRackAnimation
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -42,7 +83,6 @@ fun RollbackVersionScreen(
     versions: List<String>,
     isLoadingVersions: Boolean,
     fetchError: String?,
-    manager: TrueNASApiManager,
     onConfirmRollback: (version: String, rollbackSnapshot: Boolean) -> Unit,
     onNavigateBack: () -> Unit
 ) {
@@ -58,33 +98,24 @@ fun RollbackVersionScreen(
 
     LaunchedEffect(isDone) {
         if (isDone) {
-            kotlinx.coroutines.delay(1800)
+            kotlinx.coroutines.delay(1800.milliseconds)
             onNavigateBack()
         }
     }
 
-    Scaffold(
-        topBar = {
-            UnifiedScreenHeader(
-                title = "Rollback $appName",
-                subtitle = if (isRollingBack) "In Progress" else "Select Previous Version",
-                isLoading = isLoadingVersions,
-                isRefreshing = false,
-                error = fetchError,
-                onDismissError = {},
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         AnimatedContent(
             targetState = isRollingBack || isDone || isFailed,
             transitionSpec = {
                 (fadeIn(tween(500)) + slideInVertically { it / 4 })
                     .togetherWith(fadeOut(tween(300)) + slideOutVertically { -it / 4 })
             },
-            label = "rollback_screen_state"
+            label = "rollback_screen_state",
+            modifier = Modifier.fillMaxSize()
         ) { showingProgress ->
             if (showingProgress) {
                 RollingBackView(
@@ -95,12 +126,12 @@ fun RollbackVersionScreen(
                     isDone = isDone,
                     isFailed = isFailed,
                     onNavigateBack = onNavigateBack,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
+                    modifier = Modifier.fillMaxSize()
                 )
             } else {
                 VersionSelectionView(
+                    modifier = Modifier.fillMaxSize(),
+                    appName = appName,
                     versions = versions,
                     isLoading = isLoadingVersions,
                     error = fetchError,
@@ -110,17 +141,25 @@ fun RollbackVersionScreen(
                     onRollbackSnapshotChange = { rollbackSnapshot = it },
                     onConfirm = { selectedVersion?.let { onConfirmRollback(it, rollbackSnapshot) } },
                     onNavigateBack = onNavigateBack,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
                 )
             }
         }
+
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            error = fetchError,
+            onDismissError = {},
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
     }
 }
 
 @Composable
 private fun VersionSelectionView(
+    modifier: Modifier = Modifier,
+    appName: String,
     versions: List<String>,
     isLoading: Boolean,
     error: String?,
@@ -130,9 +169,23 @@ private fun VersionSelectionView(
     onRollbackSnapshotChange: (Boolean) -> Unit,
     onConfirm: () -> Unit,
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.padding(16.dp)) {
+        Spacer(modifier = Modifier.height(72.dp))
+
+        Column(modifier = Modifier.padding(bottom = 12.dp)) {
+            Text(
+                text = "Rollback $appName",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Select Previous Version",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         when {
             isLoading -> {
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -319,51 +372,10 @@ private fun RollingBackView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier.size(220.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            PixelShapesOrbit(
-                primaryColor = MaterialTheme.colorScheme.primary,
-                secondaryColor = MaterialTheme.colorScheme.secondary,
-                isDone = isDone || isFailed,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            AnimatedContent(
-                targetState = when {
-                    isDone -> "done"
-                    isFailed -> "failed"
-                    else -> "running"
-                },
-                transitionSpec = {
-                    (scaleIn(tween(400)) + fadeIn(tween(400))) togetherWith
-                            (scaleOut(tween(250)) + fadeOut(tween(250)))
-                },
-                label = "center_icon"
-            ) { state ->
-                when (state) {
-                    "done" -> Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Success",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(56.dp)
-                    )
-                    "failed" -> Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Failed",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(56.dp)
-                    )
-                    else -> CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 4.dp,
-                        strokeCap = StrokeCap.Round
-                    )
-                }
-            }
-        }
+        ServerRackAnimation(
+            size = 400f,
+            modifier = Modifier
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 

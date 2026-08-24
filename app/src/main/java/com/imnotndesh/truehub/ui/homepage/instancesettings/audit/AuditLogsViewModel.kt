@@ -144,7 +144,6 @@ class AuditLogsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
 
             when (tracked.state) {
                 "SUCCESS" -> {
-                    // Job finished – fetch final result to get report path
                     val result = manager.system.getJobInfoJobWithResult(jobId)
                     if (result is ApiResult.Success) {
                         val job = result.data

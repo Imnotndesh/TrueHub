@@ -57,7 +57,6 @@ fun ServerRackAnimation(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "server")
 
-    // LED blink animations with different phases
     val led1 by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 1f,

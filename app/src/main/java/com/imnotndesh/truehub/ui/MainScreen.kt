@@ -814,7 +814,6 @@ private fun TrueHubNavGraph(
                 versions = uiState.rollbackVersions,
                 isLoadingVersions = uiState.isLoadingRollbackVersions,
                 fetchError = uiState.error,
-                manager = manager,
                 onConfirmRollback = { targetVersion, rollbackSnapshot ->
                     appsViewModel.rollbackApp(context, appName, targetVersion, rollbackSnapshot)
                 },

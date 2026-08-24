@@ -2,21 +2,17 @@ package com.imnotndesh.truehub.ui.services.apps.details.upgrade
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +30,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
@@ -44,7 +39,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -55,39 +49,30 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.ServerRackAnimation
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -118,28 +103,19 @@ fun UpgradeSummaryScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            UnifiedScreenHeader(
-                title = "Upgrade $appName",
-                subtitle = if (isUpgrading) "In Progress" else "Review Changes",
-                isLoading = false,
-                isRefreshing = false,
-                error = null,
-                onDismissError = {},
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         AnimatedContent(
             targetState = isUpgrading || isDone || isFailed,
             transitionSpec = {
                 (fadeIn(tween(500)) + slideInVertically { it / 4 })
                     .togetherWith(fadeOut(tween(300)) + slideOutVertically { -it / 4 })
             },
-            label = "upgrade_screen_state"
+            label = "upgrade_screen_state",
+            modifier = Modifier.fillMaxSize()
         ) { showingProgress ->
             if (showingProgress) {
                 UpgradingView(
@@ -150,12 +126,12 @@ fun UpgradeSummaryScreen(
                     isFailed = isFailed,
                     jobId = liveJob?.jobId,
                     manager = manager,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
+                    modifier = Modifier.fillMaxSize()
                 )
             } else {
                 ReviewView(
+                    modifier = Modifier.fillMaxSize(),
+                    appName = appName,
                     summary = summary,
                     currentVersion = currentVersion,
                     currentHumanVersion = currentHumanVersion,
@@ -163,12 +139,16 @@ fun UpgradeSummaryScreen(
                     appState = appState,
                     onConfirmUpgrade = {selectedVersion, backup -> onConfirmUpgrade(selectedVersion, backup)},
                     onNavigateBack = onNavigateBack,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
                 )
             }
         }
+
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
     }
 }
 
@@ -198,21 +178,21 @@ private fun UpgradingView(
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
 
-    Column(
-        modifier = modifier.padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = modifier.padding(16.dp)
     ) {
-        Box(
-            modifier = Modifier.size(220.dp),
-            contentAlignment = Alignment.Center
+        ServerRackAnimation(
+            size = 400f,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
         ) {
-            PixelShapesOrbit(
-                primaryColor = primaryColor,
-                secondaryColor = secondaryColor,
-                isDone = isDone || isFailed,
-                modifier = Modifier.fillMaxSize()
-            )
             AnimatedContent(
                 targetState = when {
                     isDone -> "done"
@@ -220,131 +200,97 @@ private fun UpgradingView(
                     else -> "running"
                 },
                 transitionSpec = {
-                    (scaleIn(tween(400)) + fadeIn(tween(400))) togetherWith
-                            (scaleOut(tween(250)) + fadeOut(tween(250)))
+                    fadeIn(tween(400)) togetherWith fadeOut(tween(200))
                 },
-                label = "center_icon"
+                label = "status_text"
             ) { state ->
-                when (state) {
-                    "done" -> Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Success",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(56.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = when (state) {
+                            "done" -> "Upgrade Complete"
+                            "failed" -> "Upgrade Failed"
+                            else -> "Upgrading $appName"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = when (state) {
+                            "failed" -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurface
+                        }
                     )
-                    "failed" -> Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Failed",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(56.dp)
-                    )
-                    else -> CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 4.dp,
-                        strokeCap = StrokeCap.Round
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when (state) {
+                            "done" -> "All done! Taking you back..."
+                            "failed" -> "Something went wrong during the upgrade"
+                            else -> description ?: "Please wait, this may take a moment"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-        AnimatedContent(
-            targetState = when {
-                isDone -> "done"
-                isFailed -> "failed"
-                else -> "running"
-            },
-            transitionSpec = {
-                fadeIn(tween(400)) togetherWith fadeOut(tween(200))
-            },
-            label = "status_text"
-        ) { state ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = when (state) {
-                        "done" -> "Upgrade Complete"
-                        "failed" -> "Upgrade Failed"
-                        else -> "Upgrading $appName"
-                    },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = when (state) {
-                        "failed" -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = when (state) {
-                        "done" -> "All done! Taking you back..."
-                        "failed" -> "Something went wrong during the upgrade"
-                        else -> description ?: "Please wait, this may take a moment"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(40.dp))
-
-        AnimatedVisibility(
-            visible = !isDone && !isFailed,
-            enter = fadeIn(tween(400)),
-            exit = fadeOut(tween(300))
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+            AnimatedVisibility(
+                visible = !isDone && !isFailed,
+                enter = fadeIn(tween(400)),
+                exit = fadeOut(tween(300))
             ) {
-                LinearWavyProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primaryContainer
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "$progress%",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    LinearWavyProgressIndicator(
+                        progress = { animatedProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "$progress%",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
-        }
 
-        AnimatedVisibility(
-            visible = !isDone && !isFailed,
-            enter = fadeIn(tween(400)),
-            exit = fadeOut(tween(300))
-        ) {
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedButton(
-                onClick = {
-                    val id = jobId ?: return@OutlinedButton
-                    isCancelling = true
-                    scope.launch {
-                        manager.system.cancelJob(id)
-                    }
-                },
-                enabled = !isCancelling,
-                modifier = Modifier.height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                ),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+            AnimatedVisibility(
+                visible = !isDone && !isFailed,
+                enter = fadeIn(tween(400)),
+                exit = fadeOut(tween(300))
             ) {
-                Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isCancelling) "Cancelling..." else "Cancel Upgrade")
+                Column {
+                    Spacer(modifier = Modifier.height(40.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val id = jobId ?: return@OutlinedButton
+                            isCancelling = true
+                            scope.launch {
+                                manager.system.cancelJob(id)
+                            }
+                        },
+                        enabled = !isCancelling,
+                        modifier = Modifier.height(50.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                    ) {
+                        Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isCancelling) "Cancelling..." else "Cancel Upgrade")
+                    }
+                }
             }
         }
     }
@@ -353,6 +299,8 @@ private fun UpgradingView(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun ReviewView(
+    modifier: Modifier = Modifier,
+    appName: String,
     summary: Apps.AppUpgradeSummaryResult,
     onConfirmUpgrade: (String, Boolean) -> Unit,
     currentVersion: String,
@@ -360,7 +308,6 @@ private fun ReviewView(
     onNavigateBack: () -> Unit,
     canUpgrade: Boolean = true,
     appState: String = "",
-    modifier: Modifier = Modifier
 ) {
     val availableVersions = summary.available_versions_for_upgrade
     val showVersionPicker = availableVersions.size > 1
@@ -380,6 +327,21 @@ private fun ReviewView(
     Column(
         modifier = modifier.padding(16.dp)
     ) {
+        Spacer(modifier = Modifier.height(72.dp))
+
+        Column(modifier = Modifier.padding(bottom = 12.dp)) {
+            Text(
+                text = "Upgrade $appName",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "Review Changes",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -513,7 +475,7 @@ private fun ReviewView(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            // Changelog section (unchanged)
+            // Changelog section
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Description,
@@ -593,7 +555,9 @@ private fun ReviewView(
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = onNavigateBack,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -607,7 +571,9 @@ private fun ReviewView(
             Button(
                 onClick = { if (canUpgrade) onConfirmUpgrade(selectedVersion, takeBackup) },
                 enabled = canUpgrade,
-                modifier = Modifier.weight(1f).height(50.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -620,140 +586,6 @@ private fun ReviewView(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Upgrade")
             }
-        }
-    }
-}
-@Composable
-private fun PixelShapesOrbit(
-    primaryColor: Color,
-    secondaryColor: Color,
-    isDone: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val speedScale by animateFloatAsState(
-        targetValue = if (isDone) 0f else 1f,
-        animationSpec = tween(durationMillis = 1800, easing = FastOutSlowInEasing),
-        label = "speed_scale"
-    )
-
-    val ring1Angle = remember { Animatable(0f) }
-    val ring2Angle = remember { Animatable(0f) }
-    val ring3Angle = remember { Animatable(0f) }
-
-    LaunchedEffect(speedScale) {
-
-    }
-
-    val ring1AngleState = remember { mutableFloatStateOf(0f) }
-    val ring2AngleState = remember { mutableFloatStateOf(0f) }
-    val ring3AngleState = remember { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(Unit) {
-        var lastTime = withFrameMillis { it }
-        while (true) {
-            val now = withFrameMillis { it }
-            val dt = (now - lastTime) / 1000f
-            lastTime = now
-            val s = speedScale
-            ring1AngleState.floatValue += dt * 45f * s
-            ring2AngleState.floatValue -= dt * 28f * s
-            ring3AngleState.floatValue += dt * 18f * s
-        }
-    }
-
-    val r1 = ring1AngleState.floatValue
-    val r2 = ring2AngleState.floatValue
-    val r3 = ring3AngleState.floatValue
-
-    Canvas(modifier = modifier) {
-        val cx = size.width / 2f
-        val cy = size.height / 2f
-        val unit = size.minDimension / 2f
-
-        drawOrbitRing(
-            cx = cx, cy = cy,
-            orbitRadius = unit * 0.42f,
-            baseAngleDeg = r1,
-            shapeCount = 3,
-            shapeSize = unit * 0.18f,
-            cornerFraction = 0.35f,
-            color = primaryColor.copy(alpha = 0.85f)
-        )
-
-        drawOrbitRingPills(
-            cx = cx, cy = cy,
-            orbitRadius = unit * 0.68f,
-            baseAngleDeg = r2,
-            shapeCount = 4,
-            pillWidth = unit * 0.22f,
-            pillHeight = unit * 0.09f,
-            color = secondaryColor.copy(alpha = 0.55f)
-        )
-
-        drawOrbitRing(
-            cx = cx, cy = cy,
-            orbitRadius = unit * 0.88f,
-            baseAngleDeg = r3,
-            shapeCount = 5,
-            shapeSize = unit * 0.11f,
-            cornerFraction = 0.4f,
-            color = primaryColor.copy(alpha = 0.35f)
-        )
-    }
-}
-
-private fun DrawScope.drawOrbitRing(
-    cx: Float, cy: Float,
-    orbitRadius: Float,
-    baseAngleDeg: Float,
-    shapeCount: Int,
-    shapeSize: Float,
-    cornerFraction: Float,
-    color: Color
-) {
-    val stepDeg = 360f / shapeCount
-    repeat(shapeCount) { i ->
-        val angleDeg = baseAngleDeg + stepDeg * i
-        val angleRad = Math.toRadians(angleDeg.toDouble())
-        val x = cx + orbitRadius * cos(angleRad).toFloat()
-        val y = cy + orbitRadius * sin(angleRad).toFloat()
-        withTransform({
-            translate(x - shapeSize / 2f, y - shapeSize / 2f)
-            rotate(angleDeg, pivot = Offset(shapeSize / 2f, shapeSize / 2f))
-        }) {
-            drawRoundRect(
-                color = color,
-                size = Size(shapeSize, shapeSize),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(shapeSize * cornerFraction)
-            )
-        }
-    }
-}
-
-private fun DrawScope.drawOrbitRingPills(
-    cx: Float, cy: Float,
-    orbitRadius: Float,
-    baseAngleDeg: Float,
-    shapeCount: Int,
-    pillWidth: Float,
-    pillHeight: Float,
-    color: Color
-) {
-    val stepDeg = 360f / shapeCount
-    repeat(shapeCount) { i ->
-        val angleDeg = baseAngleDeg + stepDeg * i
-        val angleRad = Math.toRadians(angleDeg.toDouble())
-        val x = cx + orbitRadius * cos(angleRad).toFloat()
-        val y = cy + orbitRadius * sin(angleRad).toFloat()
-        withTransform({
-            translate(x - pillWidth / 2f, y - pillHeight / 2f)
-            rotate(angleDeg + 90f, pivot = Offset(pillWidth / 2f, pillHeight / 2f))
-        }) {
-            drawRoundRect(
-                color = color,
-                size = Size(pillWidth, pillHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(pillHeight / 2f)
-            )
         }
     }
 }

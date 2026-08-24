@@ -24,12 +24,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,8 +44,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -257,6 +258,100 @@ fun UnifiedScreenHeader(
                                     "Dismiss",
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Minimal header variant: renders only the back button, using the exact
+ * same [ExpressiveIconButton] styling as [UnifiedScreenHeader]'s back
+ * action (same icon, same press-scale animation, same default container
+ * color).
+ *
+ * Unlike [UnifiedScreenHeader], this does NOT wrap itself in a full-width
+ * [Surface]/[Column] -- there's no title, subtitle, trailing actions,
+ * refresh bar, or error card. It's just the button, sized to its content,
+ * so it doesn't claim a header-height band across the top of the screen.
+ * It's meant to be layered as an overlay (e.g. inside a [Box]) on top of
+ * your own content, so that content can occupy the space a full header
+ * would otherwise have taken -- including scrolling/being visible behind
+ * and around the button itself.
+ *
+ * Example:
+ * ```
+ * Box(modifier = Modifier.fillMaxSize()) {
+ *     YourContent(modifier = Modifier.fillMaxSize())
+ *     MinimalBackHeader(
+ *         onBackPressed = onNavigateBack,
+ *         modifier = Modifier
+ *             .align(Alignment.TopStart)
+ *             .padding(16.dp)
+ *     )
+ * }
+ * ```
+ */
+@Composable
+fun MinimalBackHeader(
+    onBackPressed: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    error: String? = null,
+    onDismissError: () -> Unit = {}
+) {
+    Column(modifier = modifier) {
+        ExpressiveIconButton(
+            onClick = onBackPressed,
+            icon = Icons.Default.ArrowBackIosNew,
+            contentDescription = "Back",
+            enabled = enabled,
+            containerColor = containerColor
+        )
+
+        AnimatedVisibility(
+            visible = error != null,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            if (error != null) {
+                Column {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Error,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = error,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.widthIn(max = 240.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = onDismissError) {
+                                Text(
+                                    "Dismiss",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelSmall
                                 )
                             }
                         }
