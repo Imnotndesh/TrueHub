@@ -348,7 +348,7 @@ object System {
     data class PoolDevice(
         val name: String,
         val type: String,
-        val path: String,
+        val path: String?,
         val guid: String,
         val status: String,
         val stats: PoolStats?,
