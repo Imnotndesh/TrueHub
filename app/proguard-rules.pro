@@ -1,21 +1,19 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+-keepattributes Signature,InnerClasses,EnclosingMethod,*Annotation*,Exceptions
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Keep all serialized data models so Moshi's reflection adapters can access them at runtime.
+-keep class com.imnotndesh.truehub.data.models.** { *; }
+-keep class com.imnotndesh.truehub.data.api.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Moshi reflection-based adapters.
+-keep class com.squareup.moshi.** { *; }
+-dontwarn com.squareup.moshi.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Libs that use reflection / runtime lookups used across the app.
+-keep class com.imnotndesh.truehub.data.helpers.EncryptedPrefs { *; }
+
+# co-svg, markdown and chart libs occasionally reflect over internals.
+-keepclassmembers class * {
+    @com.squareup.moshi.FromJson <methods>;
+    @com.squareup.moshi.ToJson <methods>;
+}
+-dontwarn org.commonmark.**

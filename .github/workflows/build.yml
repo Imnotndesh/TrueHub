@@ -24,15 +24,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Cache Gradle + wrapper + build cache
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -55,7 +48,7 @@ jobs:
           fi
 
       - name: Build release APKs (per-ABI)
-        run: ./gradlew assembleGithubRelease --no-daemon
+        run: ./gradlew --build-cache assembleGithubRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
@@ -146,8 +139,11 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Cache Gradle + wrapper + build cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Build unsigned release APKs
-        run: ./gradlew assembleGithubRelease --no-daemon
+        run: ./gradlew --build-cache assembleGithubRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
