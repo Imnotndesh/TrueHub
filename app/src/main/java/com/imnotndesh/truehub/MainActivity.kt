@@ -3,6 +3,7 @@ package com.imnotndesh.truehub
 import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -129,9 +130,25 @@ fun MainActivityContent(
     val notifPermission = rememberPermissionState(
         Manifest.permission.POST_NOTIFICATIONS
     )
+    val localNetworkPermission = if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.CINNAMON_BUN
+    ) {
+        rememberPermissionState(
+            permission = Manifest.permission.ACCESS_LOCAL_NETWORK,
+            onPermissionResult = {
+                viewModel.initializeApp(context)
+            }
+        )
+    } else {
+        null
+    }
 
     LaunchedEffect(Unit) {
-        viewModel.initializeApp(context)
+        if (localNetworkPermission != null && !localNetworkPermission.status.isGranted) {
+            localNetworkPermission.launchPermissionRequest()
+        } else {
+            viewModel.initializeApp(context)
+        }
     }
     LaunchedEffect(manager) {
         manager?.let {
