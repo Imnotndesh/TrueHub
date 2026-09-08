@@ -129,6 +129,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
+private fun Apps.AppQueryResponse.appDisplayName(): String =
+    metadata?.title?.takeUnless { it.isBlank() || it.equals("iX App", ignoreCase = true) } ?: name
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppsScreen(
@@ -333,7 +336,7 @@ fun AppsScreen(
     // Delete Selected Confirmation Dialog
     if (showDeleteSelectedDialog && selectedAppsForDeletion.isNotEmpty()) {
         DeleteAppsConfirmationDialog(
-            appNames = selectedAppsForDeletion.map { it.metadata?.title ?: it.name },
+            appNames = selectedAppsForDeletion.map { it.appDisplayName() },
             onConfirm = { options ->
                 showDeleteSelectedDialog = false
                 selectedAppsForDeletion.forEach { app ->
@@ -931,7 +934,7 @@ private fun ServiceCard(
                                 .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = "${app.metadata.title ?: app.name} icon",
+                            contentDescription = "${app.appDisplayName()} icon",
                             modifier = Modifier
                                 .size(52.dp)
                                 .clip(RoundedCornerShape(16.dp)),
@@ -951,7 +954,7 @@ private fun ServiceCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = app.metadata?.title ?: app.name,
+                            text = app.appDisplayName(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -986,7 +989,7 @@ private fun ServiceCard(
                                         .decoderFactory(SvgDecoder.Factory())
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "${app.metadata.title ?: app.name} icon",
+                                    contentDescription = "${app.appDisplayName()} icon",
                                     modifier = Modifier
                                         .size(46.dp)
                                         .clip(RoundedCornerShape(14.dp)),
@@ -1012,7 +1015,7 @@ private fun ServiceCard(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = app.metadata?.title ?: app.name,
+                        text = app.appDisplayName(),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
