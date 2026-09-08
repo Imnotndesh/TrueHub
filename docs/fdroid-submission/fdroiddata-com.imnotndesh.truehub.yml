@@ -6,22 +6,6 @@ WebSite: https://github.com/Imnotndesh/TrueHub
 SourceCode: https://github.com/Imnotndesh/TrueHub
 IssueTracker: https://github.com/Imnotndesh/TrueHub/issues
 Name: TrueHub
-AutoName: TrueHub
-Summary: Native Android client for your TrueNAS SCALE server
-Description: |-
-  Manage your TrueNAS SCALE server right from your phone. TrueHub provides a
-  modern, native client for monitoring performance, managing applications, and
-  staying on top of alerts.
-
-  Application management: update, start/stop, view details, roll back, install
-  (incl. additional/another instances), edit configuration, uninstall, and browse
-  the app catalog.
-  Container management: start/stop and view details.
-  VM management: start/stop VMs, shutdown, and view details.
-
-  Connect to your own TrueNAS SCALE server: your data stays on your own machine
-  and network. TrueHub is unofficial and is not affiliated with TrueNAS or
-  iXsystems.
 
 RepoType: git
 Repo: https://github.com/Imnotndesh/TrueHub.git
@@ -32,7 +16,6 @@ Builds:
     commit: v0.7.2
     subdir: app
     gradle:
-      - clean
       - assembleGithubRelease
 
 AutoUpdateMode: Version
