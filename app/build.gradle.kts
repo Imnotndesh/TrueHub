@@ -2,40 +2,17 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
-    id("org.ajoberstar.grgit") version "5.3.3"
-}
-val versionInfo = grgit.let { git ->
-    val latestTag = git.tag.list().maxByOrNull { it.commit.dateTime }
-
-    if (latestTag != null) {
-        val tagName = latestTag.name
-        val parts = tagName.removePrefix("v").split(".").mapNotNull { it.toIntOrNull() }
-
-        if (parts.size >= 3) {
-            val major = parts[0]
-            val minor = parts[1]
-            val patch = parts[2]
-
-            val versionCode = major * 1000000 + minor * 10000 + patch * 100
-            Pair(versionCode, tagName)
-        } else {
-            Pair(1, tagName)
-        }
-    } else {
-        Pair(1, "v1.0")
-    }
 }
 
 android {
     namespace = "com.imnotndesh.truehub"
     compileSdk = 37
 
-
     defaultConfig {
         minSdk = 33
         targetSdk = 37
-        versionCode = versionInfo.first
-        versionName = versionInfo.second
+        versionCode = 70100
+        versionName = "0.7.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,6 +39,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
     buildFeatures {

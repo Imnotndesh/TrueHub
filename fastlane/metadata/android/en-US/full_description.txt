@@ -1,0 +1,30 @@
+<b>Manage your TrueNAS SCALE server right from your phone.</b>
+
+TrueHub is a modern, native Android client that gives you a seamless and intuitive mobile experience for interacting with your TrueNAS SCALE server. Monitor performance, manage applications, and stay on top of alerts — all without opening a browser.
+
+<b>Application management</b>
+<ul>
+    <li>Update apps to the latest version</li>
+    <li>Start / stop apps</li>
+    <li>View detailed app information (workloads, ports, storage, notes)</li>
+    <li>Roll back to an earlier version</li>
+    <li>Install apps from the catalog, including additional/another instances</li>
+    <li>Edit app configuration</li>
+    <li>Uninstall applications</li>
+    <li>Browse the app catalog</li>
+</ul>
+
+<b>Container management</b>
+<ul>
+    <li>Start / stop containers</li>
+    <li>View detailed container information</li>
+</ul>
+
+<b>VM management</b>
+<ul>
+    <li>Start / stop virtual machines</li>
+    <li>Shut down VMs</li>
+    <li>View detailed VM information</li>
+</ul>
+
+Connect to your own TrueNAS SCALE server — your data stays on your machine and network. TrueHub is unofficial and not affiliated with TrueNAS or iXsystems.
