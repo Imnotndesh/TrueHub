@@ -43,6 +43,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,7 +59,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
@@ -101,7 +109,7 @@ fun SystemUpdateScreen(
             onRefresh = {},
             onDismissError = {},
             manager = manager,
-            onNavigateToSettings = onNavigateBack
+            onBackPressed = onNavigateBack
         )
 
         if (versions.isEmpty()) {
@@ -124,8 +132,11 @@ fun SystemUpdateScreen(
                         activeJob = matchingJob,
                         isAnotherJobActive = activeUpdateJob != null && matchingJob == null,
                         onInfoClick = { selectedVersionForNotes = update },
-                        onDownloadClick = {
-                            startSystemUpdateJob(context, manager, update)
+                        onDownloadRestart = {
+                            startSystemUpdateJob(context, manager, update, reboot = true)
+                        },
+                        onDownloadLater = {
+                            startSystemUpdateJob(context, manager, update, reboot = false)
                         }
                     )
                 }
@@ -142,8 +153,12 @@ fun SystemUpdateScreen(
             isJobActive = matchingJob != null,
             activeJob = matchingJob,
             onDismiss = { selectedVersionForNotes = null },
-            onDownloadClick = {
-                startSystemUpdateJob(context, manager, update)
+            onDownloadRestart = {
+                startSystemUpdateJob(context, manager, update, reboot = true)
+                selectedVersionForNotes = null
+            },
+            onDownloadLater = {
+                startSystemUpdateJob(context, manager, update, reboot = false)
                 selectedVersionForNotes = null
             }
         )
@@ -153,7 +168,8 @@ fun SystemUpdateScreen(
 private fun startSystemUpdateJob(
     context: Context,
     manager: TrueNASApiManager,
-    update: System.UpdateAvailableVersionsResponse
+    update: System.UpdateAvailableVersionsResponse,
+    reboot: Boolean
 ) {
     kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
         try {
@@ -161,7 +177,8 @@ private fun startSystemUpdateJob(
             val result = manager.system.runSystemUpdate(
                 System.UpdateRunDefaults(
                     train = update.train,
-                    version = update.version.version
+                    version = update.version.version,
+                    reboot = reboot
                 )
             )
             when (result) {
@@ -263,7 +280,8 @@ private fun UpdateVersionCard(
     activeJob: com.imnotndesh.truehub.data.helpers.TrackedJob?,
     isAnotherJobActive: Boolean,
     onInfoClick: () -> Unit,
-    onDownloadClick: () -> Unit
+    onDownloadRestart: () -> Unit,
+    onDownloadLater: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -355,16 +373,41 @@ private fun UpdateVersionCard(
 
             if (!isThisJobActive) {
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onDownloadClick,
-                    enabled = !isAnotherJobActive,
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isAnotherJobActive) "Another update is running" else "Download & Update")
+                if (isAnotherJobActive) {
+                    Button(
+                        onClick = onDownloadLater,
+                        enabled = false,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Another update is running")
+                    }
+                } else {
+                    // Restart now (primary)
+                    Button(
+                        onClick = onDownloadRestart,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Download & Restart Now", fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Restart later (secondary)
+                    OutlinedButton(
+                        onClick = onDownloadLater,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Download & Restart Later", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -405,7 +448,8 @@ private fun ReleaseNotesSheet(
     isJobActive: Boolean,
     activeJob: com.imnotndesh.truehub.data.helpers.TrackedJob?,
     onDismiss: () -> Unit,
-    onDownloadClick: () -> Unit
+    onDownloadRestart: () -> Unit,
+    onDownloadLater: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val uriHandler = LocalUriHandler.current
@@ -457,11 +501,7 @@ private fun ReleaseNotesSheet(
             ) {
                 val notes = update.version.release_notes
                 if (!notes.isNullOrBlank()) {
-                    Text(
-                        text = notes,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    MarkdownContent(markdown = notes)
                 } else {
                     Text(
                         text = "No release notes were provided for this version.",
@@ -472,24 +512,18 @@ private fun ReleaseNotesSheet(
 
                 if (update.version.release_notes_url.isNotBlank()) {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clickable { uriHandler.openUri(update.version.release_notes_url) }
+                    OutlinedButton(
+                        onClick = { uriHandler.openUri(update.version.release_notes_url) },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(
                             imageVector = Icons.Default.OpenInNew,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "View full release notes",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Full Release Notes", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -527,17 +561,224 @@ private fun ReleaseNotesSheet(
                     )
                 }
             } else {
+                // Restart now (primary)
                 Button(
-                    onClick = onDownloadClick,
+                    onClick = onDownloadRestart,
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Download & Update")
+                    Text("Download & Restart Now", fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Restart later (secondary)
+                OutlinedButton(
+                    onClick = onDownloadLater,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Download & Restart Later", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Lightweight markdown renderer (headings, lists, bold, links)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun MarkdownContent(markdown: String) {
+    val uriHandler = LocalUriHandler.current
+
+    markdown
+        .replace("\r\n", "\n")
+        .split("\n")
+        .forEach { rawLine ->
+            val trimmed = rawLine.trim()
+
+            when {
+                // Headings: # , ## , ###
+                trimmed.startsWith("### ") -> {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = inlineStyled(trimmed.removePrefix("### "), uriHandler),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                trimmed.startsWith("## ") -> {
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = inlineStyled(trimmed.removePrefix("## "), uriHandler),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+                trimmed.startsWith("# ") -> {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = inlineStyled(trimmed.removePrefix("# "), uriHandler),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
+
+                // Unordered list item: - * + 
+                trimmed.startsWith("- ")
+                        || trimmed.startsWith("* ")
+                        || trimmed.startsWith("+ ") -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp)
+                        )
+                        Text(
+                            text = inlineStyled(trimmed.substringAfter(" "), uriHandler),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Ordered list item: 1. 2. etc.
+                trimmed.matches(Regex("^\\d+\\.\\s")) -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp, bottom = 2.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = trimmed.substringBefore(".") + ".",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 2.dp)
+                        )
+                        Text(
+                            text = inlineStyled(trimmed.substringAfter(". "), uriHandler),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Horizontal rule
+                trimmed == "---" || trimmed == "***" || trimmed == "___" -> {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+                }
+
+                // Blank line → vertical rhythm
+                trimmed.isEmpty() -> {
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                // Plain paragraph
+                else -> {
+                    Text(
+                        text = inlineStyled(trimmed, uriHandler),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+                }
+            }
+        }
+}
+
+/** Builds an [AnnotatedString] handling `**bold**` and `[text](url)` inline markdown. */
+@Composable
+private fun inlineStyled(text: String, uriHandler: androidx.compose.ui.platform.UriHandler): AnnotatedString {
+    return buildAnnotatedString {
+        var i = 0
+        val n = text.length
+        while (i < n) {
+            val nextBold = text.indexOf("**", i)
+            val nextLink = text.indexOf('[', i)
+            val next = when {
+                nextBold != -1 && nextLink != -1 -> minOf(nextBold, nextLink)
+                nextBold != -1 -> nextBold
+                nextLink != -1 -> nextLink
+                else -> -1
+            }
+
+            if (next == -1) {
+                append(text.substring(i, n))
+                i = n
+                continue
+            }
+
+            append(text.substring(i, next))
+
+            if (text.startsWith("**", next)) {
+                val endBold = text.indexOf("**", next + 2)
+                if (endBold != -1) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append(text.substring(next + 2, endBold))
+                    }
+                    i = endBold + 2
+                } else {
+                    append(text.substring(next))
+                    i = next + 2
+                }
+            } else if (text.startsWith("[", next)) {
+                val closeBracket = text.indexOf(']', next + 1)
+                val urlStart = if (closeBracket != -1 && closeBracket + 1 < n && text[closeBracket + 1] == '(') {
+                    closeBracket + 2
+                } else -1
+                val urlEnd = if (urlStart != -1) text.indexOf(')', urlStart) else -1
+
+                if (urlStart != -1 && urlEnd != -1) {
+                    val label = text.substring(next + 1, closeBracket)
+                    val url = text.substring(urlStart, urlEnd)
+                    val linkId = pushLink(
+                        LinkAnnotation.Url(
+                            url = url,
+                            styles = TextLinkStyles(
+                                style = SpanStyle(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = TextDecoration.Underline
+                                )
+                            )
+                        )
+                    )
+                    append(label)
+                    pop(linkId)
+                    i = urlEnd + 1
+                } else {
+                    append(text.substring(next))
+                    i = next + 1
+                }
+            } else {
+                append(text.substring(next))
+                i = next + 1
+            }
+        }
+        uriHandler
     }
 }

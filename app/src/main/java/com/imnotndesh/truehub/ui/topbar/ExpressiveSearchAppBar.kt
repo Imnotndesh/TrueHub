@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -99,6 +100,7 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,55 +120,74 @@ fun ExpressiveSearchAppBar(
     var isSearchActive by remember { mutableStateOf(startSearchActive) }
     val searchState by searchViewModel.searchState.collectAsState()
     val focusRequester = remember { FocusRequester() }
+    val personalization by PersonalizationManager.state.collectAsState()
+    val alignBottom = personalization.searchBarBottom
 
     // ── Entire-screen search mode ─────────────────────────────
     if (isSearchActive) {
+        val handleClose: () -> Unit = {
+            searchViewModel.clearSearch()
+            isSearchActive = false
+            onCloseSearch?.let { it() }
+        }
+        val handleResult: (SearchResult) -> Unit = { result ->
+            searchViewModel.addToRecentSearches(searchState.query)
+            onSearchResultClick(result)
+            isSearchActive = false
+            searchViewModel.clearSearch()
+            onCloseSearch?.let { it() }
+        }
+
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Status bar spacer
-                Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
-
-                // Search input row
-                SearchTopBar(
-                    query = searchState.query,
-                    onQueryChange = { searchViewModel.updateSearchQuery(it) },
-                    onClose = {
-                        searchViewModel.clearSearch()
-                        isSearchActive = false
-                        onCloseSearch?.invoke()
-                    },
-                    focusRequester = focusRequester
-                )
-
-                // Horizontally scrolling filter chips — no bottom padding
-                SearchCategoryChipsRow(
-                    selectedCategory = searchState.selectedCategory,
-                    onCategorySelected = { searchViewModel.selectCategory(it) }
-                )
-
-                // Results fill remaining space
-                SearchResultsContent(
-                    searchState = searchState,
-                    onResultClick = { result ->
-                        searchViewModel.addToRecentSearches(searchState.query)
-                        onSearchResultClick(result)
-                        isSearchActive = false
-                        searchViewModel.clearSearch()
-                        onCloseSearch?.invoke()
-                    },
-                    onRecentSearchClick = { query ->
-                        searchViewModel.updateSearchQuery(query)
-                    },
-                    onDeleteRecentSearch = { query ->
-                        searchViewModel.removeRecentSearch(query)
-                    },
-                    onClearRecentSearches = {
-                        searchViewModel.clearRecentSearches()
-                    }
-                )
+                if (alignBottom) {
+                    Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    SearchResultsContent(
+                        searchState = searchState,
+                        onResultClick = handleResult,
+                        onRecentSearchClick = { searchViewModel.updateSearchQuery(it) },
+                        onDeleteRecentSearch = { searchViewModel.removeRecentSearch(it) },
+                        onClearRecentSearches = { searchViewModel.clearRecentSearches() },
+                        modifier = Modifier.weight(1f)
+                    )
+                    SearchCategoryChipsRow(
+                        selectedCategory = searchState.selectedCategory,
+                        onCategorySelected = { searchViewModel.selectCategory(it) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SearchTopBar(
+                        query = searchState.query,
+                        onQueryChange = { searchViewModel.updateSearchQuery(it) },
+                        onClose = handleClose,
+                        focusRequester = focusRequester
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                } else {
+                    Spacer(modifier = Modifier.height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding()))
+                    SearchTopBar(
+                        query = searchState.query,
+                        onQueryChange = { searchViewModel.updateSearchQuery(it) },
+                        onClose = handleClose,
+                        focusRequester = focusRequester
+                    )
+                    SearchCategoryChipsRow(
+                        selectedCategory = searchState.selectedCategory,
+                        onCategorySelected = { searchViewModel.selectCategory(it) }
+                    )
+                    SearchResultsContent(
+                        searchState = searchState,
+                        onResultClick = handleResult,
+                        onRecentSearchClick = { searchViewModel.updateSearchQuery(it) },
+                        onDeleteRecentSearch = { searchViewModel.removeRecentSearch(it) },
+                        onClearRecentSearches = { searchViewModel.clearRecentSearches() },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
@@ -221,21 +242,28 @@ private fun SearchTopBar(
     onClose: () -> Unit,
     focusRequester: FocusRequester
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
-        IconButton(onClick = onClose) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Close search"
-            )
-        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Close search"
+                )
+            }
 
-        Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
         BasicTextField(
             value = query,
@@ -275,6 +303,7 @@ private fun SearchTopBar(
                     contentDescription = "Clear search"
                 )
             }
+        }
         }
     }
 }
@@ -460,14 +489,13 @@ private fun SearchResultsContent(
     onResultClick: (SearchResult) -> Unit,
     onRecentSearchClick: (String) -> Unit,
     onDeleteRecentSearch: (String) -> Unit,
-    onClearRecentSearches: () -> Unit
+    onClearRecentSearches: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val expandedCategories = remember { mutableMapOf<SearchCategory, Boolean>() }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 4.dp),
+        modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         // ── Empty query → Quick actions + Recent searches ────
@@ -781,6 +809,7 @@ private fun AppFallbackIcon(result: SearchResult) {
         is SearchResult.ContainerResult -> Icons.Default.Inventory
         is SearchResult.VmResult -> Icons.Default.Computer
         is SearchResult.NavigationResult -> Icons.Default.Search
+        is SearchResult.InstanceSettingsResult -> Icons.Default.Settings
     }
     Icon(
         imageVector = icon,

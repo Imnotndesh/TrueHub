@@ -297,6 +297,7 @@ object ApiMethods {
         const val GET_UPGRADE_SUMMARY = "app.upgrade_summary"
         const val QUERY_MARKETPLACE_APPS = "app.available"
         const val GET_CATALOG_APP_DETAILS = "catalog.get_app_details"
+        const val APP_AVAILABLE_SPACE = "app.available_space"
         const val APP_CREATE = "app.create"
         const val CERTIFICATE_CHOICES = "app.certificate_choices"
         const val USED_APP_PORTS = "app.used_ports"
@@ -309,6 +310,18 @@ object ApiMethods {
         const val APP_ROLLBACK_VERSIONS ="app.rollback_versions"
         const val DELETE_APP = "app.delete"
         const val SIMILAR_APPS = "app.similar"
+
+        // ── Container images (app.image.*) ──────────────────
+        const val IMAGE_QUERY = "app.image.query"
+        const val IMAGE_GET_INSTANCE = "app.image.get_instance"
+        const val IMAGE_PULL = "app.image.pull"
+        const val IMAGE_DELETE = "app.image.delete"
+        const val IMAGE_DOCKERHUB_RATE_LIMIT = "app.image.dockerhub_rate_limit"
+
+        // ── iX volumes (app.ix_volume.*) ────────────────────
+        const val IX_VOLUME_EXISTS = "app.ix_volume.exists"
+        const val IX_VOLUME_QUERY = "app.ix_volume.query"
+
         const val LATEST_APPS_TRAIN = "latest"
         const val STABLE_APPS_TRAIN = "stable"
     }

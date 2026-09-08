@@ -63,7 +63,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -89,6 +88,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Vm
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.vm.details.VmInfoPane
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
@@ -115,7 +115,6 @@ fun VmsScreen(
     }
     val uiState by viewModel.uiState.collectAsState()
     val isCompact = AdaptiveLayoutHelper.isCompact()
-    val refreshState = rememberPullToRefreshState()
 
     var selectedCategory by remember { mutableStateOf(VmFilterCategory.ALL) }
     var selectedVmForPane by remember { mutableStateOf<Vm.VmQueryResponse?>(null) }
@@ -150,21 +149,9 @@ fun VmsScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        PullToRefreshBox(
+        PullToRefreshContent(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { viewModel.refresh() },
-            state = refreshState,
-            indicator = {
-                Box(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MorphingRefreshIndicator(
-                        state = refreshState,
-                        isRefreshing = uiState.isRefreshing
-                    )
-                }
-            },
             modifier = Modifier.weight(1f)
         ) {
             when {

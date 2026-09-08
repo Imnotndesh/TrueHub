@@ -1,7 +1,7 @@
 [versions]
 accompanistPermissions = "0.37.3"
 activityCompose = "1.13.0"
-agp = "9.3.1"
+agp = "9.3.2"
 coilCompose = "2.7.0"
 coilSvg = "2.7.0"
 composeBom = "2026.06.01"
@@ -34,6 +34,8 @@ workRuntimeKtx = "2.11.2"
 glanceAppwidget = "1.1.1"
 glancePreview = "1.1.1"
 runtimeSaveable = "1.11.4"
+appfunctions = "1.0.0-alpha10"
+ksp = "2.3.10"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
@@ -78,9 +80,12 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glanceAppwidget" }
 androidx-glance-preview = { group = "androidx.glance", name = "glance-preview", version.ref = "glancePreview" }
 androidx-compose-runtime-saveable = { group = "androidx.compose.runtime", name = "runtime-saveable", version.ref = "runtimeSaveable" }
+androidx-appfunctions = { group = "androidx.appfunctions", name = "appfunctions", version.ref = "appfunctions" }
+androidx-appfunctions-compiler = { group = "androidx.appfunctions", name = "appfunctions-compiler", version.ref = "appfunctions" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 

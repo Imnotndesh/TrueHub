@@ -1026,11 +1026,11 @@ class SystemService(val manager: TrueNASApiManager){
      * Supported export_formats: "CSV", "JSON", "YAML"
      * This method is a job — use with core.download to retrieve the file.
      */
-    suspend fun auditExport(data: System.AuditExportArgs): ApiResult<String> {
+    suspend fun auditExport(data: System.AuditExportArgs): ApiResult<Int> {
         return manager.callWithResult(
             method = ApiMethods.Audit.EXPORT,
             params = listOf(data),
-            resultType = String::class.java
+            resultType = Int::class.java
         )
     }
 
@@ -1061,13 +1061,14 @@ class SystemService(val manager: TrueNASApiManager){
      * @return A [System.CoreDownloadResult] containing the job id and download URL, or an error.
      */
     suspend fun coreDownload(data: System.CoreDownloadArgs): ApiResult<System.CoreDownloadResult> {
-        val type = Types.newParameterizedType(
-            List::class.java,
-            Any::class.java
-        )
+        val params = mutableListOf<Any>(data.method, data.args)
+        data.filename?.let { params.add(it) }
+        params.add(data.buffered)  // always include, default false if not set
+
+        val type = Types.newParameterizedType(List::class.java, Any::class.java)
         return when (val result = manager.callWithResult<Any>(
             method = ApiMethods.Audit.CORE_DOWNLOAD,
-            params = listOf(data),
+            params = params,
             resultType = type
         )) {
             is ApiResult.Success -> parseCoreDownloadResult(result.data)
@@ -1076,18 +1077,15 @@ class SystemService(val manager: TrueNASApiManager){
         }
     }
 
-    /** Parse the [jobId, downloadUrl] tuple returned by core.download. */
     private fun parseCoreDownloadResult(data: Any?): ApiResult<System.CoreDownloadResult> {
         return try {
-            val list = data as? List<*> ?: return ApiResult.Error("Unexpected core.download response: $data")
-            if (list.size < 2) return ApiResult.Error("core.download returned an unexpected tuple: $list")
-            val jobId = (list[0] as? Number)?.toInt()
-                ?: return ApiResult.Error("core.download returned an invalid job id: ${list[0]}")
-            val downloadUrl = list[1] as? String
-                ?: return ApiResult.Error("core.download returned an invalid download URL: ${list[1]}")
-            ApiResult.Success(System.CoreDownloadResult(jobId = jobId, downloadUrl = downloadUrl))
+            val list = data as? List<*> ?: return ApiResult.Error("Unexpected response")
+            if (list.size < 2) return ApiResult.Error("Invalid response format")
+            val jobId = (list[0] as? Number)?.toInt() ?: return ApiResult.Error("Invalid job ID")
+            val downloadUrl = list[1] as? String ?: return ApiResult.Error("Invalid download URL")
+            ApiResult.Success(System.CoreDownloadResult(jobId, downloadUrl))
         } catch (e: Exception) {
-            ApiResult.Error("Failed to parse core.download response: ${e.message}", e)
+            ApiResult.Error(e.message ?: "Parse error")
         }
     }
 

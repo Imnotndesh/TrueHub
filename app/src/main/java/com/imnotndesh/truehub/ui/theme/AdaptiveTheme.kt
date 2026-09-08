@@ -32,11 +32,18 @@ fun TrueHubAppTheme(
 
     if (darkTheme && isBlackMode) {
         colorScheme = colorScheme.copy(
+            // True OLED black canvas — no grey bleed-through on any surface role.
             surface = Color.Black,
             background = Color.Black,
-            surfaceContainer = Color(0xFF0D0D0D),
-            surfaceContainerLow = Color(0xFF050505),
-            surfaceContainerHigh = Color(0xFF141414)
+            surfaceTint = Color.Black,
+            surfaceDim = Color.Black,
+            surfaceBright = Color.Black,
+            surfaceContainer = Color(0xFF0A0A0A),
+            surfaceContainerLow = Color(0xFF030303),
+            surfaceContainerLowest = Color.Black,
+            surfaceContainerHigh = Color(0xFF101010),
+            surfaceContainerHighest = Color(0xFF141414),
+            surfaceVariant = Color(0xFF151515)
         )
     }
 

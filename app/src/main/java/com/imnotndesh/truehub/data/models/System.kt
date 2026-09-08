@@ -278,16 +278,16 @@ object System {
     // Pool Info
     @Suppress("PropertyName")
     data class Pool(
-        val id: Int,
-        val name: String,
-        val guid: String,
-        val status: String,
-        val path: String,
+        val id: Int? = null,
+        val name: String = "",
+        val guid: String = "",
+        val status: String = "UNKNOWN",
+        val path: String = "",
         val scan: PoolScan? = null,
         val expand: PoolExpand? = null,
         val is_upgraded : Boolean ?= false,
-        val healthy: Boolean,
-        val warning: Boolean,
+        val healthy: Boolean = false,
+        val warning: Boolean = false,
         val status_code: String ?= null,
         val status_detail: String? = null,
         val size: Long ?= null,
@@ -301,85 +301,85 @@ object System {
         val allocated_str: String ? = null,
         val free_str: String ? = null,
         val freeing_str: String ?= null,
-        val autotrim: AutoTrim,
+        val autotrim: AutoTrim? = null,
         val topology: PoolTopology ?= null
     )
 
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class PoolScan(
-        val function: String?,
-        val state: String?,
-        val start_time: Map<String, Long>?,
-        val end_time: Map<String, Long>?,
-        val percentage: Double?,
-        val bytes_to_process: Long?,
-        val bytes_processed: Long?,
-        val bytes_issued: Long?,
-        val pause: String?,
-        val errors: Int?,
-        val total_secs_left: Long?
+        val function: String? = null,
+        val state: String? = null,
+        val start_time: Map<String, Long>? = null,
+        val end_time: Map<String, Long>? = null,
+        val percentage: Double? = null,
+        val bytes_to_process: Long? = null,
+        val bytes_processed: Long? = null,
+        val bytes_issued: Long? = null,
+        val pause: String? = null,
+        val errors: Int? = null,
+        val total_secs_left: Long? = null
     )
 
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class PoolExpand(
-        val state: String?,
-        val expanding_vdev: Any?,
-        val start_time: Map<String, Long>?,
-        val end_time: Map<String, Long>?,
-        val bytes_to_reflow: Long?,
-        val bytes_reflowed: Long?,
-        val waiting_for_resilver: Boolean?,
-        val total_secs_left: Long?,
-        val percentage: Double?
+        val state: String? = null,
+        val expanding_vdev: Any? = null,
+        val start_time: Map<String, Long>? = null,
+        val end_time: Map<String, Long>? = null,
+        val bytes_to_reflow: Long? = null,
+        val bytes_reflowed: Long? = null,
+        val waiting_for_resilver: Boolean? = null,
+        val total_secs_left: Long? = null,
+        val percentage: Double? = null
     )
 
     data class PoolTopology(
-        val data: List<PoolDevice>,
-        val log: List<PoolDevice>,
-        val cache: List<PoolDevice>,
-        val spare: List<PoolDevice>,
-        val special: List<PoolDevice>,
-        val dedup: List<PoolDevice>
+        val data: List<PoolDevice> = emptyList(),
+        val log: List<PoolDevice> = emptyList(),
+        val cache: List<PoolDevice> = emptyList(),
+        val spare: List<PoolDevice> = emptyList(),
+        val special: List<PoolDevice> = emptyList(),
+        val dedup: List<PoolDevice> = emptyList()
     )
 
     @Suppress("PropertyName")
     data class PoolDevice(
         val name: String,
         val type: String,
-        val path: String?,
-        val guid: String,
-        val status: String,
-        val stats: PoolStats?,
-        val children: List<PoolDevice>,
-        val device: String?,
-        val disk: String?,
-        val unavail_disk: String?
+        val path: String? = null,
+        val guid: String? = null,
+        val status: String? = null,
+        val stats: PoolStats? = null,
+        val children: List<PoolDevice> = emptyList(),
+        val device: String? = null,
+        val disk: String? = null,
+        val unavail_disk: String? = null
     )
 
     @Suppress("PropertyName")
     data class PoolStats(
-        val timestamp: Long,
-        val read_errors: Int,
-        val write_errors: Int,
-        val checksum_errors: Int,
-        val ops: List<Long>,
-        val bytes: List<Long>,
-        val size: Long,
-        val allocated: Long,
-        val fragmentation: Int,
-        val self_healed: Int,
-        val configured_ashift: Int,
-        val logical_ashift: Int,
-        val physical_ashift: Int
+        val timestamp: Long? = null,
+        val read_errors: Int? = null,
+        val write_errors: Int? = null,
+        val checksum_errors: Int? = null,
+        val ops: List<Long> = emptyList(),
+        val bytes: List<Long> = emptyList(),
+        val size: Long? = null,
+        val allocated: Long? = null,
+        val fragmentation: Int? = null,
+        val self_healed: Int? = null,
+        val configured_ashift: Int? = null,
+        val logical_ashift: Int? = null,
+        val physical_ashift: Int? = null
     )
 
     data class AutoTrim(
-        val value: String,
-        val rawvalue: String,
-        val parsed: String,
-        val source: String
+        val value: String = "",
+        val rawvalue: String = "",
+        val parsed: String = "",
+        val source: String = "DEFAULT"
     )
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)

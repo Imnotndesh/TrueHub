@@ -53,14 +53,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.BugReport
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.LoggingPrefs
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import kotlinx.coroutines.launch
 
@@ -73,6 +74,7 @@ fun SettingsScreen(
     onDummyAction: (String) -> Unit = {},
     onNavigateToTheme : () -> Unit = {},
     onNavigateToChangePassword : () -> Unit = {},
+    onNavigateToLogging: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val viewModel : SettingsScreenViewModel = viewModel(
@@ -104,14 +106,8 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
+            // True OLED black in black mode — solid canvas instead of a grey-ish gradient.
+            .background(MaterialTheme.colorScheme.background)
             .padding(WindowInsets.systemBars.asPaddingValues())
     ) {
         UnifiedScreenHeader(
@@ -209,24 +205,36 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
             SettingsSection(
                 title = "About",
-                items = listOf(
-                    SettingItem(
-                        icon = Icons.Default.Info,
-                        name = "About TrueHub",
-                        description = "Version and application details",
-                        onClick = {
-                            onNavigateToAbout()
-                        }
-                    ),
-                    SettingItem(
-                        icon = Icons.Default.Description,
-                        name = "Licenses",
-                        description = "View open source licenses",
-                        onClick = {
-                            onNavigateToLicenses()
-                        }
+                items = buildList {
+                    add(
+                        SettingItem(
+                            icon = Icons.Default.Info,
+                            name = "About TrueHub",
+                            description = "Version and application details",
+                            onClick = { onNavigateToAbout() }
+                        )
                     )
-                )
+                    add(
+                        SettingItem(
+                            icon = Icons.Default.Description,
+                            name = "Licenses",
+                            description = "View open source licenses",
+                            onClick = { onNavigateToLicenses() }
+                        )
+                    )
+                    // Hidden entry, revealed by tapping the "Performance Tracking" feature
+                    // card in About 5 times. Not reset on app launch.
+                    if (LoggingPrefs.isVisible(LocalContext.current)) {
+                        add(
+                            SettingItem(
+                                icon = Icons.Default.BugReport,
+                                name = "App Logging",
+                                description = "Internal logging & diagnostics",
+                                onClick = { onNavigateToLogging() }
+                            )
+                        )
+                    }
+                }
             )
             if (uiState.showAutoLoginDialog) {
                 AutoLoginConfigDialog(

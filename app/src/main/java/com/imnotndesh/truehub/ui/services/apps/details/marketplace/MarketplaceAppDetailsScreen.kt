@@ -5,7 +5,6 @@ import android.widget.TextView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -46,7 +43,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -83,9 +80,12 @@ import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
+import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.formatBytes
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDetailsViewModel
 import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
@@ -125,250 +125,303 @@ fun MarketplaceAppDetailsScreen(
         appsViewModel.preloadCatalogDetails(app.name, app.train)
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            ActionBottomBar(
-                isInstalled = app.installed,
-                app = app,
-                onInstallClick = { appName, train ->
-                    onInstallClick(appName, train)
-                },
-                onUninstallClick = {
-                    appDetailsViewModel.deleteApp(context = context, appName = app.name)
-                },
-                onInstallAnotherClick = {
-                    onInstallClick(app.name, app.train)
-                },
-                isDeleting = currentDeletionJob != null,
-                deletionJobState = currentDeletionJob
-            )
+    var availableAppStorage by remember { mutableStateOf<Long?>(null) }
+    var availableStorageLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        when (val result = manager.apps.getAvailableSpaceWithResult()) {
+            is ApiResult.Success -> availableAppStorage = result.data
+            else -> availableAppStorage = null
         }
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding()),
-            contentPadding = PaddingValues(bottom = 24.dp)
-        ) {
-            item {
-                HeroHeaderSection(app = app, onNavigateBack = onNavigateBack)
-            }
-
-            item {
-                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        app.categories?.forEach { category ->
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text(category.replaceFirstChar { it.uppercase() }) },
-                                colors = SuggestionChipDefaults.suggestionChipColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                ),
-                                border = null,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "About this application",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = app.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.25f
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-
-            if (!app.screenshots.isNullOrEmpty()) {
+        availableStorageLoading = false
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background
+        ) { _ ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(0.dp)
+            ) {
                 item {
-                    Text(
-                        text = "Screenshots",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        app.screenshots.forEachIndexed { index, screenshotUrl ->
-                            AsyncImage(
-                                model = screenshotUrl,
-                                contentDescription = "App Screenshot",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .width(280.dp)
-                                    .height(160.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                    .clickable {
-                                        activeScreenshotIndex = index
-                                    }
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
+                    HeroHeaderSection(app = app)
                 }
-            }
 
-            item {
-                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                    Text(
-                        text = "Technical Details",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    HealthStatusCard(healthy = app.healthy, errorMsg = app.healthy_error)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    ElevatedCard(
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            InfoRowItem(icon = Icons.Default.Info, label = "Latest Version", value = app.latest_human_version ?: app.latest_version ?: "N/A")
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            InfoRowItem(icon = Icons.Default.Folder, label = "Catalog Train", value = "${app.catalog ?: "Unknown"} / ${app.train}")
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                            InfoRowItem(icon = Icons.Default.Update, label = "Last Updated", value = app.lastUpdateString)
-                            if (app.tagsString.isNotBlank()) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                InfoRowItem(icon = Icons.Default.LocalOffer, label = "Tags", value = app.tagsString)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            app.categories?.forEach { category ->
+                                SuggestionChip(
+                                    onClick = {},
+                                    label = { Text(category.replaceFirstChar { it.uppercase() }) },
+                                    colors = SuggestionChipDefaults.suggestionChipColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+                                            alpha = 0.5f
+                                        ),
+                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    border = null,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    if (app.maintainers.isNotEmpty()) {
-                        Text(
-                            text = "Maintainers",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        app.maintainers.forEach { maintainer ->
-                            Card(
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
-                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.primaryContainer,
-                                                CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = maintainer.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
-                                }
-                            }
+                        if (app.categories.isNullOrEmpty().not()) {
+                            Spacer(modifier = Modifier.height(20.dp))
                         }
-                    }
-                }
-            }
 
-            if (!app.app_readme.isNullOrBlank()) {
-                item {
-                    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(bottom = 20.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        AppActionSection(
+                            isInstalled = app.installed,
+                            isDeleting = currentDeletionJob != null,
+                            onInstallClick = { onInstallClick(app.name, app.train) },
+                            onUninstallClick = {
+                                appDetailsViewModel.deleteApp(context = context, appName = app.name)
+                            },
+                            onInstallAnotherClick = { onInstallClick(app.name, app.train) }
                         )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
                         Text(
-                            text = "Application Documentation",
+                            text = "About this application",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = app.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.25f
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                }
+
+                if (!app.screenshots.isNullOrEmpty()) {
+                    item {
+                        Text(
+                            text = "Screenshots",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .padding(horizontal = 20.dp, vertical = 10.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            app.screenshots.forEachIndexed { index, screenshotUrl ->
+                                AsyncImage(
+                                    model = screenshotUrl,
+                                    contentDescription = "App Screenshot",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .width(280.dp)
+                                        .height(160.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                        .clickable {
+                                            activeScreenshotIndex = index
+                                        }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                }
+
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        Text(
+                            text = "Technical Details",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        HealthStatusCard(healthy = app.healthy, errorMsg = app.healthy_error)
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        AvailableAppStorageCard(
+                            availableBytes = availableAppStorage,
+                            isLoading = availableStorageLoading
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        ElevatedCard(
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             ),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            val textColor = MaterialTheme.colorScheme.onSurface
-                            val linkColor = MaterialTheme.colorScheme.primary
-
-                            AndroidView(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                factory = { context ->
-                                    TextView(context).apply {
-                                        movementMethod = LinkMovementMethod.getInstance()
-                                        textSize = 14f
-                                    }
-                                },
-                                update = { textView ->
-                                    textView.setTextColor(textColor.hashCode())
-                                    textView.setLinkTextColor(linkColor.hashCode())
-                                    textView.text = HtmlCompat.fromHtml(
-                                        app.app_readme,
-                                        HtmlCompat.FROM_HTML_MODE_LEGACY
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                InfoRowItem(
+                                    icon = Icons.Default.Info,
+                                    label = "Latest Version",
+                                    value = app.latest_human_version ?: app.latest_version ?: "N/A"
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                                InfoRowItem(
+                                    icon = Icons.Default.Folder,
+                                    label = "Catalog Train",
+                                    value = "${app.catalog ?: "Unknown"} / ${app.train}"
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
+                                InfoRowItem(
+                                    icon = Icons.Default.Update,
+                                    label = "Last Updated",
+                                    value = app.lastUpdateString
+                                )
+                                if (app.tagsString.isNotBlank()) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                    InfoRowItem(
+                                        icon = Icons.Default.LocalOffer,
+                                        label = "Tags",
+                                        value = app.tagsString
                                     )
                                 }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        if (app.maintainers.isNotEmpty()) {
+                            Text(
+                                text = "Maintainers",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(bottom = 12.dp)
                             )
+                            app.maintainers.forEach { maintainer ->
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
+                                            alpha = 0.4f
+                                        ),
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(
+                                                    MaterialTheme.colorScheme.primaryContainer,
+                                                    CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = maintainer.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!app.app_readme.isNullOrBlank()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 16.dp)  // Only top padding; no bottom padding
+                        ) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(bottom = 20.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                            Text(
+                                text = "Application Documentation",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                val textColor = MaterialTheme.colorScheme.onSurface
+                                val linkColor = MaterialTheme.colorScheme.primary
+
+                                AndroidView(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    factory = { context ->
+                                        TextView(context).apply {
+                                            movementMethod = LinkMovementMethod.getInstance()
+                                            textSize = 14f
+                                        }
+                                    },
+                                    update = { textView ->
+                                        textView.setTextColor(textColor.hashCode())
+                                        textView.setLinkTextColor(linkColor.hashCode())
+                                        textView.text = HtmlCompat.fromHtml(
+                                            app.app_readme,
+                                            HtmlCompat.FROM_HTML_MODE_LEGACY
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        )
     }
     if (activeScreenshotIndex != null && !app.screenshots.isNullOrEmpty()) {
         ScreenshotViewer(
@@ -382,7 +435,6 @@ fun MarketplaceAppDetailsScreen(
 @Composable
 private fun HeroHeaderSection(
     app: Apps.AppAvailableItem,
-    onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
     val cornerRadius = (44 * 0.22f).dp
@@ -430,25 +482,6 @@ private fun HeroHeaderSection(
                             )
                         )
                     )
-            )
-        }
-
-        IconButton(
-            onClick = onNavigateBack,
-            modifier = Modifier
-                .padding(start = 16.dp, top = 16.dp)
-                .align(Alignment.TopStart)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f), CircleShape)
-                .border(
-                    0.5.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    CircleShape
-                )
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Navigate back",
-                tint = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -521,12 +554,6 @@ private fun HeroHeaderSection(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "App Name: ${app.name}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
-                )
             }
         }
     }
@@ -567,6 +594,135 @@ private fun HealthStatusCard(healthy: Boolean?, errorMsg: String?) {
     }
 }
 
+/** Reference pool capacity (bytes) used to normalise the available-space gauge. */
+private const val APPS_POOL_REFERENCE_BYTES: Long = 1L shl 40 // 1 TiB
+
+@Composable
+private fun AvailableAppStorageCard(
+    availableBytes: Long?,
+    isLoading: Boolean
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Available App Storage",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Space in the apps pool consumable by applications",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (isLoading) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Checking available space…",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (availableBytes == null) {
+                Text(
+                    text = "Unable to retrieve available space",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val reference = APPS_POOL_REFERENCE_BYTES.coerceAtLeast(availableBytes)
+                val fillFraction = (availableBytes.toFloat() / reference).coerceIn(0f, 1f)
+                val barColor = storageBarColor(availableBytes = availableBytes)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatBytes(availableBytes),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = barColor
+                    )
+                    Text(
+                        text = "available",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { fillFraction },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    color = barColor,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Low",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "High",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun storageBarColor(availableBytes: Long): Color {
+    return when {
+        availableBytes <= 10L shl 30 -> MaterialTheme.colorScheme.error          // < ~10 GiB → red (mostly full)
+        availableBytes <= 20L shl 30 -> MaterialTheme.colorScheme.tertiary       // 10–20 GiB → amber-ish
+        else -> MaterialTheme.colorScheme.primary                                // plenty → calm/primary
+    }
+}
+
 @Composable
 private fun InfoRowItem(icon: ImageVector, label: String, value: String) {
     Row(
@@ -598,93 +754,76 @@ private fun InfoRowItem(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
-private fun ActionBottomBar(
+private fun AppActionSection(
     isInstalled: Boolean,
-    app: Apps.AppAvailableItem,
-    onInstallClick: (String, String) -> Unit,
-    onUninstallClick: () -> Unit,
-    onInstallAnotherClick: () -> Unit,
     isDeleting: Boolean,
-    deletionJobState: com.imnotndesh.truehub.data.helpers.TrackedJob?
+    onInstallClick: () -> Unit,
+    onUninstallClick: () -> Unit,
+    onInstallAnotherClick: () -> Unit
 ) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 16.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (!isInstalled) {
-                Button(
-                    onClick = { onInstallClick(app.name, app.train) },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Install Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                }
-            } else {
-                // Uninstall button with job tracking (mirroring AppInfoScreen)
-                OutlinedButton(
-                    onClick = onUninstallClick,
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isDeleting,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    if (isDeleting && deletionJobState != null) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        val statusText = when (deletionJobState.state) {
-                            "RUNNING" -> "Uninstalling... ${deletionJobState.progress}%"
-                            "WAITING" -> "Queuing Uninstall..."
-                            else -> deletionJobState.state
-                        }
-                        Text(statusText, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Uninstall", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Button(
-                    onClick = onInstallAnotherClick,
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isDeleting,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    modifier = Modifier
-                        .weight(1.2f)
-                        .height(52.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+        if (!isInstalled) {
+            Button(
+                onClick = onInstallClick,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Install Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+            }
+        } else {
+            OutlinedButton(
+                onClick = onUninstallClick,
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isDeleting,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Install Another", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Uninstalling...", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Uninstall", fontWeight = FontWeight.Bold)
                 }
+            }
+
+            Button(
+                onClick = onInstallAnotherClick,
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isDeleting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                modifier = Modifier
+                    .weight(1.2f)
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Install Another", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

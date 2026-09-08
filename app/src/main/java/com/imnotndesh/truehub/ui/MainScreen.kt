@@ -14,15 +14,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.SystemUpdateAlt
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.outlined.SystemUpdateAlt
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -58,7 +65,10 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.imnotndesh.truehub.MainViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.NavbarDestination
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
@@ -84,6 +94,9 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootEnvironments
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootPoolScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsEditScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.AppImageManagementScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.DockerImageListScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.IxVolumeListScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.network.NetworkScreen
@@ -105,6 +118,7 @@ import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigPageValues
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
+import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppAdvancedInfoScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppDetailsScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppInstallScreen
@@ -130,6 +144,18 @@ private data class NavItem(
     val unselectedIcon: ImageVector
 )
 
+private fun destinationToNavItem(destination: NavbarDestination): NavItem? {
+    return when (destination) {
+        NavbarDestination.HOME -> NavItem(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home)
+        NavbarDestination.APPS -> NavItem(Screen.Apps, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps)
+        NavbarDestination.CONTAINERS -> NavItem(Screen.Containers, "Containers", Icons.Filled.Inventory, Icons.Outlined.Inventory2)
+        NavbarDestination.VMS -> NavItem(Screen.Vms, "VMs", Icons.Filled.Computer, Icons.Outlined.Computer)
+        NavbarDestination.INSTANCE_SETTINGS -> NavItem(Screen.InstanceConfigScreen, "Instance", Icons.Filled.Tune, Icons.Outlined.Tune)
+        NavbarDestination.UPDATES -> NavItem(Screen.SystemUpdateScreen, "Updates", Icons.Filled.SystemUpdateAlt, Icons.Outlined.SystemUpdateAlt)
+        NavbarDestination.MARKETPLACE -> NavItem(Screen.Marketplace, "Marketplace", Icons.Filled.Storefront, Icons.Outlined.Storefront)
+    }
+}
+
 @Composable
 fun MainScreen(
     manager: TrueNASApiManager,
@@ -138,74 +164,36 @@ fun MainScreen(
 ) {
     val navController = rememberNavController()
     val configuration = LocalConfiguration.current
+    val personalization by PersonalizationManager.state.collectAsState()
+    val isCompactNav = personalization.compactNav
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val routesWithoutBottomBar = remember {
-        setOf(
-            Screen.AppConfigScreen.route,
-            Screen.Settings.route,
-            Screen.AppUpgrade.route,
-            Screen.RollbackVersion.route,
-            Screen.AppDetailsScreen.route,
-            Screen.Marketplace.route,
-            Screen.MarketplaceAppDetails.route,
-            Screen.MarketplaceCategory.route,
-            Screen.CatalogInstall.route,
-            Screen.SystemUpdateScreen.route,
-            Screen.AlertClassesConfig.route,
-            Screen.AlertServicesList.route,
-            Screen.AlertServiceDetail.route,
-            Screen.AlertServiceCreate.route,
-            Screen.UserListScreen.route,
-            Screen.UserDetailScreen.route,
-            Screen.UserCreateScreen.route,
-            Screen.ApiKeyListScreen.route,
-            Screen.ApiKeyDetailScreen.route,
-            Screen.ApiKeyCreateScreen.route,
-            Screen.GeneralSystemSettingsScreen.route,
-            Screen.GeneralSystemSettingsEditScreen.route,
-            Screen.AdvancedSystemSettingsScreen.route,
-            Screen.AdvancedSystemSettingsEditScreen.route,
-            Screen.AuditConfigScreen.route,
-            Screen.AuditLogsScreen.route,
-            Screen.NetworkScreen.route,
-            Screen.NetworkEditScreen.route,
-            Screen.BootScreen.route,
-            Screen.BootPoolScreen.route,
-            Screen.BootEnvironmentsScreen.route,
-            Screen.BootEnvironmentDetailScreen.route,
-            Screen.SystemInformationScreen.route,
-            Screen.SoftwareInformationScreen.route,
-            Screen.HardwareInformationScreen.route,
-            Screen.TrueNasConnectScreen.route,
-            Screen.TrueCommandScreen.route,
-            Screen.InstanceConfigScreen.route,
-            Screen.ServicesScreen.route,
-            Screen.ServicesDetailScreen.route,
-            Screen.DiskInfo.route
-            )
-    }
 
-    val navItems = remember {
-        listOf(
-            NavItem(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home),
-            NavItem(Screen.Apps, "Apps", Icons.Filled.Apps, Icons.Outlined.Apps),
-            NavItem(Screen.Containers, "Containers", Icons.Filled.Inventory, Icons.Outlined.Inventory2),
-            NavItem(Screen.Vms, "VMs", Icons.Filled.Computer, Icons.Outlined.Computer)
-        )
+    val navItems = remember(personalization.navbarDestinations) {
+        personalization.navbarDestinations.mapNotNull { destination ->
+            destinationToNavItem(destination)
+        }
     }
+    val navRoutes = remember(navItems) { navItems.map { it.screen.route }.toSet() }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val pendingNav by viewModel.pendingNavigation.collectAsState()
     LaunchedEffect(pendingNav) {
-        if (pendingNav == Screen.Apps.route) {
-            navController.navigate(Screen.Apps.route) {
+        val target = pendingNav
+        when (target) {
+            Screen.Apps.route,
+            Screen.Marketplace.route,
+            Screen.InstanceConfigScreen.route,
+            Screen.SystemUpdateScreen.route -> navController.navigate(
+                target
+            ) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
                 restoreState = true
             }
-            viewModel.clearPendingNavigation()
+            else -> return@LaunchedEffect
         }
+        viewModel.clearPendingNavigation()
     }
 
     var showSearch by remember { mutableStateOf(false) }
@@ -223,10 +211,16 @@ fun MainScreen(
                         NavigationRailItem(
                             selected = selected,
                             onClick = { onNavClick(navController, item.screen.route) },
-                            label = { Text(item.title, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
+                            label = if (isCompactNav) null else {
+                                { Text(item.title, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) }
+                            },
                             icon = {
                                 Crossfade(targetState = selected, label = "iconFade") { isSelected ->
-                                    Icon(if (isSelected) item.selectedIcon else item.unselectedIcon, item.title)
+                                    Icon(
+                                        if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                        item.title,
+                                        modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
+                                    )
                                 }
                             },
                             colors = NavigationRailItemDefaults.colors(
@@ -247,7 +241,7 @@ fun MainScreen(
             }
         } else {
             Scaffold(
-                bottomBar = {if (currentRoute !in routesWithoutBottomBar){
+                bottomBar = {if (currentRoute in navRoutes){
                     run {
                         NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surface,
@@ -258,11 +252,13 @@ fun MainScreen(
                                 NavigationBarItem(
                                     selected = selected,
                                     onClick = { onNavClick(navController, item.screen.route) },
-                                    label = {
-                                        Text(
-                                            item.title,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                        )
+                                    label = if (isCompactNav) null else {
+                                        {
+                                            Text(
+                                                item.title,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
                                     },
                                     icon = {
                                         Crossfade(
@@ -271,7 +267,8 @@ fun MainScreen(
                                         ) { isSelected ->
                                             Icon(
                                                 if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                                item.title
+                                                item.title,
+                                                modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
                                             )
                                         }
                                     },
@@ -425,7 +422,34 @@ private fun TrueHubNavGraph(
                 },
                 onNavigateToTrueCommand = {
                     navController.navigate(Screen.TrueCommandScreen.route)
+                },
+                onNavigateToAppImageManagement = {
+                    navController.navigate(Screen.AppImageManagementScreen.route)
                 }
+            )
+        }
+        composable(Screen.AppImageManagementScreen.route) {
+            AppImageManagementScreen(
+                manager = manager,
+                onNavigateToIxVolumes = {
+                    navController.navigate(Screen.IxVolumeListScreen.route)
+                },
+                onNavigateToDockerImages = {
+                    navController.navigate(Screen.DockerImageListScreen.route)
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.IxVolumeListScreen.route) {
+            IxVolumeListScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.DockerImageListScreen.route) {
+            DockerImageListScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.SystemInformationScreen.route) {
@@ -754,6 +778,9 @@ private fun TrueHubNavGraph(
                     AppDataHolder.selectedApp = app
                     navController.navigate(Screen.AppDetailsScreen.route)
                 },
+                onOpenAdvanced = { appId ->
+                    navController.navigate(Screen.AppAdvancedInfoScreen.createRoute(appId))
+                },
                 onNavigateToUpgrade = { appName ->
                     navController.navigate(Screen.AppUpgrade.createRoute(appName)) },
                 onNavigateToRollback = { navController.navigate(Screen.RollbackVersion.createRoute(it)) },
@@ -787,7 +814,6 @@ private fun TrueHubNavGraph(
                 versions = uiState.rollbackVersions,
                 isLoadingVersions = uiState.isLoadingRollbackVersions,
                 fetchError = uiState.error,
-                manager = manager,
                 onConfirmRollback = { targetVersion, rollbackSnapshot ->
                     appsViewModel.rollbackApp(context, appName, targetVersion, rollbackSnapshot)
                 },
@@ -822,7 +848,22 @@ private fun TrueHubNavGraph(
                         appTrain
                     )
                     navController.navigate(Screen.AppConfigScreen.route)
+                },
+                onOpenAdvanced = { appId ->
+                    navController.navigate(Screen.AppAdvancedInfoScreen.createRoute(appId))
                 }
+            )
+        }
+
+        composable(
+            route = Screen.AppAdvancedInfoScreen.route,
+            arguments = listOf(navArgument("appId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val appId = backStackEntry.arguments?.getString("appId").orEmpty()
+            AppAdvancedInfoScreen(
+                manager = manager,
+                appId = appId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -831,11 +872,13 @@ private fun TrueHubNavGraph(
             arguments = listOf(navArgument("category") { type = NavType.StringType; defaultValue = ""; nullable = true })
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category")?.takeIf { it.isNotBlank() }
-            MarketplaceScreen(manager = manager, initialCategory = category, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") })
+            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            MarketplaceScreen(manager = manager, initialCategory = category, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
         composable(Screen.Marketplace.route) {
-            MarketplaceScreen(manager = manager, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") })
+            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            MarketplaceScreen(manager = manager, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
         composable(
@@ -862,6 +905,8 @@ private fun TrueHubNavGraph(
                     currentVersion = currentVersion,
                     currentHumanVersion = currentHumanVersion,
                     manager = manager,
+                    canUpgrade = currentApp?.canUpgradeNow() ?: false,
+                    appState = currentApp?.state ?: "",
                     onConfirmUpgrade = { version, backup ->
                         viewModel.upgradeApp(appName, context, version, backup)
                     },

@@ -93,6 +93,12 @@ object SearchResultNavigation {
                 }
             }
 
+            is SearchResult.InstanceSettingsResult -> {
+                navController.navigate(result.route) {
+                    launchSingleTop = true
+                }
+            }
+
             is SearchResult.ActionResult -> {
                 // Actions (shutdown, restart, refresh) — handled by the caller
                 // since they require ViewModel access. The caller should check

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Densified notification monochrome icon (server/rack motif).
+         Draws edge-to-edge within the viewport with no internal scaling margins,
+         so it renders at full size in the status-bar glance zone (unlike the
+         more padded ic_launcher_monochrome). All-white for tinting. -->
+
+    <!-- Outer server box, bold stroke filling the safe zone -->
+    <path
+        android:pathData="M3,2 L21,2 A1.5,1.5 0 0,1 22.5,3.5 L22.5,20.5 A1.5,1.5 0 0,1 21,22 L3,22 A1.5,1.5 0 0,1 1.5,20.5 L1.5,3.5 A1.5,1.5 0 0,1 3,2 Z"
+        android:strokeWidth="2.4"
+        android:strokeColor="#FFFFFF"
+        android:fillColor="#00000000"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round"/>
+
+    <!-- Row 1 -->
+    <path
+        android:pathData="M5,7 h14"
+        android:strokeWidth="2.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M18.2,7 m-1.2,0 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Row 2 -->
+    <path
+        android:pathData="M5,12 h14"
+        android:strokeWidth="2.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M18.2,12 m-1.2,0 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Row 3 -->
+    <path
+        android:pathData="M5,17 h14"
+        android:strokeWidth="2.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M18.2,17 m-1.2,0 a1.2,1.2 0 1,0 2.4,0 a1.2,1.2 0 1,0 -2.4,0"
+        android:fillColor="#FFFFFF"/>
+</vector>

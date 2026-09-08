@@ -20,6 +20,118 @@ class AppsService(val manager: TrueNASApiManager) {
         )
     }
 
+    /**
+     * Get a single installed app instance by its id (via [ApiMethods.Apps.APP_INSTANCE]).
+     * Returns richer per-instance information (workloads, ports, networks, notes, config, …).
+     *
+     * @param id The application id (e.g. "plex").
+     * @return The instance as an [Apps.AppQueryResponse], or an [ApiResult.Error] on failure.
+     */
+    suspend fun getAppInstanceWithResult(id: String): ApiResult<Apps.AppQueryResponse> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.APP_INSTANCE,
+            params = listOf(id),
+            resultType = Apps.AppQueryResponse::class.java
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Container images (app.image.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Query docker images (`app.image.query`) with optional pagination.
+     *
+     * Localised/paginated reads are important with large registries: [offset]/[limit]
+     * let callers page through results, and [parseTags] can be turned off for cheap
+     * list screens (tag breakdowns can then be fetched per-image via get_instance).
+     *
+     * @param parseTags When true, request normalized (`parsed_repo_tags`) tag breakdowns.
+     *   Defaults to false for efficient bulk list reads.
+     * @param offset Skip this many results (for pagination).
+     * @param limit Max number of results to return (0 = no limit).
+     * @param filters Optional query filters.
+     */
+    suspend fun queryImagesWithResult(
+        parseTags: Boolean = false,
+        offset: Int = 0,
+        limit: Int = 0,
+        filters: List<Any> = emptyList()
+    ): ApiResult<List<Apps.AppImageQueryResultItem>> {
+        val type = Types.newParameterizedType(List::class.java, Apps.AppImageQueryResultItem::class.java)
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IMAGE_QUERY,
+            params = listOf(
+                filters,
+                mapOf(
+                    "extra" to mapOf("parse_tags" to parseTags),
+                    "offset" to offset,
+                    "limit" to limit
+                )
+            ),
+            resultType = type
+        )
+    }
+
+    /** Get a single docker image by id (`app.image.get_instance`). */
+    suspend fun getImageWithResult(id: String): ApiResult<Apps.AppImageEntry> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IMAGE_GET_INSTANCE,
+            params = listOf(id),
+            resultType = Apps.AppImageEntry::class.java
+        )
+    }
+
+    /** Pull a container image (`app.image.pull`). Returns a job id. */
+    suspend fun pullImageWithResult(image: String, authConfig: Apps.AppImageAuthConfig? = null): ApiResult<Int> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IMAGE_PULL,
+            params = listOf(Apps.AppImagePullArgs(image = image, authConfig = authConfig)),
+            resultType = Int::class.java
+        )
+    }
+
+    /** Delete a docker image (`app.image.delete`). */
+    suspend fun deleteImageWithResult(imageId: String, force: Boolean = false): ApiResult<Boolean> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IMAGE_DELETE,
+            params = listOf(imageId, Apps.AppImageDeleteOptions(force = force)),
+            resultType = Boolean::class.java
+        )
+    }
+
+    /** Get the current Docker Hub rate limit info (`app.image.dockerhub_rate_limit`). */
+    suspend fun getDockerHubRateLimitWithResult(): ApiResult<Apps.ContainerImagesDockerhubRateLimitResult> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IMAGE_DOCKERHUB_RATE_LIMIT,
+            params = listOf(),
+            resultType = Apps.ContainerImagesDockerhubRateLimitResult::class.java
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // iX volumes (app.ix_volume.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /** Check whether an iX volume exists (`app.ix_volume.exists`). */
+    suspend fun ixVolumeExistsWithResult(name: String): ApiResult<Boolean> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IX_VOLUME_EXISTS,
+            params = listOf(name),
+            resultType = Boolean::class.java
+        )
+    }
+
+    /** Query iX volumes (`app.ix_volume.query`). */
+    suspend fun queryIxVolumesWithResult(filters: List<Any> = emptyList()): ApiResult<List<Apps.AppIxVolumeQueryResultItem>> {
+        val type = Types.newParameterizedType(List::class.java, Apps.AppIxVolumeQueryResultItem::class.java)
+        return manager.callWithResult(
+            method = ApiMethods.Apps.IX_VOLUME_QUERY,
+            params = listOf(filters),
+            resultType = type
+        )
+    }
+
     // Start an app
     suspend fun startAppWithResult(appName: String): ApiResult<Any> {
         return manager.callWithResult(
@@ -169,6 +281,19 @@ class AppsService(val manager: TrueNASApiManager) {
             method = ApiMethods.Apps.QUERY_APPS,
             params = listOf(filters, options),
             resultType = type
+        )
+    }
+
+    /**
+     * Get the available disk space (in bytes) in the configured apps pool that apps can consume.
+     *
+     * @return Available space in bytes, or an [ApiResult.Error] on failure.
+     */
+    suspend fun getAvailableSpaceWithResult(): ApiResult<Long> {
+        return manager.callWithResult(
+            method = ApiMethods.Apps.APP_AVAILABLE_SPACE,
+            params = listOf(),
+            resultType = Long::class.java
         )
     }
 

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.FactCheck
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Key
@@ -45,7 +46,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -79,19 +79,14 @@ fun InstanceConfigScreen(
     onNavigateToSystemInformation: () -> Unit = {},
     onNavigateToTrueNasConnect: () -> Unit = {},
     onNavigateToTrueCommand: () -> Unit = {},
+    onNavigateToAppImageManagement: () -> Unit = {},
 
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
+            // True OLED black in black mode — solid canvas instead of a grey-ish gradient.
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = "Configuration",
@@ -158,6 +153,20 @@ fun InstanceConfigScreen(
                         onClick = onNavigateToApiKeys
                     ),
 
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            InstanceConfigSection(
+                title = "App Management",
+                items = listOf(
+                    InstanceConfigItem(
+                        icon = Icons.Default.Image,
+                        name = "App Image Management",
+                        description = "View, pull, and delete Docker images",
+                        onClick = onNavigateToAppImageManagement
+                    )
                 )
             )
 

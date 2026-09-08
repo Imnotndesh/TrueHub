@@ -11,13 +11,21 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import com.imnotndesh.truehub.MainActivity
 import com.imnotndesh.truehub.data.workers.CancelJobReceiver
 
 class JobNotificationService : Service() {
 
     private companion object {
-        const val CHANNEL_ID = "truehub_middleware_jobs"
-        const val CHANNEL_NAME = "System Provisioning Status"
+        // Reuse the same channel identities as AlertsWorker so users get one consistent
+        // two-channel split (System vs Informational) across the whole app.
+        const val CHANNEL_SYSTEM = "truehub_system_channel"
+        const val CHANNEL_INFORMATIONAL = "truehub_informational_channel"
+
+        fun channelForType(type: String?): String = when {
+            type.equals("SYSTEM_UPDATE", ignoreCase = true) -> CHANNEL_SYSTEM
+            else -> CHANNEL_INFORMATIONAL
+        }
     }
 
     private val notificationManager by lazy {
@@ -37,6 +45,7 @@ class JobNotificationService : Service() {
         if (intent == null) return START_NOT_STICKY
 
         val jobId = intent.getIntExtra("id", -1)
+        val type = intent.getStringExtra("type")
         val appName = intent.getStringExtra("name") ?: "System Task"
         val progress = intent.getIntExtra("progress", 0)
         val isDone = intent.getBooleanExtra("done", false)
@@ -45,23 +54,32 @@ class JobNotificationService : Service() {
         if (jobId != -1) {
             handler.removeCallbacksAndMessages(jobId)
 
-            val notification = buildJobNotification(jobId, appName, progress, statusText, isDone)
-
-            if (activeJobsTracker.isEmpty()) {
-                activeJobsTracker.add(jobId)
-                startForeground(jobId, notification)
-            } else {
-                activeJobsTracker.add(jobId)
-                notificationManager.notify(jobId, notification)
-            }
-
             if (isDone) {
+                // Job finished: build a distinct, non-ongoing completion notification and
+                // demote it out of the foreground/live state so it visibly shows "Done"
+                // instead of vanishing abruptly.
+                val doneNotification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
                 activeJobsTracker.remove(jobId)
+
+                if (activeJobsTracker.isEmpty()) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
+                notificationManager.notify(jobId, doneNotification)
+
                 val token = jobId
                 handler.postAtTime({
                     notificationManager.cancel(jobId)
                     checkAndShutdownService()
-                }, token, android.os.SystemClock.uptimeMillis() + 2500)
+                }, token, android.os.SystemClock.uptimeMillis() + 6000)
+            } else {
+                val notification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
+                if (activeJobsTracker.isEmpty()) {
+                    activeJobsTracker.add(jobId)
+                    startForeground(jobId, notification)
+                } else {
+                    activeJobsTracker.add(jobId)
+                    notificationManager.notify(jobId, notification)
+                }
             }
         }
 
@@ -77,23 +95,59 @@ class JobNotificationService : Service() {
 
     private fun buildJobNotification(
         jobId: Int,
+        type: String?,
         appName: String,
         progress: Int,
         statusText: String,
         isDone: Boolean
     ): Notification {
-        val titleText = if (isDone) "Complete: $appName" else appName
-        val explicitStatus = if (isDone) "Infrastructure setup configured successfully." else statusText
+        val titleText = if (isDone) "✓ Completed: $appName" else appName
+        val explicitStatus = if (isDone) "Task finished successfully." else statusText
+        val channelId = channelForType(type)
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, channelId)
+            .setAutoCancel(isDone)
             .setContentTitle(titleText)
             .setContentText(explicitStatus)
-            .setSmallIcon(if (isDone) android.R.drawable.stat_sys_download_done else android.R.drawable.stat_sys_download)
+            .setSmallIcon(com.imnotndesh.truehub.R.drawable.ic_stat_notification)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setOnlyAlertOnce(true)
             .setOngoing(!isDone)
-            .setProgress(100, if (isDone) 100 else progress, false)
+            .setStyle(
+                NotificationCompat.ProgressStyle()
+                    .addProgressSegment(NotificationCompat.ProgressStyle.Segment(100))
+                    .setProgress(if (isDone) 100 else progress)
+            )
+
+        // For system updates, make the live-update card tappable to open the update
+        // screen in-app (SPECIFICALLY for SYSTEM_UPDATE jobs).
+        if (type.equals("SYSTEM_UPDATE", ignoreCase = true)) {
+            val openUpdateIntent = Intent(this, MainActivity::class.java).apply {
+                action = "com.imnotndesh.truehub.OPEN_SYSTEM_UPDATE"
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            val contentPendingIntent = PendingIntent.getActivity(
+                this,
+                jobId,
+                openUpdateIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.setContentIntent(contentPendingIntent)
+        }
+
+        // Request OS promotion as a Live Update (Android 15+ / API 35+). This is a no-op
+        // on older platforms and only applies while the job is still in progress.
+        if (!isDone) {
+            builder.setRequestPromotedOngoing(true)
+            builder.setShortCriticalText("$progress%")
+        } else {
+            // For the completed (non-promoted) notification, show the full-size launcher
+            // icon so the app branding reads clearly in the expanded notification.
+            builder.setLargeIcon(
+                android.graphics.BitmapFactory.decodeResource(resources, com.imnotndesh.truehub.R.mipmap.ic_launcher)
+            )
+        }
 
         if (!isDone) {
             val cancelIntent = Intent(this, CancelJobReceiver::class.java).apply {
@@ -116,15 +170,25 @@ class JobNotificationService : Service() {
         return builder.build()
     }
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_LOW
+        val systemChannel = NotificationChannel(
+            CHANNEL_SYSTEM,
+            "System",
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Tracks ongoing middleware application container deployments"
+            description = "System update and maintenance progress"
             setShowBadge(false)
         }
-        notificationManager.createNotificationChannel(channel)
+        val informationalChannel = NotificationChannel(
+            CHANNEL_INFORMATIONAL,
+            "Informational",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Application install, update, and deployment progress"
+            setShowBadge(false)
+        }
+        notificationManager.createNotificationChannels(
+            listOf(systemChannel, informationalChannel)
+        )
     }
 
     override fun onDestroy() {

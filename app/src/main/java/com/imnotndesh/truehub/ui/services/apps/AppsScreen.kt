@@ -66,6 +66,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -86,7 +87,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -117,7 +117,11 @@ import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.data.models.canRollbackNow
+import com.imnotndesh.truehub.data.models.canUpgradeNow
+import com.imnotndesh.truehub.data.models.isAsleep
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoPane
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
@@ -130,6 +134,7 @@ import kotlin.time.Duration.Companion.milliseconds
 fun AppsScreen(
     manager: TrueNASApiManager,
     onNavigateToAppInfo: (Apps.AppQueryResponse) -> Unit = {},
+    onOpenAdvanced: (String) -> Unit = {},
     onNavigateToUpgrade: (String) -> Unit,
     onNavigateToRollback: (String) -> Unit = {},
     onNavigateToMarketplace: () -> Unit = {},
@@ -140,7 +145,6 @@ fun AppsScreen(
     )
     val uiState by appsScreenViewModel.uiState.collectAsState()
     val isCompact = AdaptiveLayoutHelper.isCompact()
-    val refreshState = rememberPullToRefreshState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val activeJobs by JobRepository.activeJobs.collectAsState()
@@ -161,7 +165,24 @@ fun AppsScreen(
         }
     }
 
+    // Apps that can be upgraded right now (in a non-stopped state).
+    val updatableAppsCount = remember(uiState.apps, activeJobs) {
+        uiState.apps.count { app ->
+            app.canUpgradeNow() &&
+                    activeJobs.values.none { it.appName == app.name && it.type == "UPGRADE" && it.state !in listOf("SUCCESS", "FAILED", "ABORTED") }
+        }
+    }
+
+    // Apps that have updates but are asleep and would need to be started first.
+    val sleepingUpdatableAppsCount = remember(uiState.apps, activeJobs) {
+        uiState.apps.count { app ->
+            app.upgrade_available && app.isAsleep() &&
+                    activeJobs.values.none { it.appName == app.name && it.type == "UPGRADE" && it.state !in listOf("SUCCESS", "FAILED", "ABORTED") }
+        }
+    }
+
     var isUpdatingAll by remember { mutableStateOf(false) }
+    var wakeStoppedBeforeUpdate by remember { mutableStateOf(true) }
 
     // Handle back button when in selection mode
     BackHandler(isSelectionMode) {
@@ -196,7 +217,7 @@ fun AppsScreen(
     }
 
     val selectedAppsForUpdate = remember(selectedAppIds, uiState.apps) {
-        uiState.apps.filter { it.id in selectedAppIds && it.upgrade_available }
+        uiState.apps.filter { it.id in selectedAppIds && it.canUpgradeNow() }
     }
 
     val filteredApps by remember(uiState.apps, uiState.selectedCategory) {
@@ -216,24 +237,89 @@ fun AppsScreen(
             onDismissRequest = { showUpdateAllDialog = false },
             title = { Text("Update All Applications") },
             text = {
-                Text(
-                    "Are you sure you want to update all $upgradableAppsCount application(s) to their latest versions?\n\n" +
-                            "This will trigger individual upgrades for each app. You can monitor progress in each app card."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "There ${
+                            if (upgradableAppsCount == 1) "is" else "are"
+                        } $upgradableAppsCount update(s) available in total."
+                    )
+
+                    if (updatableAppsCount > 0) {
+                        Text(
+                            "• $updatableAppsCount running app(s) will be updated to their latest versions.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    if (sleepingUpdatableAppsCount > 0) {
+                        Text(
+                            "• $sleepingUpdatableAppsCount sleeping app(s) cannot be updated while powered off.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            "All apps with updates are running, so none need to be started first.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (sleepingUpdatableAppsCount > 0) {
+                        HorizontalDivider()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { wakeStoppedBeforeUpdate = !wakeStoppedBeforeUpdate }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = wakeStoppedBeforeUpdate,
+                                onCheckedChange = { wakeStoppedBeforeUpdate = it }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Start sleeping apps before updating",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "Wakes all powered-off apps with updates, waits for them to start, then updates them too.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        "You can monitor progress in each app card.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showUpdateAllDialog = false
                         isUpdatingAll = true
-                        appsScreenViewModel.upgradeAllApps(context)
+                        appsScreenViewModel.upgradeAllApps(context, wakeStoppedBeforeUpdate)
                         if (isSelectionMode) {
                             isSelectionMode = false
                             selectedAppIds = emptySet()
                         }
                     }
                 ) {
-                    Text("Update All")
+                    Text(
+                        if (wakeStoppedBeforeUpdate && sleepingUpdatableAppsCount > 0) {
+                            "Start & Update All"
+                        } else {
+                            "Update Running Apps"
+                        }
+                    )
                 }
             },
             dismissButton = {
@@ -294,21 +380,9 @@ fun AppsScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        PullToRefreshBox(
+        PullToRefreshContent(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { appsScreenViewModel.refresh() },
-            state = refreshState,
-            indicator = {
-                Box(
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    contentAlignment = Alignment.Center
-                ) {
-                    MorphingRefreshIndicator(
-                        state = refreshState,
-                        isRefreshing = uiState.isRefreshing
-                    )
-                }
-            },
             modifier = Modifier.weight(1f)
         ) {
             when {
@@ -387,6 +461,7 @@ fun AppsScreen(
                                     }
                                 },
                                 onCloseInfoPane = { selectedAppForInfo = null },
+                                onOpenAdvanced = onOpenAdvanced,
                                 isSelectionMode = isSelectionMode,
                                 selectedAppIds = selectedAppIds,
                                 onToggleSelection = { appId ->
@@ -594,6 +669,7 @@ private fun AppsSplitPaneContent(
     onShowRollbackDialog: (String) -> Unit,
     onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
     onCloseInfoPane: () -> Unit,
+    onOpenAdvanced: (String) -> Unit = {},
     isSelectionMode: Boolean = false,
     selectedAppIds: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -639,7 +715,8 @@ private fun AppsSplitPaneContent(
                 ) {
                     AppInfoPane(
                         app = app,
-                        onClose = onCloseInfoPane
+                        onClose = onCloseInfoPane,
+                        onOpenAdvanced = onOpenAdvanced
                     )
                 }
             }
@@ -954,20 +1031,36 @@ private fun ServiceCard(
             if (app.upgrade_available || isJobRunning) {
                 Spacer(modifier = Modifier.height(16.dp))
                 if (!isJobRunning) {
+                    val canUpgrade = app.canUpgradeNow()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Update available",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Column(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = "Update available",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (canUpgrade) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                fontWeight = FontWeight.Medium
+                            )
+                            if (!canUpgrade) {
+                                Text(
+                                    text = "Start the app to update",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                         UpgradeButton(
-                            onClick = { onShowUpgradeSummary(app.name) },
-                            isLoading = isLoadingSummary
+                            onClick = { if (canUpgrade) onShowUpgradeSummary(app.name) },
+                            isLoading = isLoadingSummary,
+                            enabled = canUpgrade
                         )
                     }
                 }
@@ -1096,6 +1189,7 @@ private fun ServiceCard(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
+                val canRollback = app.canRollbackNow()
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     ActionButton(
                         text = "Rollback Version",
@@ -1103,8 +1197,16 @@ private fun ServiceCard(
                         isPrimary = false,
                         onClick = { onRollbackClick(app.name) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = true
+                        enabled = canRollback
                     )
+                    if (!canRollback) {
+                        Text(
+                            text = "Start the app to rollback",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp, start = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1154,13 +1256,25 @@ private fun CompactActionButton(
 @Composable
 private fun UpgradeButton(
     onClick: () -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    enabled: Boolean = true
 ) {
+    val container = if (enabled && !isLoading) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerHighest
+    }
+    val content = if (enabled && !isLoading) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    }
+
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(100.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        enabled = !isLoading
+        color = container,
+        enabled = enabled && !isLoading
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -1177,14 +1291,14 @@ private fun UpgradeButton(
                     imageVector = Icons.Default.CloudUpload,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    tint = content
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Update",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                color = content,
                 fontWeight = FontWeight.Bold
             )
         }

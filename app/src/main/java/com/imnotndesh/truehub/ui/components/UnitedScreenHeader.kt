@@ -12,24 +12,30 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,8 +47,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +55,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -68,10 +74,10 @@ fun UnifiedScreenHeader(
     subtitle: String,
     isLoading: Boolean,
     isRefreshing: Boolean,
-    error: String?,
+    error: String? = null,
     onRefresh: (() -> Unit)? = null,
     onDismissError: () -> Unit,
-    manager: TrueNASApiManager,
+    manager: TrueNASApiManager ? = null,
     onBackPressed: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
     onShutdownInvoke: (() -> Unit)? = null,
@@ -167,8 +173,9 @@ fun UnifiedScreenHeader(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    AlertsBellButton(manager = manager)
+                    manager?.let{
+                        AlertsBellButton(manager = manager)
+                    }
 
                     onRefresh?.let{ onRefresh ->
                         ExpressiveIconButton(
@@ -267,6 +274,116 @@ fun UnifiedScreenHeader(
     }
 }
 
+/**
+ * Minimal header variant: renders only the back button, using the exact
+ * same [ExpressiveIconButton] styling as [UnifiedScreenHeader]'s back
+ * action (same icon, same press-scale animation, same default container
+ * color).
+ *
+ * Unlike [UnifiedScreenHeader], this does NOT wrap itself in a full-width
+ * [Surface]/[Column] -- there's no title, subtitle, trailing actions,
+ * refresh bar, or error card. It's just the button, sized to its content,
+ * so it doesn't claim a header-height band across the top of the screen.
+ * It's meant to be layered as an overlay (e.g. inside a [Box]) on top of
+ * your own content, so that content can occupy the space a full header
+ * would otherwise have taken -- including scrolling/being visible behind
+ * and around the button itself.
+ *
+ * Example:
+ * ```
+ * Box(modifier = Modifier.fillMaxSize()) {
+ *     YourContent(modifier = Modifier.fillMaxSize())
+ *     MinimalBackHeader(
+ *         onBackPressed = onNavigateBack,
+ *         modifier = Modifier
+ *             .align(Alignment.TopStart)
+ *             .padding(16.dp)
+ *     )
+ * }
+ * ```
+ */
+@Composable
+fun MinimalBackHeader(
+    onBackPressed: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+    error: String? = null,
+    onDismissError: () -> Unit = {}
+) {
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            containerColor.copy(alpha = 0.85f),
+                            containerColor.copy(alpha = 0.7f)
+                        )
+                    )
+                )
+        ) {
+            ExpressiveIconButton(
+                onClick = onBackPressed,
+                icon = Icons.Default.ArrowBackIosNew,
+                contentDescription = "Back",
+                enabled = enabled,
+                containerColor = Color.Transparent,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (error != null) {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.widthIn(max = 260.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        TextButton(
+                            onClick = onDismissError,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.15f)
+                                )
+                        ) {
+                            Text(
+                                "Dismiss",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ExpressiveIconButton(
     onClick: () -> Unit,
@@ -298,10 +415,6 @@ fun ExpressiveIconButton(
         ),
         modifier = modifier
             .scale(scale)
-            .background(
-                color = if (containerColor != Color.Transparent) containerColor else Color.Transparent,
-                shape = CircleShape
-            )
     ) {
         Icon(
             imageVector = icon,

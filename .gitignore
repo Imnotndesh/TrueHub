@@ -1091,3 +1091,6 @@ local.properties
 /app/playstore/release/app-playstore-release/META-INF/TRUEHUBK.SF
 /app/playstore/release/app-playstore-release/BundleConfig.pb
 /app/playstore/release/app-playstore-release.aab
+
+# --- Local-only developer workflow rules (never commit/push) ---
+DEV-RULES.md

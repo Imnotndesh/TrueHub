@@ -7,6 +7,6 @@ object Config {
         val enablePing: Boolean = true,
         val pingTimeoutMs: Long = 5000L,
         val connectionTimeoutMs: Long = 10000L,
-        val enableDebugLogging: Boolean = true
+        val enableDebugLogging: Boolean = false
     )
 }

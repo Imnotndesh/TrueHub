@@ -39,6 +39,7 @@ object GlobalJobTracker {
                         val intent = Intent(context, JobNotificationService::class.java).apply {
                             action = "ACTION_${type}_JOB_$jobId"
                             putExtra("id", jobId)
+                            putExtra("type", type)
                             putExtra("name", appName)
                             putExtra("progress", progress)
                             putExtra("done", isDone)
