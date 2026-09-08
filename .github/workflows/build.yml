@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build and Release APK
+    name: Build & Release APKs
     runs-on: ubuntu-latest
 
     steps:
@@ -37,44 +37,27 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Generate debug keystore
+      - name: Set up release keystore
+        id: keystore
         run: |
           mkdir -p $HOME/.android
-          echo "storePassword=android" > keystore.properties
-          echo "keyPassword=android" >> keystore.properties
-          echo "keyAlias=androiddebugkey" >> keystore.properties
-          echo "storeFile=$HOME/.android/debug.keystore" >> keystore.properties
-          
-          # Generate debug keystore
-          keytool -genkey -v -keystore $HOME/.android/debug.keystore \
-            -storepass android -alias androiddebugkey -keypass android \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $HOME/.android/release.jks
+            echo "keystore_file=$HOME/.android/release.jks" >> $GITHUB_OUTPUT
+            echo "keystore_alias=${{ secrets.KEYSTORE_ALIAS }}" >> $GITHUB_OUTPUT
+          else
+            keytool -genkey -v -keystore $HOME/.android/release.jks \
+              -storepass android -alias truehub -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=TrueHub,O=TrueHub,C=US"
+            echo "keystore_file=$HOME/.android/release.jks" >> $GITHUB_OUTPUT
+            echo "keystore_alias=truehub" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Build debug APK
-        run: ./gradlew assembleGithubDebug --no-daemon
+      - name: Build release APKs (per-ABI)
+        run: ./gradlew assembleGithubRelease --no-daemon
         env:
-          SIGNING_KEY_ALIAS: androiddebugkey
-          SIGNING_KEY_PASSWORD: android
-          SIGNING_STORE_PASSWORD: android
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
-
-      - name: Sign APK
-        run: |
-          # Find the unsigned APK (github flavor)
-          APK_PATH=$(find app/build/outputs/apk/github/debug -name "*.apk" | head -1)
-          
-          # Sign the APK using apksigner
-          $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-            --ks $HOME/.android/debug.keystore \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            --out app/build/outputs/apk/github/debug/app-debug-signed.apk \
-            "$APK_PATH"
-          
-          # Verify the signature
-          $ANDROID_HOME/build-tools/34.0.0/apksigner verify app/build/outputs/apk/github/debug/app-debug-signed.apk
 
       - name: Get version from tag
         id: version
@@ -82,68 +65,68 @@ jobs:
           if [ "${{ github.ref_type }}" == "tag" ]; then
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            echo "version=debug-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+            echo "version=dev-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
           fi
 
-      - name: Rename APK
+      - name: Sign and rename APKs by ABI
+        id: apks
         run: |
-          mv app/build/outputs/apk/github/debug/app-debug-signed.apk \
-             app/build/outputs/apk/github/debug/app-${{ steps.version.outputs.version }}.apk
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          KS="${{ steps.keystore.outputs.keystore_file }}"
+          ALIAS="${{ steps.keystore.outputs.keystore_alias }}"
+          STORE_PASS="${{ secrets.KEYSTORE_PASSWORD || 'android' }}"
+          KEY_PASS="${STORE_PASS}"
 
-      - name: Get APK info
-        id: apk_info
-        run: |
-          APK_PATH="app/build/outputs/apk/github/debug/app-${{ steps.version.outputs.version }}.apk"
-          APK_SIZE=$(stat -c%s "$APK_PATH")
-          APK_SIZE_MB=$(echo "scale=2; $APK_SIZE / 1024 / 1024" | bc)
-          
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "apk_size=${APK_SIZE_MB}MB" >> $GITHUB_OUTPUT
-          echo "apk_name=TrueHub-${{ steps.version.outputs.version }}.apk" >> $GITHUB_OUTPUT
+          mkdir -p dist
+          # Map ABI -> friendly arch suffix
+          declare -A arch=( [armeabi-v7a]=armv7a [arm64-v8a]=arm64 [x86_64]=x86_64 )
+          for apk in app/build/outputs/apk/github/release/*-release-unsigned.apk; do
+            base=$(basename "$apk" -release-unsigned.apk)
+            abi="${base#app-github-}"
+            suffix="${arch[$abi]:-$abi}"
+            out="dist/truehub-$VERSION-$suffix.apk"
+            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+              --ks "$KS" --ks-key-alias "$ALIAS" \
+              --ks-pass "pass:$STORE_PASS" --key-pass "pass:$KEY_PASS" \
+              --out "$out" "$apk"
+            $ANDROID_HOME/build-tools/34.0.0/apksigner verify "$out"
+            echo "$out" >> /tmp/assets.txt
+          done
 
-      - name: Create Release with APK
+      - name: Create Release with APKs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create release body
-          cat > release_body.md << 'EOF'
-          ## 📱 Android App Release ${{ steps.version.outputs.version }}
-          
+          VERSION="${{ steps.version.outputs.version }}"
+          ASSETS=$(paste -sd ' ' /tmp/assets.txt)
+          cat > release_body.md << EOF
+          ## 📱 TrueHub $VERSION
           ### 📦 Download
-          - **APK Size:** ${{ steps.apk_info.outputs.apk_size }}
-          - **Target version:** Android 13+
-          
-          ### 📋 Installation Instructions
-          1. Download the APK from the assets below
-          2. Enable "Install from unknown sources" in your Android settings
-          3. Install the APK file
-          
-          ### ⚠️ Important Notes
-          - This is a debug build signed with a debug certificate
-          - You may need to uninstall previous versions if they were signed with different certificates
-          - The app will show as "unsigned" but it is properly signed for installation
-          
+          Choose the APK matching your device architecture (ARM64 for most modern phones).
+          - **armv7a** — older 32-bit ARM devices
+          - **arm64** — most modern 64-bit devices
+          - **x86_64** — 64-bit emulators / x86 devices
+          ### ⚠️ Installing a New Version
+          - APKs are signed with a release certificate.
+          - If your previously installed build used a different certificate, uninstall it first.
           ### 🔧 Build Info
           - Commit: ${{ github.sha }}
           EOF
-          
-          # Create release with APK
-          gh release create "${{ steps.version.outputs.version }}" \
-            "${{ steps.apk_info.outputs.apk_path }}" \
-            --title "Release ${{ steps.version.outputs.version }}" \
+          gh release create "$VERSION" $ASSETS \
+            --title "Release $VERSION" \
             --notes-file release_body.md \
-            --draft=false \
             --prerelease=false
 
-      - name: Upload APK as Artifact
+      - name: Upload APKs as Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: signed-apk-${{ steps.version.outputs.version }}
-          path: ${{ steps.apk_info.outputs.apk_path }}
+          name: truehub-${{ steps.version.outputs.version }}
+          path: dist/*.apk
           retention-days: 30
 
   build-unsigned:
-    name: Build Unsigned APK (Development)
+    name: Build Unsigned Release APKs (Dev)
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
 
@@ -163,14 +146,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APK (unsigned)
-        run: ./gradlew assembleGithubDebug --no-daemon
+      - name: Build unsigned release APKs
+        run: ./gradlew assembleGithubRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
-      - name: Upload unsigned APK as Artifact
+      - name: Upload unsigned APKs as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-apk-debug
-          path: app/build/outputs/apk/github/debug/*.apk
+          name: unsigned-apk-release
+          path: app/build/outputs/apk/github/release/*-release-unsigned.apk
           retention-days: 7
