@@ -872,11 +872,13 @@ private fun TrueHubNavGraph(
             arguments = listOf(navArgument("category") { type = NavType.StringType; defaultValue = ""; nullable = true })
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category")?.takeIf { it.isNotBlank() }
-            MarketplaceScreen(manager = manager, initialCategory = category, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") })
+            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            MarketplaceScreen(manager = manager, initialCategory = category, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
         composable(Screen.Marketplace.route) {
-            MarketplaceScreen(manager = manager, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") })
+            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            MarketplaceScreen(manager = manager, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
         composable(

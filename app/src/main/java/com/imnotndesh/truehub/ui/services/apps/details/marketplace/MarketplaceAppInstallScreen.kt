@@ -84,6 +84,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -93,7 +94,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -106,6 +110,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,7 +161,6 @@ fun MarketplaceAppInstallScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             when {
                 isLoadingDetails -> {
@@ -260,14 +264,25 @@ private fun InstallOptionsContent(
 
     var targetedAppNameInstance by remember(details) { mutableStateOf(details.name) }
 
+    // Precompute questions-by-group ONCE per schema instead of filtering per group per recomposition
+    val questionsByGroup = remember(schema) {
+        schema?.questions?.groupBy { it.group } ?: emptyMap()
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item {
-            InstallHeroHeader(
+            UnifiedScreenHeader(
                 title = details.title ?: details.name,
-                onBack = onBack
+                onBackPressed = {
+                    onBack()
+                },
+                subtitle = "Deployment Wizard",
+                isLoading = false,
+                isRefreshing = false,
+                onDismissError = {},
             )
         }
 
@@ -389,7 +404,7 @@ private fun InstallOptionsContent(
             }
 
             schema.groups.forEach { group ->
-                val groupQuestions = schema.questions.filter { it.group == group.name }
+                val groupQuestions = questionsByGroup[group.name] ?: emptyList()
                 if (groupQuestions.isNotEmpty()) {
                     item(key = group.name) {
                         SchemaGroupSection(
@@ -416,7 +431,6 @@ private fun InstallOptionsContent(
 
 @Composable
 private fun InstallHeroHeader(title: String, onBack: () -> Unit) {
-    // No card — just a plain column with a bottom divider
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -458,6 +472,41 @@ private fun InstallHeroHeader(title: String, onBack: () -> Unit) {
     }
 }
 
+/**
+ * Flattened representation of a (possibly nested) question tree.
+ * Dict children are flattened into this same list instead of being
+ * rendered as nested Column/background wrappers, so we never get
+ * subsections-within-subsections. `depth` is capped at 1 so visual
+ * indent stays flat regardless of actual schema nesting depth.
+ */
+private data class FlatQuestion(
+    val question: Apps.SchemaQuestion,
+    val path: String,
+    val depth: Int,
+    val isDictHeader: Boolean
+)
+
+private fun flattenQuestions(
+    questions: List<Apps.SchemaQuestion>,
+    pathPrefix: String = "",
+    depth: Int = 0,
+    out: MutableList<FlatQuestion> = mutableListOf()
+): List<FlatQuestion> {
+    questions.forEach { q ->
+        val schema = q.schema ?: return@forEach
+        if (schema.hidden == true) return@forEach
+        val path = if (pathPrefix.isBlank()) q.variable else "$pathPrefix.${q.variable}"
+
+        if (schema.type == "dict" && !schema.attrs.isNullOrEmpty()) {
+            out.add(FlatQuestion(q, path, depth, isDictHeader = true))
+            flattenQuestions(schema.attrs, path, (depth + 1).coerceAtMost(1), out)
+        } else {
+            out.add(FlatQuestion(q, path, depth, isDictHeader = false))
+        }
+    }
+    return out
+}
+
 @Composable
 internal fun SchemaGroupSection(
     group: Apps.SchemaGroup,
@@ -467,7 +516,8 @@ internal fun SchemaGroupSection(
 ) {
     var expanded by remember { mutableStateOf(true) }
 
-    // No card — plain column with background and rounded corners for visual grouping
+    val flatQuestions = remember(questions) { flattenQuestions(questions) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -508,15 +558,30 @@ internal fun SchemaGroupSection(
             exit = shrinkVertically()
         ) {
             Column(modifier = Modifier.padding(top = 12.dp)) {
-                questions.forEachIndexed { idx, question ->
-                    QuestionRow(
-                        question = question,
-                        formState = formState,
-                        pathPrefix = question.variable
-                    )
-                    if (idx < questions.lastIndex) {
+                flatQuestions.forEachIndexed { idx, fq ->
+                    val indent = (fq.depth * 12).dp
+
+                    if (fq.isDictHeader) {
+                        Text(
+                            text = fq.question.label?.ifBlank { fq.question.variable } ?: fq.question.variable,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(start = indent, top = if (idx == 0) 0.dp else 8.dp, bottom = 2.dp)
+                        )
+                    } else {
+                        Box(modifier = Modifier.padding(start = indent)) {
+                            LeafQuestionField(
+                                question = fq.question,
+                                formState = formState,
+                                path = fq.path
+                            )
+                        }
+                    }
+
+                    if (idx < flatQuestions.lastIndex) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            modifier = Modifier.padding(top = 8.dp, start = indent, bottom = 8.dp),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                         )
                     }
@@ -526,14 +591,17 @@ internal fun SchemaGroupSection(
     }
 }
 
+/**
+ * Renders a single leaf question (never recurses into dict). Dict recursion
+ * is handled structurally by flattenQuestions() before this is ever called.
+ */
 @Composable
-private fun QuestionRow(
+private fun LeafQuestionField(
     question: Apps.SchemaQuestion,
     formState: MutableMap<String, Any?>,
-    pathPrefix: String
+    path: String
 ) {
     val schema = question.schema ?: return
-    if (schema.hidden == true) return
 
     val label = question.label?.ifBlank { question.variable } ?: question.variable
     val isRequired = schema.required == true
@@ -566,14 +634,13 @@ private fun QuestionRow(
         }
 
         when (schema.type) {
-            "string"   -> StringField(schema = schema, path = pathPrefix, formState = formState)
-            "int"      -> IntField(schema = schema, path = pathPrefix, formState = formState)
-            "boolean"  -> BooleanField(schema = schema, path = pathPrefix, formState = formState)
-            "dict"     -> DictField(schema = schema, pathPrefix = pathPrefix, formState = formState)
+            "string"   -> StringField(schema = schema, path = path, formState = formState)
+            "int"      -> IntField(schema = schema, path = path, formState = formState)
+            "boolean"  -> BooleanField(schema = schema, path = path, formState = formState)
             "list"     -> ListFieldInfo()
             "path",
-            "hostpath" -> PathField(path = pathPrefix, formState = formState)
-            else       -> DefaultField(type = schema.type, path = pathPrefix, formState = formState)
+            "hostpath" -> PathField(path = path, formState = formState)
+            else       -> DefaultField(type = schema.type, path = path, formState = formState)
         }
     }
 }
@@ -586,7 +653,7 @@ private fun StringField(schema: Apps.SchemaDefinition, path: String, formState: 
     if (!schema.enum.isNullOrEmpty()) {
         EnumPickerField(schema = schema, path = path, formState = formState)
     } else {
-        var text by remember { mutableStateOf((formState[path] ?: schema.default)?.toString() ?: "") }
+        var text by remember(path) { mutableStateOf((formState[path] ?: schema.default)?.toString() ?: "") }
         var passwordVisible by remember { mutableStateOf(false) }
 
         OutlinedTextField(
@@ -610,6 +677,7 @@ private fun StringField(schema: Apps.SchemaDefinition, path: String, formState: 
         )
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EnumPickerField(
@@ -641,12 +709,17 @@ private fun EnumPickerField(
     )
 
     if (showSheet) {
-        val filtered = remember(search) {
-            schema.enum?.filter {
-                search.isBlank() ||
-                        it.description?.contains(search, ignoreCase = true) == true ||
-                        it.value?.toString()?.contains(search, ignoreCase = true) == true
-            } ?: emptyList()
+        // derivedStateOf avoids recomputing the filtered list unless
+        // `search` actually changes its resulting output, and avoids
+        // recomposing the whole sheet on unrelated state churn.
+        val filtered by remember {
+            derivedStateOf {
+                schema.enum?.filter {
+                    search.isBlank() ||
+                            it.description?.contains(search, ignoreCase = true) == true ||
+                            it.value?.toString()?.contains(search, ignoreCase = true) == true
+                } ?: emptyList()
+            }
         }
 
         ModalBottomSheet(onDismissRequest = { showSheet = false; search = "" }) {
@@ -668,7 +741,7 @@ private fun EnumPickerField(
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    itemsIndexed(filtered) { _, option ->
+                    itemsIndexed(filtered, key = { _, option -> option.value?.toString() ?: option.hashCode() }) { _, option ->
                         val optionValue = option.value?.toString() ?: ""
                         val optionLabel = option.description ?: optionValue
                         val isSelected = optionValue == currentVal
@@ -694,9 +767,10 @@ private fun EnumPickerField(
         }
     }
 }
+
 @Composable
 private fun IntField(schema: Apps.SchemaDefinition, path: String, formState: MutableMap<String, Any?>) {
-    var text by remember { mutableStateOf((formState[path] ?: schema.default)?.toString()?.takeIf { it != "null" } ?: "") }
+    var text by remember(path) { mutableStateOf((formState[path] ?: schema.default)?.toString()?.takeIf { it != "null" } ?: "") }
     val supportText = when {
         schema.min != null && schema.max != null -> "Bounds: ${schema.min} – ${schema.max}"
         schema.min != null -> "Minimum required: ${schema.min}"
@@ -717,7 +791,7 @@ private fun IntField(schema: Apps.SchemaDefinition, path: String, formState: Mut
 
 @Composable
 private fun BooleanField(schema: Apps.SchemaDefinition, path: String, formState: MutableMap<String, Any?>) {
-    var checked by remember { mutableStateOf((formState[path] ?: schema.default) as? Boolean ?: false) }
+    var checked by remember(path) { mutableStateOf((formState[path] ?: schema.default) as? Boolean ?: false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -729,32 +803,8 @@ private fun BooleanField(schema: Apps.SchemaDefinition, path: String, formState:
 }
 
 @Composable
-private fun DictField(schema: Apps.SchemaDefinition, pathPrefix: String, formState: MutableMap<String, Any?>) {
-    if (schema.attrs.isNullOrEmpty()) return
-    // Subtle background to indicate nested fields, but no card shape
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp))
-            .padding(12.dp)
-    ) {
-        schema.attrs.forEachIndexed { idx, attr ->
-            if (attr.schema?.hidden != true) {
-                QuestionRow(question = attr, formState = formState, pathPrefix = "$pathPrefix.${attr.variable}")
-                if (idx < schema.attrs.lastIndex) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun PathField(path: String, formState: MutableMap<String, Any?>) {
-    var text by remember { mutableStateOf(formState[path]?.toString() ?: "") }
+    var text by remember(path) { mutableStateOf(formState[path]?.toString() ?: "") }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; formState[path] = it },
@@ -786,7 +836,7 @@ private fun ListFieldInfo() {
 
 @Composable
 private fun DefaultField(type: String?, path: String, formState: MutableMap<String, Any?>) {
-    var text by remember { mutableStateOf(formState[path]?.toString() ?: "") }
+    var text by remember(path) { mutableStateOf(formState[path]?.toString() ?: "") }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; formState[path] = it },
@@ -850,10 +900,10 @@ private fun InstallFlowRow(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable () -> Unit
 ) {
-    androidx.compose.ui.layout.Layout(content = content, modifier = modifier) { measurables, constraints ->
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
         val rowItems = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
-        val rows = mutableListOf<List<androidx.compose.ui.layout.Placeable>>()
-        var currentRow = mutableListOf<androidx.compose.ui.layout.Placeable>()
+        val rows = mutableListOf<List<Placeable>>()
+        var currentRow = mutableListOf<Placeable>()
         var currentWidth = 0
 
         rowItems.forEach { item ->
@@ -883,6 +933,7 @@ private fun InstallFlowRow(
         }
     }
 }
+
 @Composable
 private fun InstallProgressView(
     appName: String,
@@ -919,7 +970,7 @@ private fun InstallProgressView(
             PixelShapesOrbit(
                 primaryColor = primaryColor,
                 secondaryColor = secondaryColor,
-                isDone = isError,   // stop spinning on error too
+                isDone = isError,
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -1027,7 +1078,8 @@ private fun PixelShapesOrbit(
     val ring2AngleState = remember { mutableFloatStateOf(0f) }
     val ring3AngleState = remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isDone) {
+        if (isDone) return@LaunchedEffect
         var lastTime = withFrameMillis { it }
         while (true) {
             val now = withFrameMillis { it }
@@ -1097,7 +1149,7 @@ private fun DrawScope.drawOrbitRing(
             drawRoundRect(
                 color = color,
                 size = Size(shapeSize, shapeSize),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(shapeSize * cornerFraction)
+                cornerRadius = CornerRadius(shapeSize * cornerFraction)
             )
         }
     }

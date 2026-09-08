@@ -74,10 +74,10 @@ fun UnifiedScreenHeader(
     subtitle: String,
     isLoading: Boolean,
     isRefreshing: Boolean,
-    error: String?,
+    error: String? = null,
     onRefresh: (() -> Unit)? = null,
     onDismissError: () -> Unit,
-    manager: TrueNASApiManager,
+    manager: TrueNASApiManager ? = null,
     onBackPressed: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
     onShutdownInvoke: (() -> Unit)? = null,
@@ -173,8 +173,9 @@ fun UnifiedScreenHeader(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    AlertsBellButton(manager = manager)
+                    manager?.let{
+                        AlertsBellButton(manager = manager)
+                    }
 
                     onRefresh?.let{ onRefresh ->
                         ExpressiveIconButton(
