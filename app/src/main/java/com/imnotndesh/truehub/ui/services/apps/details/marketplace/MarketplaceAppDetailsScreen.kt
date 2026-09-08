@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -138,30 +137,12 @@ fun MarketplaceAppDetailsScreen(
     }
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                ActionBottomBar(
-                    isInstalled = app.installed,
-                    app = app,
-                    onInstallClick = { appName, train ->
-                        onInstallClick(appName, train)
-                    },
-                    onUninstallClick = {
-                        appDetailsViewModel.deleteApp(context = context, appName = app.name)
-                    },
-                    onInstallAnotherClick = {
-                        onInstallClick(app.name, app.train)
-                    },
-                    isDeleting = currentDeletionJob != null,
-                    deletionJobState = currentDeletionJob
-                )
-            }
-        ) { innerPadding ->
+            containerColor = MaterialTheme.colorScheme.background
+        ) { _ ->
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = innerPadding.calculateBottomPadding()),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(0.dp)
             ) {
                 item {
                     HeroHeaderSection(app = app)
@@ -192,7 +173,21 @@ fun MarketplaceAppDetailsScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        if (app.categories.isNullOrEmpty().not()) {
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
+
+                        AppActionSection(
+                            isInstalled = app.installed,
+                            isDeleting = currentDeletionJob != null,
+                            onInstallClick = { onInstallClick(app.name, app.train) },
+                            onUninstallClick = {
+                                appDetailsViewModel.deleteApp(context = context, appName = app.name)
+                            },
+                            onInstallAnotherClick = { onInstallClick(app.name, app.train) }
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
                             text = "About this application",
@@ -370,7 +365,11 @@ fun MarketplaceAppDetailsScreen(
 
                 if (!app.app_readme.isNullOrBlank()) {
                     item {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 20.dp)
+                                .padding(top = 16.dp)  // Only top padding; no bottom padding
+                        ) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(bottom = 20.dp),
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
@@ -554,12 +553,6 @@ private fun HeroHeaderSection(
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "App Name: ${app.name}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -761,93 +754,76 @@ private fun InfoRowItem(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
-private fun ActionBottomBar(
+private fun AppActionSection(
     isInstalled: Boolean,
-    app: Apps.AppAvailableItem,
-    onInstallClick: (String, String) -> Unit,
-    onUninstallClick: () -> Unit,
-    onInstallAnotherClick: () -> Unit,
     isDeleting: Boolean,
-    deletionJobState: com.imnotndesh.truehub.data.helpers.TrackedJob?
+    onInstallClick: () -> Unit,
+    onUninstallClick: () -> Unit,
+    onInstallAnotherClick: () -> Unit
 ) {
-    Surface(
-        tonalElevation = 8.dp,
-        shadowElevation = 16.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (!isInstalled) {
-                Button(
-                    onClick = { onInstallClick(app.name, app.train) },
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Install Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                }
-            } else {
-                // Uninstall button with job tracking (mirroring AppInfoScreen)
-                OutlinedButton(
-                    onClick = onUninstallClick,
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isDeleting,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(52.dp)
-                ) {
-                    if (isDeleting && deletionJobState != null) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        val statusText = when (deletionJobState.state) {
-                            "RUNNING" -> "Uninstalling... ${deletionJobState.progress}%"
-                            "WAITING" -> "Queuing Uninstall..."
-                            else -> deletionJobState.state
-                        }
-                        Text(statusText, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Uninstall", fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                Button(
-                    onClick = onInstallAnotherClick,
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isDeleting,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    modifier = Modifier
-                        .weight(1.2f)
-                        .height(52.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+        if (!isInstalled) {
+            Button(
+                onClick = onInstallClick,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Install Application", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+            }
+        } else {
+            OutlinedButton(
+                onClick = onUninstallClick,
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isDeleting,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp)
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Install Another", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Uninstalling...", fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Default.DeleteOutline, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Uninstall", fontWeight = FontWeight.Bold)
                 }
+            }
+
+            Button(
+                onClick = onInstallAnotherClick,
+                shape = RoundedCornerShape(16.dp),
+                enabled = !isDeleting,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                modifier = Modifier
+                    .weight(1.2f)
+                    .height(52.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Install Another", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

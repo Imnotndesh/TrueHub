@@ -12,13 +12,16 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,7 +55,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -301,59 +306,75 @@ fun MinimalBackHeader(
     onBackPressed: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
     error: String? = null,
     onDismissError: () -> Unit = {}
 ) {
     Column(modifier = modifier) {
-        ExpressiveIconButton(
-            onClick = onBackPressed,
-            icon = Icons.Default.ArrowBackIosNew,
-            contentDescription = "Back",
-            enabled = enabled,
-            containerColor = containerColor
-        )
-
-        AnimatedVisibility(
-            visible = error != null,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            containerColor.copy(alpha = 0.85f),
+                            containerColor.copy(alpha = 0.7f)
+                        )
+                    )
+                )
         ) {
-            if (error != null) {
-                Column {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp)
+            ExpressiveIconButton(
+                onClick = onBackPressed,
+                icon = Icons.Default.ArrowBackIosNew,
+                contentDescription = "Back",
+                enabled = enabled,
+                containerColor = Color.Transparent,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        if (error != null) {
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Error,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = error,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.widthIn(max = 240.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            TextButton(onClick = onDismissError) {
-                                Text(
-                                    "Dismiss",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.labelSmall
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.widthIn(max = 260.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        TextButton(
+                            onClick = onDismissError,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.15f)
                                 )
-                            }
+                        ) {
+                            Text(
+                                "Dismiss",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }
@@ -393,10 +414,6 @@ fun ExpressiveIconButton(
         ),
         modifier = modifier
             .scale(scale)
-            .background(
-                color = if (containerColor != Color.Transparent) containerColor else Color.Transparent,
-                shape = CircleShape
-            )
     ) {
         Icon(
             imageVector = icon,
