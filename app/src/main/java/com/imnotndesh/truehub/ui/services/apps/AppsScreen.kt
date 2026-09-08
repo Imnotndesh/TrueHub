@@ -117,6 +117,7 @@ import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.data.models.canRollbackNow
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.data.models.isAsleep
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -1188,6 +1189,7 @@ private fun ServiceCard(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
+                val canRollback = app.canRollbackNow()
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     ActionButton(
                         text = "Rollback Version",
@@ -1195,8 +1197,16 @@ private fun ServiceCard(
                         isPrimary = false,
                         onClick = { onRollbackClick(app.name) },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = true
+                        enabled = canRollback
                     )
+                    if (!canRollback) {
+                        Text(
+                            text = "Start the app to rollback",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp, start = 4.dp)
+                        )
+                    }
                 }
             }
         }

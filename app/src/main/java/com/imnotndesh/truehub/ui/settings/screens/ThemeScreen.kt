@@ -191,6 +191,43 @@ fun ThemeScreen(
                 }
             }
 
+            // ── Search bar alignment ─────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Search Bar at Bottom",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Align the unified search field to the bottom of the screen",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = personalization.searchBarBottom,
+                        onCheckedChange = { isChecked ->
+                            PersonalizationManager.saveSearchBarBottom(context, userKey, isChecked)
+                        }
+                    )
+                }
+            }
+
             // ── Navbar customization ──────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),

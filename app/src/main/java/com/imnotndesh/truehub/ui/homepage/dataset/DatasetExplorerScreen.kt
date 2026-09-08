@@ -751,33 +751,35 @@ private fun DatasetFabGroup(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.height(64.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .clickable(enabled = selectedDataset != null) { onToggleDetailsPanel() }
-                        .padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (isDetailsPanelExpanded) Icons.Default.FolderOpen else Icons.Default.Info,
-                        contentDescription = "Toggle Details",
-                        tint = if (selectedDataset != null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = if (isDetailsPanelExpanded) "Hide Info" else "Show Info",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = if (selectedDataset != null) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                if (selectedDataset != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clickable { onToggleDetailsPanel() }
+                            .padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isDetailsPanelExpanded) Icons.Default.FolderOpen else Icons.Default.Info,
+                            contentDescription = "Toggle Details",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isDetailsPanelExpanded) "Hide Info" else "Show Info",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .fillMaxHeight(0.5f)
+                            .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f))
                     )
                 }
-
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxHeight(0.5f)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                )
 
                 val arrowRotation by animateFloatAsState(
                     targetValue = if (isMenuExpanded) 180f else 0f,

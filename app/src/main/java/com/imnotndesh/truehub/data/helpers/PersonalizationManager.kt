@@ -21,7 +21,8 @@ data class PersonalizationState(
     val theme: AppTheme = AppTheme.TRUEHUB,
     val blackMode: Boolean = false,
     val compactNav: Boolean = false,
-    val navbarDestinations: List<NavbarDestination> = NavbarDestination.defaults
+    val navbarDestinations: List<NavbarDestination> = NavbarDestination.defaults,
+    val searchBarBottom: Boolean = false
 )
 
 object PersonalizationManager {
@@ -52,6 +53,7 @@ object PersonalizationManager {
 
         val blackMode = prefs.getBoolean(key(userKey, "black_mode"), false)
         val compactNav = prefs.getBoolean(key(userKey, "compact_nav"), false)
+        val searchBarBottom = prefs.getBoolean(key(userKey, "search_bar_bottom"), false)
 
         val navbar = loadNavbar(prefs, userKey)
 
@@ -59,7 +61,8 @@ object PersonalizationManager {
             theme = theme,
             blackMode = blackMode,
             compactNav = compactNav,
-            navbarDestinations = navbar
+            navbarDestinations = navbar,
+            searchBarBottom = searchBarBottom
         )
     }
 
@@ -87,6 +90,12 @@ object PersonalizationManager {
                 putString(key(userKey, "navbar"), destinations.joinToString(",") { it.name })
             }
         _state.value = _state.value.copy(navbarDestinations = effectiveDestinations(destinations))
+    }
+
+    fun saveSearchBarBottom(context: Context, userKey: String, bottom: Boolean) {
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit { putBoolean(key(userKey, "search_bar_bottom"), bottom) }
+        _state.value = _state.value.copy(searchBarBottom = bottom)
     }
 
     /** Removes all personalization for a user (called when an account is deleted). */

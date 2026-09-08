@@ -540,6 +540,13 @@ fun Apps.AppQueryResponse.canUpgradeNow(): Boolean =
     upgrade_available && isUpgradableState()
 
 /**
+ * Whether this app is in a state that permits a rollback to be triggered
+ * (mirrors the running-state requirement for upgrades).
+ */
+fun Apps.AppQueryResponse.canRollbackNow(): Boolean =
+    isUpgradableState()
+
+/**
  * Whether this app is asleep (STOPPED) and would need to be started before
  * an upgrade can be triggered.
  */
