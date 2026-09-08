@@ -4,6 +4,10 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// GitHub releases ship slim per-ABI APKs; F-Droid builds a single universal APK.
+// Pass -PabiSplits=true to enable per-ABI splits (used by the release workflow).
+val abiSplits: Boolean = (findProperty("abiSplits") as String? ?: "false").toBoolean()
+
 android {
     namespace = "com.imnotndesh.truehub"
     compileSdk = 37
@@ -11,8 +15,8 @@ android {
     defaultConfig {
         minSdk = 33
         targetSdk = 37
-        versionCode = 70300
-        versionName = "0.7.3"
+        versionCode = 70400
+        versionName = "0.7.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -44,7 +48,7 @@ android {
     }
     splits {
         abi {
-            isEnable = true
+            isEnable = abiSplits
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
             isUniversalApk = false

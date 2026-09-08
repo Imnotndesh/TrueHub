@@ -48,7 +48,7 @@ jobs:
           fi
 
       - name: Build release APKs (per-ABI)
-        run: ./gradlew --build-cache assembleGithubRelease --no-daemon
+        run: ./gradlew --build-cache assembleGithubRelease -PabiSplits=true --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
@@ -143,7 +143,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build unsigned release APKs
-        run: ./gradlew --build-cache assembleGithubRelease --no-daemon
+        run: ./gradlew --build-cache assembleGithubRelease -PabiSplits=true --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
 
