@@ -111,6 +111,8 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,16 +136,43 @@ fun MarketplaceAppInstallScreen(
     val activeJobsMap by JobRepository.activeJobs.collectAsStateWithLifecycle()
     val trackedJob = installJobId?.let { gid -> activeJobsMap[gid] }
 
+    val haptics = remember(context) {
+        VibrationFeedback(context)
+    }
+
+    // Fire-once per surfaced terminal event: clearInstallState() nulls installJobId so the
+    // effect below re-keys and re-enters; without a job-keyed guard it would re-fire.
+    val terminalHapticsFired = remember { mutableStateMapOf<Int, String>() }
+
     LaunchedEffect(trackedJob) {
-        if (trackedJob != null) {
-            when (trackedJob.state.uppercase()) {
-                "SUCCESS" -> {
+        val job = trackedJob ?: return@LaunchedEffect
+        when (job.state.uppercase()) {
+            "SUCCESS" -> {
+                // Fire BEFORE clearInstallState()/onInstallSuccess(): the latter pops the nav
+                // stack, so the haptic must start while still foreground (trigger-then-navigate).
+                if (terminalHapticsFired.put(job.jobId, "SUCCESS") == null) {
+                    haptics.play(VibratorMode.SUCCESS_TICK)
                     viewModel.clearInstallState()
                     onInstallSuccess()
                 }
-                "FAILED", "ABORTED" -> {
+            }
+            "FAILED", "ABORTED" -> {
+                if (terminalHapticsFired.put(job.jobId, "ERROR") == null) {
+                    haptics.play(VibratorMode.ERROR_ALERT)
                 }
             }
+        }
+    }
+
+    // Fire ERROR_ALERT exactly when the "Installation Failed" overlay first appears (null ->
+    // non-null transition), never on recomposition; re-arms naturally after a real retry.
+    var previousInstallError by remember(trackedJob) { mutableStateOf(installError) }
+    LaunchedEffect(installError, installJobId) {
+        val errorNow = installError
+        val firstAppearance = errorNow != null && previousInstallError == null && installJobId == null
+        previousInstallError = errorNow
+        if (firstAppearance) {
+            haptics.play(VibratorMode.ERROR_ALERT)
         }
     }
 
