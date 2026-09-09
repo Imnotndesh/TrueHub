@@ -97,7 +97,8 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
 import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import dev.jeziellago.compose.markdowntext.MarkdownText
@@ -153,34 +154,23 @@ fun AppInfoScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            UnifiedScreenHeader(
-                title = app.metadata?.title ?: app.name,
-                subtitle = "App Details",
-                isLoading = false,
-                isRefreshing = false,
-                error = null,
-                onDismissError = {},
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background
+        ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 74.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Row(
@@ -192,8 +182,6 @@ fun AppInfoScreen(
                     Box(
                         modifier = Modifier
                             .size(76.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
                             .clickable { onNavigateToMarketplaceAppDetails(app.name) },
                         contentAlignment = Alignment.Center
                     ) {
@@ -281,8 +269,9 @@ fun AppInfoScreen(
             Card(
                 onClick = { onOpenAdvanced(app.id) },
                 shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -335,8 +324,6 @@ fun AppInfoScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     InfoRow(label = "ID", value = app.id)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    InfoRow(label = "Version", value = app.humanVersion ?: app.version ?: "Unknown")
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     InfoRow(label = "Status", value = app.state.replaceFirstChar { it.uppercase() })
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     InfoRow(label = "Catalog", value = app.metadata?.train ?: "Unknown")
@@ -366,7 +353,8 @@ fun AppInfoScreen(
                         versionInfo.changelog?.let { changelog ->
                             if (changelog.isNotBlank()) {
                                 Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     shape = RoundedCornerShape(20.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -419,7 +407,8 @@ fun AppInfoScreen(
             app.metadata?.description?.let { description ->
                 ExpressiveSection(title = "Description", icon = Icons.Default.Description) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -454,56 +443,13 @@ fun AppInfoScreen(
                 )
             }
 
-            if (!app.metadata?.categories.isNullOrEmpty() || !app.metadata?.keywords.isNullOrEmpty()) {
-                ExpressiveSection(title = "Categories & Tags", icon = Icons.Default.Tag) {
-                    app.metadata.categories?.let { categories ->
-                        ServiceInfoChipGroup(
-                            title = "Categories",
-                            items = categories,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            onChipClick = { onNavigateToMarketplaceCategory(it) }
-                        )
-                    }
-                    app.metadata.keywords?.let { keywords ->
-                        if (keywords.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            ServiceInfoChipGroup(
-                                title = "Keywords",
-                                items = keywords,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                onChipClick = {}
-                            )
-                        }
-                    }
-                }
-            }
-
-            app.metadata?.maintainers?.let { maintainers ->
-                if (maintainers.isNotEmpty()) {
-                    ExpressiveSection(title = "Maintainers", icon = Icons.Default.Person) {
-                        maintainers.forEach { maintainer ->
-                            ServiceMaintainerCard(maintainer = maintainer)
+            app.portals?.let { portals ->
+                if (portals.isNotEmpty()) {
+                    ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
+                        portals.forEach { (name, url) ->
+                            ServicePortalCard(name = name, url = url.withRoutableServerHost(manager.serverBaseHttpUrl))
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                    }
-                }
-            }
-
-            if (app.metadata?.home != null || !app.metadata?.sources.isNullOrEmpty() || app.metadata?.changelogUrl != null) {
-                ExpressiveSection(title = "Resources", icon = Icons.Default.Link) {
-                    app.metadata.home?.let { home ->
-                        LinkButton(name = "Homepage", url = home, icon = Icons.Default.Home)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    app.metadata.sources?.forEach { source ->
-                        LinkButton(name = "Source Code", url = source, icon = Icons.Default.Code)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    app.metadata.changelogUrl?.let { changelog ->
-                        LinkButton(name = "Changelog", url = changelog, icon = Icons.Default.Description)
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -572,6 +518,13 @@ fun AppInfoScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+        }
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        )
     }
 }
 
@@ -598,7 +551,8 @@ private fun AppBadge(
 @Composable
 fun ServiceNetworkCard(network: Apps.Network) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -713,7 +667,8 @@ private fun NetworkInfoChip(label: String, value: String) {
 @Composable
 fun ServiceImagesCard(images: List<String>) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -790,11 +745,12 @@ fun ExpressiveSection(
 @Composable
 fun ExpressiveInfoCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -871,7 +827,8 @@ private fun ServiceInfoChipGroup(
 @Composable
 private fun ServicePortCard(port: Apps.UsedPort) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -950,7 +907,8 @@ private fun ServicePortalCard(name: String, url: String) {
 @Composable
 private fun ServiceContainerCard(container: Apps.ContainerDetail) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1040,7 +998,8 @@ private fun ServiceContainerCard(container: Apps.ContainerDetail) {
 @Composable
 private fun ServiceVolumeCard(volume: Apps.Volume) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1124,7 +1083,8 @@ private fun ServiceHostMountCard(mount: Apps.HostMount) {
 @Composable
 private fun ServiceRunAsContextCard(context: Apps.RunAsContext) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1191,7 +1151,8 @@ private fun ServiceRunAsContextCard(context: Apps.RunAsContext) {
 @Composable
 private fun ServiceCapabilityCard(capability: Apps.Capability) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1217,7 +1178,8 @@ private fun ServiceCapabilityCard(capability: Apps.Capability) {
 private fun ServiceMaintainerCard(maintainer: Apps.Maintainer) {
     val uriHandler = LocalUriHandler.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {

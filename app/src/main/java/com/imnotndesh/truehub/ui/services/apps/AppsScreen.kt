@@ -125,12 +125,10 @@ import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoPane
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
+import com.imnotndesh.truehub.ui.utils.displayName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
-
-private fun Apps.AppQueryResponse.appDisplayName(): String =
-    metadata?.title?.takeUnless { it.isBlank() || it.equals("iX App", ignoreCase = true) } ?: name
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -336,7 +334,7 @@ fun AppsScreen(
     // Delete Selected Confirmation Dialog
     if (showDeleteSelectedDialog && selectedAppsForDeletion.isNotEmpty()) {
         DeleteAppsConfirmationDialog(
-            appNames = selectedAppsForDeletion.map { it.appDisplayName() },
+            appNames = selectedAppsForDeletion.map { it.displayName() },
             onConfirm = { options ->
                 showDeleteSelectedDialog = false
                 selectedAppsForDeletion.forEach { app ->
@@ -874,17 +872,17 @@ private fun ServiceCard(
 
     Card(
         shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
 
             containerColor = MaterialTheme.colorScheme.surface
         ),
         border = BorderStroke(
-            width = if (isSelectionMode && isChecked) 3.dp else if (isSelected) 2.dp else 0.dp,
+            width = if (isSelectionMode && isChecked) 3.dp else if (isSelected) 2.dp else 1.dp,
             color = if (isSelectionMode && isChecked || isSelected)
                 MaterialTheme.colorScheme.primary
             else
-                Color.Transparent
+                MaterialTheme.colorScheme.outlineVariant
         ),
         modifier = Modifier
             .fillMaxWidth()
@@ -934,7 +932,7 @@ private fun ServiceCard(
                                 .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = "${app.appDisplayName()} icon",
+                            contentDescription = "${app.displayName()} icon",
                             modifier = Modifier
                                 .size(52.dp)
                                 .clip(RoundedCornerShape(16.dp)),
@@ -954,7 +952,7 @@ private fun ServiceCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = app.appDisplayName(),
+                            text = app.displayName(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -989,7 +987,7 @@ private fun ServiceCard(
                                         .decoderFactory(SvgDecoder.Factory())
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "${app.appDisplayName()} icon",
+                                    contentDescription = "${app.displayName()} icon",
                                     modifier = Modifier
                                         .size(46.dp)
                                         .clip(RoundedCornerShape(14.dp)),
@@ -1015,7 +1013,7 @@ private fun ServiceCard(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = app.appDisplayName(),
+                        text = app.displayName(),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
