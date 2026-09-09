@@ -3,9 +3,6 @@ package com.imnotndesh.truehub.ui.components
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,27 +54,22 @@ fun rememberHideOnScrollState(): HideOnScrollState = remember { HideOnScrollStat
 fun PillNavBar(
     modifier: Modifier = Modifier,
     hidden: Boolean = false,
-    barHeight: Dp = 64.dp,
+    barHeight: Dp = 56.dp,
     content: @Composable () -> Unit
 ) {
-    val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val offsetY by animateDpAsState(
-        targetValue = if (hidden) barHeight + navBarPadding + 24.dp else 0.dp,
+        targetValue = if (hidden) barHeight + 32.dp else 0.dp,
         animationSpec = spring(),
         label = "pillBarSlide"
     )
     Box(
-        modifier = modifier.offset(y = offsetY).padding(
-            start = 16.dp,
-            end = 16.dp,
-            bottom = navBarPadding + 12.dp
-        )
+        modifier = modifier.offset(y = offsetY).padding(start = 20.dp, end = 20.dp, bottom = 10.dp)
     ) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
             tonalElevation = 0.dp,
-            shadowElevation = 6.dp,
+            shadowElevation = 4.dp,
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             content()
