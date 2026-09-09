@@ -396,7 +396,7 @@ private fun SystemOverviewCard(
         Color(0xFFF57C00)
     }
 
-    val glassContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f)
+    val glassContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)
     val glassBorderBrush = remember {
         Brush.linearGradient(
             colors = listOf(
@@ -408,8 +408,8 @@ private fun SystemOverviewCard(
 
     val themeAdaptiveBorderBrush = Brush.linearGradient(
         colors = listOf(
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
         )
     )
 
@@ -671,7 +671,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
         return "${DecimalFormat("#.#").format(size)} ${units[unitIndex]}"
     }
 
-    Card(onClick = onClick, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(onClick = onClick, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
@@ -745,7 +745,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
 
 @Composable
 private fun NoStorageCard(modifier: Modifier = Modifier) {
-    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.Storage, null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(16.dp))
@@ -763,7 +763,7 @@ private fun SharesCard(
     onSmbShareClick: (Shares.SmbShare) -> Unit = {},
     onNfsShareClick: (Shares.NfsShare) -> Unit = {}
 ) {
-    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("SMB Shares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)

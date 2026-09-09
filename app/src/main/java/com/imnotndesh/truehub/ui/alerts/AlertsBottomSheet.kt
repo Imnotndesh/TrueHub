@@ -83,7 +83,7 @@ fun AlertsBottomSheet(
         onDismissRequest = onDismiss,
         dragHandle = null,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         modifier = Modifier
             .fillMaxHeight()
             .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))

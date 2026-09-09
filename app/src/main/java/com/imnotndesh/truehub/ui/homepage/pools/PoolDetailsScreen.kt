@@ -3,6 +3,7 @@ package com.imnotndesh.truehub.ui.homepage.pools
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -78,7 +79,7 @@ import com.imnotndesh.truehub.data.models.System.PoolScan
 import com.imnotndesh.truehub.data.models.System.PoolTopology
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.LoadingScreen
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import java.text.DecimalFormat
 import java.time.Instant
 import java.time.LocalDateTime
@@ -119,41 +120,40 @@ fun PoolDetailsScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            UnifiedScreenHeader(
-                title = "Pool Details",
-                subtitle = "${currentPool?.name ?: "Current"} Details",
-                isLoading = isLoading,
-                isRefreshing = isRefreshing,
-                error = error,
-                onRefresh = { viewModel.refresh() },
-                onDismissError = { error = null },
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-
-            when (val state = uiState) {
-                is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
-                is PoolDetailsUiState.Error -> {}
-                is PoolDetailsUiState.Success -> PoolDetailsContent(
-                    pool = state.pool,
-                    scrubTasks = state.scrubTasks,
-                    onCreateScrubTask = viewModel::createScrubTask,
-                    onUpdateScrubTask = viewModel::updateScrubTask,
-                    onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
-                    onRunScrubTask = viewModel::runScrubTask,
-                    onSwitchScrubState = viewModel::switchScrubTaskState,
-                    jobStates = state.jobStates,
-                    onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background
+        ) { _ ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                when (val state = uiState) {
+                    is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
+                    is PoolDetailsUiState.Error -> {}
+                    is PoolDetailsUiState.Success -> PoolDetailsContent(
+                        pool = state.pool,
+                        scrubTasks = state.scrubTasks,
+                        onCreateScrubTask = viewModel::createScrubTask,
+                        onUpdateScrubTask = viewModel::updateScrubTask,
+                        onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
+                        onRunScrubTask = viewModel::runScrubTask,
+                        onSwitchScrubState = viewModel::switchScrubTaskState,
+                        jobStates = state.jobStates,
+                        onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
+                    )
+                }
             }
         }
+
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            error = error,
+            onDismissError = { error = null },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        )
     }
 }
 
@@ -235,6 +235,7 @@ private fun PoolDetailsContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .padding(top = 72.dp)
     ) {
         PoolInfoHeader(pool = pool)
 
@@ -377,8 +378,9 @@ private fun PoolStorageUsageCard(pool: Pool) {
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth()
     ) {
