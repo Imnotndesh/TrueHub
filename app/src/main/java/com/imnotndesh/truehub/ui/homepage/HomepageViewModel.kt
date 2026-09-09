@@ -205,6 +205,22 @@ class HomeViewModel(
 
     private fun loadDashboardData() {
         viewModelScope.launch {
+            val cachedSystemInfo = AppCache.cachedSystemInfo.value
+            if (cachedSystemInfo != null && _uiState.value !is HomeUiState.Success) {
+                _uiState.value = HomeUiState.Success(
+                    systemInfo = cachedSystemInfo,
+                    systemVersionShort = null,
+                    poolDetails = AppCache.cachedPools.value,
+                    diskDetails = AppCache.cachedDisks.value,
+                    cpuData = null,
+                    memoryData = null,
+                    temperatureData = null,
+                    smbShares = AppCache.cachedSmbShares.value,
+                    nfsShares = AppCache.cachedNfsShares.value,
+                    systemUpdateVersions = AppCache.cachedUpdateVersions.value,
+                    isRefreshing = true
+                )
+            }
             try {
                 val systemInfoResult = apiManager.system.getSystemInfoWithResult()
                 if (systemInfoResult !is ApiResult.Success) {

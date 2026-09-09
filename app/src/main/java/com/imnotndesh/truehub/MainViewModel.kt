@@ -19,6 +19,7 @@ import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.data.workers.AppsRefreshWorker
 import com.imnotndesh.truehub.ui.Screen
+import com.imnotndesh.truehub.ui.utils.AppCache
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,6 +70,13 @@ class MainViewModel : ViewModel() {
         val key = accountId ?: PersonalizationManager.DEFAULT_USER_KEY
         _currentUserKey.value = key
         PersonalizationManager.loadForUser(context, key)
+        viewModelScope.launch {
+            MultiAccountPrefs.getCurrentSession(context)?.let { (serverId, _, _) ->
+                AppCache.bindServer(context, serverId)
+            } ?: MultiAccountPrefs.getLastUsedProfile(context)?.let { (serverId, _) ->
+                AppCache.bindServer(context, serverId)
+            }
+        }
     }
     fun initializeApp(context: Context) {
         if (hasInitialized) return
