@@ -8,11 +8,13 @@ import coil.memory.MemoryCache
 import coil.util.DebugLogger
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.workers.AlertsWorker
+import com.imnotndesh.truehub.ui.utils.AppCache
 
 class TrueHubApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         TrueHubLogger.initialize(this)
+        AppCache.init(this)
         AlertsWorker.schedule(this)
     }
     override fun newImageLoader(): ImageLoader {

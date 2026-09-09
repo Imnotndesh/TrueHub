@@ -21,13 +21,11 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
-import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.WorkerSession
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.dataStore
-import com.imnotndesh.truehub.data.models.Config
-import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.System
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -96,60 +94,15 @@ class AlertsWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         var client: TrueNASClient? = null
         try {
-            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context)
-                ?: return@withContext Result.success()
-            val server = MultiAccountPrefs.getServer(context, serverId)
-                ?: return@withContext Result.failure()
-            val account = MultiAccountPrefs.getAccount(context, accountId)
-                ?: return@withContext Result.failure()
-
-            client = TrueNASClient(
-                Config.ClientConfig(
-                    serverUrl = server.serverUrl,
-                    insecure = server.insecure
-                )
-            )
-            if (!client.connect()) return@withContext Result.retry()
-
-            val manager = TrueNASApiManager(client, context)
-
-            val token = MultiAccountPrefs.getTokenForLastUsed(context)
-            var authed = token != null &&
-                    (manager.auth.loginWithTokenAndResult(token) is ApiResult.Success)
-
-            if (!authed) {
-                val (credentialPrimary, credentialSecondary) = MultiAccountPrefs.getAccountCredentials(
-                    context,
-                    accountId,
-                    account.loginMethod
-                )
-
-                val loginResult = when (account.loginMethod) {
-                    LoginMethod.API_KEY -> {
-                        if (credentialPrimary.isNullOrBlank()) {
-                            client.disconnect()
-                            return@withContext Result.failure()
-                        }
-                        manager.auth.loginWithApiKeyWithResult(credentialPrimary)
-                    }
-                    LoginMethod.PASSWORD, LoginMethod.TOTP -> {
-                        if (credentialPrimary.isNullOrBlank() || credentialSecondary.isNullOrBlank()) {
-                            client.disconnect()
-                            return@withContext Result.failure()
-                        }
-                        manager.auth.loginUserWithResult(
-                            AuthService.DefaultAuth(credentialPrimary, credentialSecondary)
-                        )
-                    }
+            val manager: TrueNASApiManager
+            when (val session = WorkerSession.open(context)) {
+                is WorkerSession.Result.Ready -> {
+                    manager = session.manager
+                    client = session.client
                 }
-
-                authed = loginResult is ApiResult.Success && loginResult.data == true
-            }
-
-            if (!authed) {
-                TrueHubLogger.e("AlertsWorker", "Authentication failed for account $accountId")
-                client.disconnect()
-                return@withContext Result.retry()
+                is WorkerSession.Result.Unauthenticated -> return@withContext Result.success()
+                is WorkerSession.Result.Retryable ->
+                    return@withContext if (runAttemptCount < 3) Result.retry() else Result.failure()
             }
 
             val alertsResult = manager.system.listAlertsWithResult()

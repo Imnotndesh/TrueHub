@@ -283,7 +283,11 @@ class LoginScreenViewModel(
         when (loginResult) {
             is LoginExResult.AuthRespSuccess -> {
                 // Generate token and save
-                val tokenResult = manager!!.auth.generateTokenWithResult()
+                val tokenResult = manager!!.auth.generateTokenWithResult(
+                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                    )
+                )
                 when (tokenResult) {
                     is ApiResult.Success -> {
                         saveBaseInfo(context, tokenResult.data, "password")
@@ -353,7 +357,11 @@ class LoginScreenViewModel(
                         is ApiResult.Success -> {
                             when (val lr = result.data) {
                                 is LoginExResult.AuthRespSuccess -> {
-                                    val tokenResult = manager!!.auth.generateTokenWithResult()
+                                    val tokenResult = manager!!.auth.generateTokenWithResult(
+                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                    )
+                )
                                     when (tokenResult) {
                                         is ApiResult.Success -> {
                                             saveBaseInfo(
@@ -420,7 +428,11 @@ class LoginScreenViewModel(
                     is ApiResult.Success -> {
                         when (val lr = result.data) {
                             is LoginExResult.AuthRespSuccess -> {
-                                val tokenResult = manager!!.auth.generateTokenWithResult()
+                                val tokenResult = manager!!.auth.generateTokenWithResult(
+                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                    )
+                )
                                 when (tokenResult) {
                                     is ApiResult.Success -> {
                                         saveBaseInfo(context, tokenResult.data, "api_key")
