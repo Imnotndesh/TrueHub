@@ -21,6 +21,12 @@ val Context.multiAccountDataStore: DataStore<Preferences> by preferencesDataStor
 )
 
 object MultiAccountPrefs {
+    /** Fallback TTL used when a token was stored before metadata tracking existed. */
+    const val DEFAULT_TOKEN_TTL_SECONDS = 600
+
+    /** Generous TTL requested for interactive sessions; the server caps it as it sees fit. */
+    const val LONG_TOKEN_TTL_SECONDS = 31_536_000
+
     private val moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())
         .build()
@@ -210,25 +216,62 @@ object MultiAccountPrefs {
      * Saves a new authentication token for the most recently used account.
      * This updates the active session keys (CURRENT_SESSION_KEY and CURRENT_TOKEN_KEY).
      */
-    suspend fun saveTokenForLastUsed(context: Context, token: String) {
+    suspend fun saveTokenForLastUsed(context: Context, token: String, ttlSeconds: Int = DEFAULT_TOKEN_TTL_SECONDS) {
         val (serverId, accountId) = getLastUsedProfile(context) ?: return
-        saveCurrentSession(context, serverId, accountId, token)
+        saveCurrentSession(context, serverId, accountId, token, ttlSeconds)
     }
 
     // Session Management (current active session)
     private val CURRENT_SESSION_KEY = stringPreferencesKey("current_session")
     private val CURRENT_TOKEN_KEY = stringPreferencesKey("current_token")
+    private val TOKEN_ACQUIRED_AT_KEY = stringPreferencesKey("current_token_acquired_at")
+    private val TOKEN_TTL_KEY = stringPreferencesKey("current_token_ttl")
+
+    /** A persisted session plus the metadata we need to reason about token freshness. */
+    data class SessionSnapshot(
+        val serverId: String,
+        val accountId: String,
+        val token: String,
+        val acquiredAtEpochMs: Long,
+        val ttlSeconds: Int
+    ) {
+        /** Fraction of the token lifetime already elapsed (1.0 == expired). */
+        fun elapsedFraction(nowMs: Long = System.currentTimeMillis()): Float {
+            if (ttlSeconds <= 0) return 1f
+            val lifetimeMs = ttlSeconds * 1000L
+            return ((nowMs - acquiredAtEpochMs).toFloat() / lifetimeMs).coerceIn(0f, 2f)
+        }
+
+        /** True once the token is close enough to expiry that we should refresh proactively. */
+        fun isExpiringSoon(nowMs: Long = System.currentTimeMillis(), safetyFraction: Float = 0.8f): Boolean =
+            elapsedFraction(nowMs) >= safetyFraction
+    }
 
     suspend fun saveCurrentSession(
         context: Context,
         serverId: String,
         accountId: String,
-        token: String
+        token: String,
+        ttlSeconds: Int = DEFAULT_TOKEN_TTL_SECONDS
     ) {
         context.dataStore.edit { prefs ->
             prefs[CURRENT_SESSION_KEY] = "$serverId:$accountId"
             prefs[CURRENT_TOKEN_KEY] = token
+            prefs[TOKEN_ACQUIRED_AT_KEY] = System.currentTimeMillis().toString()
+            prefs[TOKEN_TTL_KEY] = ttlSeconds.toString()
         }
+    }
+
+    /** Full session snapshot with freshness metadata, or null when nothing is stored. */
+    suspend fun getSessionSnapshot(context: Context): SessionSnapshot? {
+        val prefs = context.dataStore.data.first()
+        val session = prefs[CURRENT_SESSION_KEY] ?: return null
+        val token = prefs[CURRENT_TOKEN_KEY] ?: return null
+        val parts = session.split(":")
+        if (parts.size != 2) return null
+        val acquiredAt = prefs[TOKEN_ACQUIRED_AT_KEY]?.toLongOrNull() ?: 0L
+        val ttl = prefs[TOKEN_TTL_KEY]?.toIntOrNull() ?: DEFAULT_TOKEN_TTL_SECONDS
+        return SessionSnapshot(parts[0], parts[1], token, acquiredAt, ttl)
     }
 
     suspend fun getCurrentSession(context: Context): Triple<String, String, String>? {
@@ -244,6 +287,8 @@ object MultiAccountPrefs {
         context.dataStore.edit { prefs ->
             prefs.remove(CURRENT_SESSION_KEY)
             prefs.remove(CURRENT_TOKEN_KEY)
+            prefs.remove(TOKEN_ACQUIRED_AT_KEY)
+            prefs.remove(TOKEN_TTL_KEY)
         }
     }
 

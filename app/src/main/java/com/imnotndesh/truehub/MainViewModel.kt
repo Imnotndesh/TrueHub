@@ -11,6 +11,7 @@ import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
+import com.imnotndesh.truehub.data.models.Auth
 import com.imnotndesh.truehub.data.models.LoginExResult
 import com.imnotndesh.truehub.data.models.LoginMechanisms
 import com.imnotndesh.truehub.data.models.LoginMethod
@@ -209,13 +210,16 @@ class MainViewModel : ViewModel() {
             }
 
             if (loginSuccess) {
-                val tokenResult = manager.auth.generateTokenWithResult()
+                val tokenResult = manager.auth.generateTokenWithResult(
+                    Auth.TokenRequest(ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS)
+                )
                 if (tokenResult is ApiResult.Success) {
                     MultiAccountPrefs.saveCurrentSession(
                         context,
                         server.id,
                         account.id,
-                        tokenResult.data
+                        tokenResult.data,
+                        MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
                     )
                     setActiveUser(context, account.id)
                     manager
@@ -270,10 +274,13 @@ class MainViewModel : ViewModel() {
                     }
                     result is ApiResult.Success && result.data is LoginExResult.AuthRespSuccess -> {
                         // loginEx succeeded directly — generate token and save
-                        val tokenResult = manager.auth.generateTokenWithResult()
+                        val tokenResult = manager.auth.generateTokenWithResult(
+                            Auth.TokenRequest(ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS)
+                        )
                         if (tokenResult is ApiResult.Success) {
                             MultiAccountPrefs.saveCurrentSession(
-                                context, server.id, account.id, tokenResult.data
+                                context, server.id, account.id, tokenResult.data,
+                                MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
                             )
                             // Also save credentials to make sure they're persisted
                             MultiAccountPrefs.saveAccountCredentials(
@@ -316,11 +323,14 @@ class MainViewModel : ViewModel() {
                 val tryLogin = manager.auth.loginWithTokenAndResult(token)
                 if (tryLogin is ApiResult.Error) return@withTimeoutOrNull null
 
-                val newTokenResult = manager.auth.generateTokenWithResult()
+                val newTokenResult = manager.auth.generateTokenWithResult(
+                    Auth.TokenRequest(ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS)
+                )
                 if (newTokenResult is ApiResult.Success) {
                     MultiAccountPrefs.saveTokenForLastUsed(
                         context,
-                        newTokenResult.data
+                        newTokenResult.data,
+                        MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
                     )
                     manager
                 } else {
