@@ -69,9 +69,13 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.ServerRackAnimation
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
@@ -92,6 +96,18 @@ fun RollbackVersionScreen(
     val isRollingBack = liveJob != null && liveJob.state !in listOf("SUCCESS", "FAILED", "ABORTED")
     val isDone = liveJob?.state == "SUCCESS"
     val isFailed = liveJob?.state in listOf("FAILED", "ABORTED")
+
+    val context = LocalContext.current
+    val haptics = remember(context) { VibrationFeedback(context) }
+    var terminalFeedbackPlayed by remember { mutableStateOf(false) }
+    LaunchedEffect(isDone, isFailed) {
+        if (!terminalFeedbackPlayed) {
+            when {
+                isDone -> { haptics.play(VibratorMode.SUCCESS_TICK); terminalFeedbackPlayed = true }
+                isFailed -> { haptics.play(VibratorMode.ERROR_ALERT); terminalFeedbackPlayed = true }
+            }
+        }
+    }
 
     var selectedVersion by remember { mutableStateOf<String?>(null) }
     var rollbackSnapshot by remember { mutableStateOf(true) }

@@ -68,6 +68,7 @@ import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 /**
@@ -118,6 +119,7 @@ fun AppAdvancedInfoScreen(
             error != null && instance == null -> NullContent()
             instance != null -> AdvancedInstanceContent(
                 instance = instance!!,
+                serverBaseHttpUrl = manager.serverBaseHttpUrl,
                 modifiers = Modifier.padding(innerPadding),
                 onScreenshotClick = { activeScreenshotIndex = it }
             )
@@ -148,6 +150,7 @@ private fun NullContent() {
 @Composable
 private fun AdvancedInstanceContent(
     instance: Apps.AppQueryResponse,
+    serverBaseHttpUrl: String,
     modifiers: Modifier,
     onScreenshotClick: (Int) -> Unit
 ) {
@@ -446,7 +449,10 @@ private fun AdvancedInstanceContent(
             if (portals.isNotEmpty()) {
                 ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
                     portals.forEach { (name, url) ->
-                        AdvancedPortalCard(name = name, url = url)
+                        AdvancedPortalCard(
+                            name = name,
+                            url = url.withRoutableServerHost(serverBaseHttpUrl)
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }

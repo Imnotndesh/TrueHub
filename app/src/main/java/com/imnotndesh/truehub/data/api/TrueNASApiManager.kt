@@ -239,4 +239,6 @@ class TrueNASApiManager(
     suspend fun disconnect() = client.disconnect()
     fun isConnected(): Boolean = client.getCurrentConnectionState() == ConnectionState.Connected
 
+    /** HTTP(S) base of the server this manager is connected to, e.g. "http://192.168.1.100:80". */
+    val serverBaseHttpUrl: String get() = client.baseHttpUrl
 }

@@ -58,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.ServerRackAnimation
@@ -95,6 +98,18 @@ fun UpgradeSummaryScreen(
     val isUpgrading = liveJob != null && liveJob.state !in listOf("SUCCESS", "FAILED", "ABORTED")
     val isDone = liveJob?.state == "SUCCESS"
     val isFailed = liveJob?.state in listOf("FAILED", "ABORTED")
+
+    val context = LocalContext.current
+    val haptics = remember(context) { VibrationFeedback(context) }
+    var terminalFeedbackPlayed by remember { mutableStateOf(false) }
+    LaunchedEffect(isDone, isFailed) {
+        if (!terminalFeedbackPlayed) {
+            when {
+                isDone -> { haptics.play(VibratorMode.SUCCESS_TICK); terminalFeedbackPlayed = true }
+                isFailed -> { haptics.play(VibratorMode.ERROR_ALERT); terminalFeedbackPlayed = true }
+            }
+        }
+    }
 
     LaunchedEffect(isDone) {
         if (isDone) {

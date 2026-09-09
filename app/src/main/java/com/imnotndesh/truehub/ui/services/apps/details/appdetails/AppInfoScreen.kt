@@ -98,6 +98,8 @@ import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
@@ -120,9 +122,14 @@ fun AppInfoScreen(
     val deletionJobId by viewModel.deletionJobId.collectAsState()
     val activeJobs by JobRepository.activeJobs.collectAsState()
     val currentDeletionJob = deletionJobId?.let { activeJobs[it] }
+    val haptics = remember(context) { VibrationFeedback(context) }
     LaunchedEffect(currentDeletionJob?.state) {
-        if (currentDeletionJob?.state == "SUCCESS") {
-            onDeleteSuccess()
+        when (currentDeletionJob?.state) {
+            "SUCCESS" -> {
+                haptics.play(VibratorMode.SUCCESS_TICK)
+                onDeleteSuccess()
+            }
+            "FAILED", "ABORTED" -> haptics.play(VibratorMode.ERROR_ALERT)
         }
     }
 
