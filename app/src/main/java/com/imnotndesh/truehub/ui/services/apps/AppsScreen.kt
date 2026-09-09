@@ -882,7 +882,7 @@ private fun ServiceCard(
             color = if (isSelectionMode && isChecked || isSelected)
                 MaterialTheme.colorScheme.primary
             else
-                MaterialTheme.colorScheme.outlineVariant
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         ),
         modifier = Modifier
             .fillMaxWidth()

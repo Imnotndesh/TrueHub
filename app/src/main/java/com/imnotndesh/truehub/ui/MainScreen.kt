@@ -9,15 +9,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -36,7 +31,6 @@ import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -53,11 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -80,8 +70,6 @@ import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
-import com.imnotndesh.truehub.ui.components.PillNavBar
-import com.imnotndesh.truehub.ui.components.rememberHideOnScrollState
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
 import com.imnotndesh.truehub.ui.homepage.details.DiskInfoScreen
@@ -252,72 +240,57 @@ fun MainScreen(
                 )
             }
         } else {
-            val hideOnScroll = rememberHideOnScrollState()
-            Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .nestedScroll(hideOnScroll.connection)
-                ) {
-                    TrueHubNavGraph(
-                        navController = navController,
-                        manager = manager,
-                        rootNavController = rootNavController,
-                        onSearchClick = { showSearch = true },
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    if (currentRoute in navRoutes) {
-                        PillNavBar(
-                            hidden = hideOnScroll.offset < -0.5f,
-                            modifier = Modifier.align(Alignment.BottomCenter)
+            Scaffold(
+                bottomBar = {if (currentRoute in navRoutes){
+                    run {
+                        NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                            tonalElevation = 0.dp
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                navItems.forEach { item ->
-                                    val selected = currentRoute == item.screen.route
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Center,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(50))
-                                            .clickable { onNavClick(navController, item.screen.route) }
-                                            .background(
-                                                if (selected) MaterialTheme.colorScheme.secondaryContainer
-                                                else Color.Transparent
-                                            )
-                                            .padding(
-                                                horizontal = if (isCompactNav) 16.dp else 14.dp,
-                                                vertical = 8.dp
-                                            )
-                                    ) {
-                                        Icon(
-                                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                                            contentDescription = item.title,
-                                            modifier = Modifier.size(24.dp),
-                                            tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        if (!isCompactNav) {
-                                            Spacer(Modifier.height(2.dp))
+                            navItems.forEach { item ->
+                                val selected = currentRoute == item.screen.route
+                                NavigationBarItem(
+                                    selected = selected,
+                                    onClick = { onNavClick(navController, item.screen.route) },
+                                    label = if (isCompactNav) null else {
+                                        {
                                             Text(
                                                 item.title,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                                             )
                                         }
-                                    }
-                                }
+                                    },
+                                    icon = {
+                                        Crossfade(
+                                            targetState = selected,
+                                            label = "iconFade"
+                                        ) { isSelected ->
+                                            Icon(
+                                                if (isSelected) item.selectedIcon else item.unselectedIcon,
+                                                item.title,
+                                                modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
+                                            )
+                                        }
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
                             }
                         }
                     }
                 }
+                }
+            ) { innerPadding ->
+                TrueHubNavGraph(
+                    navController = navController,
+                    manager = manager,
+                    rootNavController = rootNavController,
+                    onSearchClick = { showSearch = true },
+                    modifier = Modifier.padding(innerPadding)
+                )
             }
         }
 
