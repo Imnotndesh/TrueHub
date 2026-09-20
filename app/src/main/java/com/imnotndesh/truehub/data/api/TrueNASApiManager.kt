@@ -35,6 +35,14 @@ class TrueNASApiManager(
     val cloudsync: CloudsyncService by lazy { CloudsyncService(this) }
     val pool: PoolService by lazy { PoolService(this) }
     val interfaceService: InterfaceService by lazy { InterfaceService(this) }
+    val replication: ReplicationService by lazy { ReplicationService(this) }
+    val cloudBackup: CloudBackupService by lazy { CloudBackupService(this) }
+    val nvmet: NvmetService by lazy { NvmetService(this) }
+    val certificate: CertificateService by lazy { CertificateService(this) }
+    val group: GroupService by lazy { GroupService(this) }
+    val keychaincredential: KeychaincredentialService by lazy { KeychaincredentialService(this) }
+    val support: SupportService by lazy { SupportService(this) }
+    val vmware: VmwareService by lazy { VmwareService(this) }
     val acme: AcmeService by lazy { AcmeService(this) }
     val config: ConfigService by lazy { ConfigService(this) }
     val cronjob: CronjobService by lazy { CronjobService(this) }

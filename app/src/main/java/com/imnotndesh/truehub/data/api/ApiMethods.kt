@@ -294,6 +294,16 @@ object ApiMethods {
         const val TRUENAS_IS_PRODUCTION = "truenas.is_production"
         const val TRUENAS_MANAGED_BY_TRUECOMMAND = "truenas.managed_by_truecommand"
         const val TRUENAS_SET_PRODUCTION = "truenas.set_production"
+        const val SYSTEM_GLOBAL_ID = "system.global.id"
+        const val SYSTEM_NTPSERVER_CREATE = "system.ntpserver.create"
+        const val SYSTEM_NTPSERVER_DELETE = "system.ntpserver.delete"
+        const val SYSTEM_NTPSERVER_GET_INSTANCE = "system.ntpserver.get_instance"
+        const val SYSTEM_NTPSERVER_QUERY = "system.ntpserver.query"
+        const val SYSTEM_NTPSERVER_UPDATE = "system.ntpserver.update"
+        const val SYSTEM_SECURITY_CONFIG = "system.security.config"
+        const val SYSTEM_SECURITY_INFO_FIPS_AVAILABLE = "system.security.info.fips_available"
+        const val SYSTEM_SECURITY_INFO_FIPS_ENABLED = "system.security.info.fips_enabled"
+        const val SYSTEM_SECURITY_UPDATE = "system.security.update"
 
     }
     object Apps {
@@ -1090,5 +1100,135 @@ object ApiMethods {
 
     object Zfs {
         const val ZFS_RESOURCE_QUERY = "zfs.resource.query"
+    }
+    object Certificate {
+        const val CERTIFICATE_ACME_SERVER_CHOICES = "certificate.acme_server_choices"
+        const val CERTIFICATE_COUNTRY_CHOICES = "certificate.country_choices"
+        const val CERTIFICATE_CREATE = "certificate.create"
+        const val CERTIFICATE_DELETE = "certificate.delete"
+        const val CERTIFICATE_EC_CURVE_CHOICES = "certificate.ec_curve_choices"
+        const val CERTIFICATE_EXTENDED_KEY_USAGE_CHOICES = "certificate.extended_key_usage_choices"
+        const val CERTIFICATE_GET_INSTANCE = "certificate.get_instance"
+        const val CERTIFICATE_QUERY = "certificate.query"
+        const val CERTIFICATE_UPDATE = "certificate.update"
+    }
+
+    object Group {
+        const val GROUP_CREATE = "group.create"
+        const val GROUP_DELETE = "group.delete"
+        const val GROUP_GET_GROUP_OBJ = "group.get_group_obj"
+        const val GROUP_GET_INSTANCE = "group.get_instance"
+        const val GROUP_GET_NEXT_GID = "group.get_next_gid"
+        const val GROUP_HAS_PASSWORD_ENABLED_USER = "group.has_password_enabled_user"
+        const val GROUP_QUERY = "group.query"
+        const val GROUP_UPDATE = "group.update"
+    }
+
+    object Keychaincredential {
+        const val KEYCHAINCREDENTIAL_CREATE = "keychaincredential.create"
+        const val KEYCHAINCREDENTIAL_DELETE = "keychaincredential.delete"
+        const val KEYCHAINCREDENTIAL_GENERATE_SSH_KEY_PAIR = "keychaincredential.generate_ssh_key_pair"
+        const val KEYCHAINCREDENTIAL_GET_INSTANCE = "keychaincredential.get_instance"
+        const val KEYCHAINCREDENTIAL_QUERY = "keychaincredential.query"
+        const val KEYCHAINCREDENTIAL_REMOTE_SSH_HOST_KEY_SCAN = "keychaincredential.remote_ssh_host_key_scan"
+        const val KEYCHAINCREDENTIAL_REMOTE_SSH_SEMIAUTOMATIC_SETUP = "keychaincredential.remote_ssh_semiautomatic_setup"
+        const val KEYCHAINCREDENTIAL_SETUP_SSH_CONNECTION = "keychaincredential.setup_ssh_connection"
+        const val KEYCHAINCREDENTIAL_UPDATE = "keychaincredential.update"
+        const val KEYCHAINCREDENTIAL_USED_BY = "keychaincredential.used_by"
+    }
+
+    object Support {
+        const val SUPPORT_ATTACH_TICKET = "support.attach_ticket"
+        const val SUPPORT_ATTACH_TICKET_MAX_SIZE = "support.attach_ticket_max_size"
+        const val SUPPORT_CONFIG = "support.config"
+        const val SUPPORT_FIELDS = "support.fields"
+        const val SUPPORT_IS_AVAILABLE = "support.is_available"
+        const val SUPPORT_IS_AVAILABLE_AND_ENABLED = "support.is_available_and_enabled"
+        const val SUPPORT_NEW_TICKET = "support.new_ticket"
+        const val SUPPORT_SIMILAR_ISSUES = "support.similar_issues"
+        const val SUPPORT_UPDATE = "support.update"
+    }
+
+    object Vmware {
+        const val VMWARE_CREATE = "vmware.create"
+        const val VMWARE_DATASET_HAS_VMS = "vmware.dataset_has_vms"
+        const val VMWARE_DELETE = "vmware.delete"
+        const val VMWARE_GET_DATASTORES = "vmware.get_datastores"
+        const val VMWARE_GET_INSTANCE = "vmware.get_instance"
+        const val VMWARE_MATCH_DATASTORES_WITH_DATASETS = "vmware.match_datastores_with_datasets"
+        const val VMWARE_QUERY = "vmware.query"
+        const val VMWARE_UPDATE = "vmware.update"
+    }
+    object CloudBackup {
+        const val CLOUD_BACKUP_ABORT = "cloud_backup.abort"
+        const val CLOUD_BACKUP_CREATE = "cloud_backup.create"
+        const val CLOUD_BACKUP_DELETE = "cloud_backup.delete"
+        const val CLOUD_BACKUP_DELETE_SNAPSHOT = "cloud_backup.delete_snapshot"
+        const val CLOUD_BACKUP_GET_INSTANCE = "cloud_backup.get_instance"
+        const val CLOUD_BACKUP_LIST_SNAPSHOT_DIRECTORY = "cloud_backup.list_snapshot_directory"
+        const val CLOUD_BACKUP_LIST_SNAPSHOTS = "cloud_backup.list_snapshots"
+        const val CLOUD_BACKUP_QUERY = "cloud_backup.query"
+        const val CLOUD_BACKUP_RESTORE = "cloud_backup.restore"
+        const val CLOUD_BACKUP_SYNC = "cloud_backup.sync"
+        const val CLOUD_BACKUP_TRANSFER_SETTING_CHOICES = "cloud_backup.transfer_setting_choices"
+        const val CLOUD_BACKUP_UPDATE = "cloud_backup.update"
+    }
+
+    object Nvmet {
+        const val NVMET_GLOBAL_CONFIG = "nvmet.global.config"
+        const val NVMET_GLOBAL_SESSIONS = "nvmet.global.sessions"
+        const val NVMET_GLOBAL_UPDATE = "nvmet.global.update"
+        const val NVMET_HOST_CREATE = "nvmet.host.create"
+        const val NVMET_HOST_DELETE = "nvmet.host.delete"
+        const val NVMET_HOST_DHCHAP_DHGROUP_CHOICES = "nvmet.host.dhchap_dhgroup_choices"
+        const val NVMET_HOST_DHCHAP_HASH_CHOICES = "nvmet.host.dhchap_hash_choices"
+        const val NVMET_HOST_GENERATE_KEY = "nvmet.host.generate_key"
+        const val NVMET_HOST_GET_INSTANCE = "nvmet.host.get_instance"
+        const val NVMET_HOST_QUERY = "nvmet.host.query"
+        const val NVMET_HOST_UPDATE = "nvmet.host.update"
+        const val NVMET_HOST_SUBSYS_CREATE = "nvmet.host_subsys.create"
+        const val NVMET_HOST_SUBSYS_DELETE = "nvmet.host_subsys.delete"
+        const val NVMET_HOST_SUBSYS_GET_INSTANCE = "nvmet.host_subsys.get_instance"
+        const val NVMET_HOST_SUBSYS_QUERY = "nvmet.host_subsys.query"
+        const val NVMET_HOST_SUBSYS_UPDATE = "nvmet.host_subsys.update"
+        const val NVMET_NAMESPACE_CREATE = "nvmet.namespace.create"
+        const val NVMET_NAMESPACE_DELETE = "nvmet.namespace.delete"
+        const val NVMET_NAMESPACE_GET_INSTANCE = "nvmet.namespace.get_instance"
+        const val NVMET_NAMESPACE_QUERY = "nvmet.namespace.query"
+        const val NVMET_NAMESPACE_UPDATE = "nvmet.namespace.update"
+        const val NVMET_PORT_CREATE = "nvmet.port.create"
+        const val NVMET_PORT_DELETE = "nvmet.port.delete"
+        const val NVMET_PORT_GET_INSTANCE = "nvmet.port.get_instance"
+        const val NVMET_PORT_QUERY = "nvmet.port.query"
+        const val NVMET_PORT_TRANSPORT_ADDRESS_CHOICES = "nvmet.port.transport_address_choices"
+        const val NVMET_PORT_UPDATE = "nvmet.port.update"
+        const val NVMET_PORT_SUBSYS_CREATE = "nvmet.port_subsys.create"
+        const val NVMET_PORT_SUBSYS_DELETE = "nvmet.port_subsys.delete"
+        const val NVMET_PORT_SUBSYS_GET_INSTANCE = "nvmet.port_subsys.get_instance"
+        const val NVMET_PORT_SUBSYS_QUERY = "nvmet.port_subsys.query"
+        const val NVMET_PORT_SUBSYS_UPDATE = "nvmet.port_subsys.update"
+        const val NVMET_SUBSYS_CREATE = "nvmet.subsys.create"
+        const val NVMET_SUBSYS_DELETE = "nvmet.subsys.delete"
+        const val NVMET_SUBSYS_GET_INSTANCE = "nvmet.subsys.get_instance"
+        const val NVMET_SUBSYS_QUERY = "nvmet.subsys.query"
+        const val NVMET_SUBSYS_UPDATE = "nvmet.subsys.update"
+    }
+
+    object Replication {
+        const val REPLICATION_CONFIG_CONFIG = "replication.config.config"
+        const val REPLICATION_CONFIG_UPDATE = "replication.config.update"
+        const val REPLICATION_COUNT_ELIGIBLE_MANUAL_SNAPSHOTS = "replication.count_eligible_manual_snapshots"
+        const val REPLICATION_CREATE = "replication.create"
+        const val REPLICATION_CREATE_DATASET = "replication.create_dataset"
+        const val REPLICATION_DELETE = "replication.delete"
+        const val REPLICATION_GET_INSTANCE = "replication.get_instance"
+        const val REPLICATION_LIST_DATASETS = "replication.list_datasets"
+        const val REPLICATION_LIST_NAMING_SCHEMAS = "replication.list_naming_schemas"
+        const val REPLICATION_QUERY = "replication.query"
+        const val REPLICATION_RESTORE = "replication.restore"
+        const val REPLICATION_RUN = "replication.run"
+        const val REPLICATION_RUN_ONETIME = "replication.run_onetime"
+        const val REPLICATION_TARGET_UNMATCHED_SNAPSHOTS = "replication.target_unmatched_snapshots"
+        const val REPLICATION_UPDATE = "replication.update"
     }
 }
