@@ -237,4 +237,66 @@ object Virt {
         val instance_types: List<String>,
         val secureboot: Boolean? = null
     )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalEntry(
+        val id: Int,
+        val pool: String? = null,
+        val dataset: String? = null,
+        @field:Json("storage_pools") val storagePools: List<String>? = null,
+        val bridge: String? = null,
+        @field:Json("v4_network") val v4Network: String? = null,
+        @field:Json("v6_network") val v6Network: String? = null,
+        val state: String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalUpdate(
+        val pool: String? = null,
+        val dataset: String? = null,
+        @field:Json("storage_pools") val storagePools: List<String>? = null,
+        val bridge: String? = null,
+        @field:Json("v4_network") val v4Network: String? = null,
+        @field:Json("v6_network") val v6Network: String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalNetwork(
+        val type: String? = null,
+        val managed: Boolean? = null,
+        @field:Json("ipv4_address") val ipv4Address: String? = null,
+        @field:Json("ipv4_nat") val ipv4Nat: Boolean? = null,
+        @field:Json("ipv6_address") val ipv6Address: String? = null,
+        @field:Json("ipv6_nat") val ipv6Nat: Boolean? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeEntry(
+        val id: String,
+        val name: String,
+        @field:Json("storage_pool") val storagePool: String,
+        @field:Json("content_type") val contentType: String,
+        @field:Json("created_at") val createdAt: String,
+        val type: String,
+        val config: Map<String, Any?> = emptyMap(),
+        @field:Json("used_by") val usedBy: List<String> = emptyList()
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeCreate(
+        val name: String,
+        @field:Json("storage_pool") val storagePool: String,
+        @field:Json("content_type") val contentType: String,
+        val type: String? = null,
+        val config: Map<String, Any?>? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeUpdate(
+        val name: String? = null,
+        @field:Json("storage_pool") val storagePool: String? = null,
+        @field:Json("content_type") val contentType: String? = null,
+        val type: String? = null,
+        val config: Map<String, Any?>? = null
+    )
 }

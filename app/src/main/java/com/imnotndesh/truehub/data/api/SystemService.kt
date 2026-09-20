@@ -1544,4 +1544,20 @@ class SystemService(val manager: TrueNASApiManager){
         )
     }
 
+
+    private suspend fun serviceCall(method: String, service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        manager.callWithResult(method, listOf(service, options), Any::class.java)
+
+    suspend fun serviceReloadWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_RELOAD, service, options)
+
+    suspend fun serviceRestartWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_RESTART, service, options)
+
+    suspend fun serviceStartWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_START, service, options)
+
+    suspend fun serviceStopWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_STOP, service, options)
+
 }

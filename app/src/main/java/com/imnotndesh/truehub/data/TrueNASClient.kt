@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.data
 
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
+import com.imnotndesh.truehub.data.api.ApiMethods
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.JsonRpcEvent
 import com.squareup.moshi.Moshi
@@ -211,10 +212,10 @@ class TrueNASClient(private val config: ClientConfig) {
     }
 
     suspend fun subscribe(event: String): String =
-        call("core.subscribe", listOf(event), String::class.java)
+        call(ApiMethods.Core.SUBSCRIBE, listOf(event), String::class.java)
 
     suspend fun unsubscribe(subscriptionId: String) {
-        call<Unit>("core.unsubscribe", listOf(subscriptionId), Unit::class.java)
+        call<Unit>(ApiMethods.Core.UNSUBSCRIBE, listOf(subscriptionId), Unit::class.java)
     }
     suspend fun <T> call(method: String, params: List<Any?>, resultType: Type): T {
         if (method.startsWith("auth.login") || method == "auth.generate_token") {

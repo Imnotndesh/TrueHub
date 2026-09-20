@@ -1,5 +1,12 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -48,11 +55,11 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -72,11 +80,11 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveInfoCard
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveSection
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.InfoRow
 import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
-import com.imnotndesh.truehub.ui.utils.displayName
 import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
@@ -108,28 +116,58 @@ fun AppAdvancedInfoScreen(
         isLoading = false
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background) { _ ->
-            when {
-                isLoading -> LoadingScreen("Loading application details…")
-                error != null && instance == null -> NullContent()
-                instance != null -> AdvancedInstanceContent(
-                    instance = instance!!,
-                    serverBaseHttpUrl = manager.serverBaseHttpUrl,
-                    modifiers = Modifier.fillMaxSize(),
-                    onScreenshotClick = { activeScreenshotIndex = it }
-                )
-            }
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    val collapseThreshold = remember(density) { with(density) { 32.dp.roundToPx() } }
+    val collapsed by remember { derivedStateOf { scrollState.value > collapseThreshold } }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        when {
+            isLoading -> LoadingScreen("Loading application details…")
+            error != null && instance == null -> NullContent()
+            instance != null -> AdvancedInstanceContent(
+                instance = instance!!,
+                serverBaseHttpUrl = manager.serverBaseHttpUrl,
+                scrollState = scrollState,
+                onScreenshotClick = { activeScreenshotIndex = it }
+            )
         }
 
-        MinimalBackHeader(
-            onBackPressed = onNavigateBack,
-            error = error,
-            onDismissError = { error = null },
+        AnimatedVisibility(
+            visible = !collapsed,
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it / 2 },
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            UnifiedScreenHeader(
+                title = "Advanced Information",
+                subtitle = appId,
+                isLoading = false,
+                isRefreshing = false,
+                error = error,
+                onDismissError = { error = null },
+                onBackPressed = onNavigateBack
+            )
+        }
+
+        AnimatedVisibility(
+            visible = collapsed,
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it },
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it },
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 20.dp)
-        )
+                .padding(start = 16.dp, top = 16.dp)
+        ) {
+            MinimalBackHeader(
+                onBackPressed = onNavigateBack,
+                error = error,
+                onDismissError = { error = null }
+            )
+        }
     }
 
     val screenshots = instance?.metadata?.screenshots
@@ -157,74 +195,16 @@ private fun NullContent() {
 private fun AdvancedInstanceContent(
     instance: Apps.AppQueryResponse,
     serverBaseHttpUrl: String,
-    modifiers: Modifier,
+    scrollState: ScrollState,
     onScreenshotClick: (Int) -> Unit
 ) {
     Column(
-        modifier = modifiers
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 72.dp, bottom = 8.dp),
+            .verticalScroll(scrollState)
+            .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Header summary card
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Apps,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = instance.displayName(),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Containers, storage, network & metadata · ${instance.id}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    color = runStateContainerColor(instance.state),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = instance.state,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-            }
-        }
-
         // Workloads overview — top-level get_instance summary (exhausts active_workloads).
         val workloads = instance.activeWorkloads
         ExpressiveSection(title = "Workloads Overview", icon = Icons.Default.NetworkCheck) {
@@ -505,15 +485,6 @@ private fun AdvancedInstanceContent(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun runStateContainerColor(state: String): Color {
-    return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32).copy(alpha = 0.12f)
-        "stopped", "exited" -> MaterialTheme.colorScheme.surfaceContainerHighest
-        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
     }
 }
 

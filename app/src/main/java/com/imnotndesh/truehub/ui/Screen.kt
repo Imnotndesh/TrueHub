@@ -101,6 +101,13 @@ sealed class Screen(val route:String, val title:String) {
         fun createRoute(environmentId: String) = "boot_environment/$environmentId"
     }
     object SystemInformationScreen : Screen("system_information", "System Information")
+    object CloudSync : Screen("cloud_sync", "Cloud Sync")
+    object CloudSyncDetail : Screen("cloud_sync_detail/{taskId}", "Cloud Sync Task") {
+        fun createRoute(taskId: Int) = "cloud_sync_detail/$taskId"
+    }
+    object CloudSyncForm : Screen("cloud_sync_form/{taskId}", "Cloud Sync Task") {
+        fun createRoute(taskId: Int = -1) = "cloud_sync_form/$taskId"
+    }
     object SoftwareInformationScreen : Screen("software_information", "Software Information")
     object HardwareInformationScreen : Screen("hardware_information", "Hardware Information")
     object TrueNasConnectScreen : Screen("truenas_connect", "TrueNAS Connect")

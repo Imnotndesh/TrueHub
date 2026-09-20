@@ -9,7 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.ui.platform.LocalContext
 import coil.request.ImageRequest
-import coil.decode.SvgDecoder
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
@@ -929,7 +928,6 @@ private fun ServiceCard(
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(app.metadata.icon)
-                                .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "${app.displayName()} icon",
@@ -984,7 +982,6 @@ private fun ServiceCard(
                                 AsyncImage(
                                     model = ImageRequest.Builder(context)
                                         .data(app.metadata.icon)
-                                        .decoderFactory(SvgDecoder.Factory())
                                         .crossfade(true)
                                         .build(),
                                     contentDescription = "${app.displayName()} icon",

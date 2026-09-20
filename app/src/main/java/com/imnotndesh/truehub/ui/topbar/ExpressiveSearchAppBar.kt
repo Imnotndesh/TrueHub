@@ -97,7 +97,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
@@ -752,7 +751,6 @@ private fun SearchResultItem(
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(iconUrl)
-                            .decoderFactory(SvgDecoder.Factory())
                             .crossfade(true)
                             .build(),
                         contentDescription = "${result.title} icon",

@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,12 +11,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
@@ -40,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,12 +52,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.SchemaGroupSection
@@ -153,8 +157,7 @@ fun AppConfigScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                            .navigationBarsPadding(),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedButton(
@@ -248,17 +251,42 @@ fun AppConfigScreen(
             }
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())) {
-            UnifiedScreenHeader(
-                title = "App Configuration",
-                subtitle = appValues.appName,
-                isLoading = configState.isLoading,
-                isRefreshing = false,
-                error = configState.error,
-                onDismissError = { viewModel.clearAppConfigError() },
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
+        val listState = rememberLazyListState()
+        val density = LocalDensity.current
+        val collapseThreshold = remember(density) { with(density) { 32.dp.roundToPx() } }
+        val collapsed by remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseThreshold
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(targetState = collapsed, label = "configHeader") { isCollapsed ->
+                if (isCollapsed) {
+                    MinimalBackHeader(
+                        onBackPressed = onNavigateBack,
+                        error = configState.error,
+                        onDismissError = { viewModel.clearAppConfigError() },
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                } else {
+                    UnifiedScreenHeader(
+                        title = "App Configuration",
+                        subtitle = appValues.appName,
+                        isLoading = configState.isLoading,
+                        isRefreshing = false,
+                        error = configState.error,
+                        onDismissError = { viewModel.clearAppConfigError() },
+                        manager = manager,
+                        onBackPressed = onNavigateBack
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f)) {
             when {
                 configState.isLoading || uiState.isLoadingCatalogDetails || !formReady -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -277,6 +305,7 @@ fun AppConfigScreen(
                         ?.get(uiState.catalogAppDetails?.versions?.keys?.firstOrNull())?.schema
 
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -299,6 +328,8 @@ fun AppConfigScreen(
                         }
                     }
                 }
+            }
+            }
             }
             if (configState.isSaving || configState.saveFailed || configState.saveJobId != null) {
                 Box(

@@ -94,7 +94,6 @@ import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import kotlinx.coroutines.delay
 import coil.request.ImageRequest
-import coil.decode.SvgDecoder
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 
@@ -784,7 +783,6 @@ fun AppIcon(iconUrl: String?, title: String, size: Int) {
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(iconUrl)
-                .decoderFactory(SvgDecoder.Factory())
                 .crossfade(true)
                 .build(),
             contentDescription = "$title icon",

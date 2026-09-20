@@ -78,6 +78,7 @@ fun InstanceConfigScreen(
     onNavigateToAuditLogs: () -> Unit = {},
     onNavigateToNetwork: () -> Unit = {},
     onNavigateToSystemInformation: () -> Unit = {},
+    onNavigateToCloudSync: () -> Unit = {},
     onNavigateToTrueNasConnect: () -> Unit = {},
     onNavigateToTrueCommand: () -> Unit = {},
     onNavigateToAppImageManagement: () -> Unit = {},
@@ -219,6 +220,12 @@ fun InstanceConfigScreen(
                         name = "System information",
                         description = "Version, identifiers, state and features",
                         onClick = onNavigateToSystemInformation
+                    ),
+                    InstanceConfigItem(
+                        icon = Icons.Default.Cloud,
+                        name = "Cloud Sync",
+                        description = "Backup and sync tasks to cloud providers",
+                        onClick = onNavigateToCloudSync
                     )
                 )
             )

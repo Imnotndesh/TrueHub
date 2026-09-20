@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -85,20 +87,22 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.utils.appStateContainerColor
 import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
 import com.imnotndesh.truehub.ui.haptics.VibratorMode
@@ -121,6 +125,10 @@ fun AppInfoScreen(
         factory = AppDetailsViewModel.provideFactory(manager),
         key = app.name
     )
+    val remoteState by viewModel.appState.collectAsState()
+    val displayState = remoteState ?: app.state
+    val isRunning = displayState.equals("running", ignoreCase = true)
+    val isTransitioning = displayState.equals("starting", true) || displayState.equals("stopping", true) || displayState.equals("deploying", true)
     var showDeleteConfigDialog by remember { mutableStateOf(false) }
     val deletionJobId by viewModel.deletionJobId.collectAsState()
     val activeJobs by JobRepository.activeJobs.collectAsState()
@@ -187,29 +195,7 @@ fun AppInfoScreen(
                             .clickable { onNavigateToMarketplaceAppDetails(app.name) },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!app.metadata?.icon.isNullOrBlank()) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(app.metadata.icon)
-                                    .decoderFactory(SvgDecoder.Factory())
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "${app.metadata.title ?: app.name} icon",
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Fit,
-                                placeholder = rememberVectorPainter(Icons.Default.Apps),
-                                error = rememberVectorPainter(Icons.Default.Apps)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Apps,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
+                        AppIcon(app = app, size = 52.dp)
                     }
 
                     Spacer(modifier = Modifier.width(16.dp))
@@ -227,6 +213,12 @@ fun AppInfoScreen(
                             text = "Version: ${app.humanVersion ?: app.version ?: "Unknown"}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        AppBadge(
+                            label = displayState,
+                            containerColor = appStateContainerColor(displayState),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -253,6 +245,22 @@ fun AppInfoScreen(
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    ExpressiveIconButton(
+                        onClick = {
+                            if (isRunning) viewModel.stopApp(app.name) else viewModel.startApp(app.name)
+                        },
+                        icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = if (isRunning) {
+                            "Stop ${app.metadata?.title ?: app.name}"
+                        } else {
+                            "Start ${app.metadata?.title ?: app.name}"
+                        },
+                        enabled = !isTransitioning,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
 
                     ExpressiveIconButton(
@@ -488,6 +496,34 @@ fun AppInfoScreen(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 16.dp, top = 16.dp)
+        )
+    }
+}
+
+@Composable
+private fun AppIcon(app: Apps.AppQueryResponse, size: Dp, modifier: Modifier = Modifier) {
+    val iconUrl = app.metadata?.icon
+    if (!iconUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(iconUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = "${app.metadata?.title ?: app.name} icon",
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(size * 0.22f)),
+            contentScale = ContentScale.Fit,
+            placeholder = rememberVectorPainter(Icons.Default.Apps),
+            error = rememberVectorPainter(Icons.Default.Apps),
+            onError = { state -> TrueHubLogger.e("AppIcon", "image failed: ${state.result.throwable.message}") }
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Apps,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = modifier.size(size)
         )
     }
 }
@@ -1264,17 +1300,19 @@ fun SimilarAppsSection(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val cornerRadius = (60 * 0.22f).dp
-                    if (!appItem.iconUrl.isNullOrBlank()) {
+                    val iconUrl = appItem.iconUrl?.takeIf { it.isNotBlank() }
+                        ?: "https://media.sys.truenas.net/apps/${appItem.name}/icons/icon.svg"
+                    if (!iconUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(appItem.iconUrl)
-                                .decoderFactory(SvgDecoder.Factory())
+                                .data(iconUrl)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "${appItem.title ?: appItem.name} icon",
                             contentScale = ContentScale.Fit,
                             placeholder = painterResource(id = R.drawable.missing_app_icon),
                             error = painterResource(id = R.drawable.missing_app_icon),
+                            onError = { state -> TrueHubLogger.e("SimilarApps", "image failed: ${state.result.throwable.message}") },
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(RoundedCornerShape(cornerRadius))

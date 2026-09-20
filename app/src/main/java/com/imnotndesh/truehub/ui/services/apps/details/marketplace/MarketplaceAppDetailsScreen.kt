@@ -77,7 +77,6 @@ import androidx.core.text.HtmlCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.ApiResult
@@ -508,7 +507,6 @@ private fun HeroHeaderSection(
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(app.icon_url)
-                                .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "${app.title} icon",

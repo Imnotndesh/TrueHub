@@ -10,8 +10,11 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.models.Apps
+import com.imnotndesh.truehub.ui.components.ToastManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
@@ -21,6 +24,10 @@ class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() 
 
     private val _isLoadingSimilar = MutableStateFlow(false)
     val isLoadingSimilar: StateFlow<Boolean> = _isLoadingSimilar
+
+    private val _appState = MutableStateFlow<String?>(null)
+    val appState: StateFlow<String?> = _appState.asStateFlow()
+
     private val _deletionJobId = MutableStateFlow<Int?>(null)
     val deletionJobId: StateFlow<Int?> = _deletionJobId
 
@@ -32,6 +39,37 @@ class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() 
                 _similarApps.value = result.data
             }
             _isLoadingSimilar.value = false
+        }
+    }
+
+    fun startApp(appName: String) = setAppRunning(appName, start = true)
+
+    fun stopApp(appName: String) = setAppRunning(appName, start = false)
+
+    private fun setAppRunning(appName: String, start: Boolean) {
+        viewModelScope.launch {
+            _appState.value = if (start) "STARTING" else "STOPPING"
+            val result = if (start) {
+                manager.apps.startAppWithResult(appName)
+            } else {
+                manager.apps.stopAppWithResult(appName)
+            }
+            if (result is ApiResult.Error) {
+                ToastManager.showError(result.message)
+                _appState.value = null
+                return@launch
+            }
+            val target = if (start) "running" else "stopped"
+            repeat(STATE_POLL_ATTEMPTS) {
+                delay(STATE_POLL_INTERVAL_MS)
+                when (val instance = manager.apps.getAppInstanceWithResult(appName)) {
+                    is ApiResult.Success -> {
+                        _appState.value = instance.data.state
+                        if (instance.data.state.equals(target, ignoreCase = true)) return@launch
+                    }
+                    else -> Unit
+                }
+            }
         }
     }
 
@@ -58,6 +96,9 @@ class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     }
 
     companion object {
+        private const val STATE_POLL_ATTEMPTS = 30
+        private const val STATE_POLL_INTERVAL_MS = 2000L
+
         /**
          * Returns a Factory that injects the TrueNASApiManager.
          */

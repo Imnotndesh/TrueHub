@@ -30,6 +30,15 @@ class TrueNASApiManager(
     val system: SystemService by lazy { SystemService(this) }
     val vmService: VmService by lazy { VmService(this) }
     val apps: AppsService by lazy { AppsService(this) }
+    val docker: DockerService by lazy { DockerService(this) }
+    val core: CoreService by lazy { CoreService(this) }
+    val cloudsync: CloudsyncService by lazy { CloudsyncService(this) }
+    val disk: DiskService by lazy { DiskService(this) }
+    val reporting: ReportingService by lazy { ReportingService(this) }
+    val filesystem: FilesystemService by lazy { FilesystemService(this) }
+    val ipmi: IpmiService by lazy { IpmiService(this) }
+    val iscsi: IscsiService by lazy { IscsiService(this) }
+    val kerberos: KerberosService by lazy { KerberosService(this) }
     val virtService: VirtService by lazy { VirtService(this) }
     val sharing: SharingService by lazy { SharingService(this) }
     val connection : ConnectionService by lazy { ConnectionService(this) }

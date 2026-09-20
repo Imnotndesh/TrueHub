@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Stream
 import androidx.compose.material.icons.filled.ToggleOn
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,8 +55,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +75,9 @@ import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 sealed class ShareType {
     data class Smb(val share: Shares.SmbShare) : ShareType()
@@ -82,25 +91,43 @@ fun ShareInfoScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit
 ) {
-    val title = when (shareType) {
-        is ShareType.Smb -> shareType.share.name
-        is ShareType.Nfs -> shareType.share.path.substringAfterLast('/').ifEmpty { "NFS Share" }
+    val viewModel: ShareInfoViewModel = viewModel(factory = ShareInfoViewModel.provideFactory(manager))
+    val state by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(shareType) { viewModel.load(shareType) }
+    LaunchedEffect(state.deleted) { if (state.deleted) onNavigateBack() }
+
+    val smb = state.smbShare ?: (shareType as? ShareType.Smb)?.share
+    val nfs = state.nfsShare ?: (shareType as? ShareType.Nfs)?.share
+
+    val title = when {
+        smb != null -> smb.name
+        nfs != null -> nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" }
+        else -> "Share"
     }
-    val subtitle = when (shareType) {
-        is ShareType.Smb -> "SMB Share"
-        is ShareType.Nfs -> "NFS Share"
-    }
+    val subtitle = if (smb != null) "SMB Share" else "NFS Share"
 
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = title,
             subtitle = subtitle,
-            isLoading = false,
-            isRefreshing = false,
-            error = null,
-            onDismissError = {},
+            isLoading = state.isLoading,
+            isRefreshing = state.isLoading,
+            error = state.error,
+            onRefresh = { viewModel.refresh() },
+            onDismissError = { viewModel.dismissError() },
             manager = manager,
-            onBackPressed = onNavigateBack
+            onBackPressed = onNavigateBack,
+            trailingActions = {
+                ExpressiveIconButton(
+                    onClick = { showDeleteDialog = true },
+                    icon = Icons.Default.Delete,
+                    contentDescription = "Delete share",
+                    enabled = !state.isDeleting,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         )
 
         LazyColumn(
@@ -109,41 +136,98 @@ fun ShareInfoScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                when (shareType) {
-                    is ShareType.Smb -> ShareHeroCard(
-                        name = shareType.share.name,
-                        path = shareType.share.path,
-                        enabled = shareType.share.enabled,
-                        icon = if (shareType.share.timemachine == true) Icons.Default.Backup
-                        else if (shareType.share.home == true) Icons.Default.Home
+                when {
+                    smb != null -> ShareHeroCard(
+                        name = smb.name,
+                        path = smb.path,
+                        enabled = smb.enabled,
+                        icon = if (smb.timemachine == true) Icons.Default.Backup
+                        else if (smb.home == true) Icons.Default.Home
                         else Icons.Default.Folder,
                         badgeLabel = "SMB"
                     )
-                    is ShareType.Nfs -> ShareHeroCard(
-                        name = shareType.share.path.substringAfterLast('/').ifEmpty { "NFS Share" },
-                        path = shareType.share.path,
-                        enabled = shareType.share.enabled,
+                    nfs != null -> ShareHeroCard(
+                        name = nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" },
+                        path = nfs.path,
+                        enabled = nfs.enabled,
                         icon = Icons.Default.Storage,
                         badgeLabel = "NFS"
                     )
                 }
             }
 
+            item { ShareStatusBanner(enabled = smb?.enabled ?: nfs?.enabled ?: false) }
+
             item {
-                when (shareType) {
-                    is ShareType.Smb -> ShareStatusBanner(enabled = shareType.share.enabled)
-                    is ShareType.Nfs -> ShareStatusBanner(enabled = shareType.share.enabled)
+                when {
+                    smb != null -> SmbShareSections(share = smb)
+                    nfs != null -> NfsShareSections(share = nfs)
                 }
             }
 
-            item {
-                when (shareType) {
-                    is ShareType.Smb -> SmbShareSections(share = shareType.share)
-                    is ShareType.Nfs -> NfsShareSections(share = shareType.share)
-                }
+            state.smbAcl?.let { acl ->
+                item { SmbAclSection(acl = acl) }
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete share?") },
+            text = { Text("This removes the share configuration. Data on disk is not deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.delete()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SmbAclSection(acl: Shares.SmbAcl) {
+    ShareInfoSection(title = "Share ACL", icon = Icons.Default.Security) {
+        if (acl.shareAcl.isEmpty()) {
+            Text(
+                text = "No ACL entries.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                acl.shareAcl.forEach { entry ->
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = entry.aeWhoStr ?: entry.aeWhoSid ?: "Unknown",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = listOfNotNull(entry.aeType, entry.aePerm).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

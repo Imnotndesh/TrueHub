@@ -104,6 +104,9 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.service.ServicesScree
 import com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation.HardwareInformationScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation.SoftwareInformationScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation.SystemInformationScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync.CloudSyncScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync.CloudSyncDetailScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync.CloudSyncFormScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation.TrueCommandScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation.TrueNasConnectScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.users.LocalAdminSetupScreen
@@ -418,6 +421,9 @@ private fun TrueHubNavGraph(
                 onNavigateToSystemInformation = {
                     navController.navigate(Screen.SystemInformationScreen.route)
                 },
+                onNavigateToCloudSync = {
+                    navController.navigate(Screen.CloudSync.route)
+                },
                 onNavigateToTrueNasConnect = {
                     navController.navigate(Screen.TrueNasConnectScreen.route)
                 },
@@ -451,6 +457,44 @@ private fun TrueHubNavGraph(
             DockerImageListScreen(
                 manager = manager,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.CloudSync.route) {
+            CloudSyncScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToDetail = { taskId ->
+                    navController.navigate(Screen.CloudSyncDetail.createRoute(taskId))
+                },
+                onNavigateToCreate = {
+                    navController.navigate(Screen.CloudSyncForm.createRoute())
+                }
+            )
+        }
+        composable(
+            route = Screen.CloudSyncDetail.route,
+            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
+            CloudSyncDetailScreen(
+                manager = manager,
+                taskId = taskId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { id ->
+                    navController.navigate(Screen.CloudSyncForm.createRoute(id))
+                }
+            )
+        }
+        composable(
+            route = Screen.CloudSyncForm.route,
+            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val taskId = backStackEntry.arguments?.getInt("taskId") ?: -1
+            CloudSyncFormScreen(
+                manager = manager,
+                taskId = taskId,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
             )
         }
         composable(Screen.SystemInformationScreen.route) {

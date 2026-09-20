@@ -415,4 +415,143 @@ class AppsService(val manager: TrueNASApiManager) {
         )
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Catalog, choices & metadata
+    // ─────────────────────────────────────────────────────────────
+
+    suspend fun getCategories(): ApiResult<List<String>> {
+        val type = Types.newParameterizedType(List::class.java, String::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_CATEGORIES, listOf(), type)
+    }
+
+    suspend fun getGpuChoices(): ApiResult<Map<String, Apps.AppGpu>> {
+        val type = Types.newParameterizedType(Map::class.java, String::class.java, Apps.AppGpu::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_GPU_CHOICES, listOf(), type)
+    }
+
+    suspend fun getIpChoices(): ApiResult<Map<String, String>> {
+        val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_IP_CHOICES, listOf(), type)
+    }
+
+    suspend fun getLatestApps(filters: List<Any> = emptyList()): ApiResult<List<Apps.AppQueryResponse>> {
+        val type = Types.newParameterizedType(List::class.java, Apps.AppQueryResponse::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_LATEST, listOf(filters), type)
+    }
+
+    suspend fun getOutdatedDockerImages(appName: String): ApiResult<List<String>> {
+        val type = Types.newParameterizedType(List::class.java, String::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_OUTDATED_DOCKER_IMAGES, listOf(appName), type)
+    }
+
+    suspend fun getUsedHostIps(): ApiResult<Map<String, List<String>>> {
+        val type = Types.newParameterizedType(
+            Map::class.java,
+            String::class.java,
+            Types.newParameterizedType(List::class.java, String::class.java)
+        )
+        return manager.callWithResult(ApiMethods.Apps.APP_USED_HOST_IPS, listOf(), type)
+    }
+
+    suspend fun getContainerIds(
+        appName: String,
+        options: Apps.ContainerIdsOptions = Apps.ContainerIdsOptions()
+    ): ApiResult<Map<String, Apps.ContainerDetail>> {
+        val type = Types.newParameterizedType(Map::class.java, String::class.java, Apps.ContainerDetail::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_CONTAINER_IDS, listOf(appName, options), type)
+    }
+
+    suspend fun getContainerConsoleChoices(appName: String): ApiResult<Map<String, Apps.ContainerDetail>> {
+        val type = Types.newParameterizedType(Map::class.java, String::class.java, Apps.ContainerDetail::class.java)
+        return manager.callWithResult(ApiMethods.Apps.APP_CONTAINER_CONSOLE_CHOICES, listOf(appName), type)
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Jobs (return the job id; track via core.get_jobs)
+    // ─────────────────────────────────────────────────────────────
+
+    suspend fun pullImages(
+        appName: String,
+        options: Apps.PullImagesOptions = Apps.PullImagesOptions()
+    ): ApiResult<Int> {
+        return manager.callWithResult(ApiMethods.Apps.APP_PULL_IMAGES, listOf(appName, options), Int::class.java)
+    }
+
+    suspend fun redeployApp(appName: String): ApiResult<Int> {
+        return manager.callWithResult(ApiMethods.Apps.APP_REDEPLOY, listOf(appName), Int::class.java)
+    }
+
+    suspend fun convertToCustomApp(appName: String): ApiResult<Int> {
+        return manager.callWithResult(ApiMethods.Apps.APP_CONVERT_TO_CUSTOM, listOf(appName), Int::class.java)
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Container registries (app.registry.*)
+    // ─────────────────────────────────────────────────────────────
+
+    suspend fun getRegistries(filters: List<Any> = emptyList()): ApiResult<List<Apps.AppRegistryEntry>> {
+        val type = Types.newParameterizedType(List::class.java, Apps.AppRegistryEntry::class.java)
+        return manager.callWithResult(ApiMethods.Apps.REGISTRY_QUERY, listOf(filters), type)
+    }
+
+    suspend fun getRegistry(id: Int): ApiResult<Apps.AppRegistryEntry> {
+        return manager.callWithResult(
+            ApiMethods.Apps.REGISTRY_GET_INSTANCE,
+            listOf(id),
+            Apps.AppRegistryEntry::class.java
+        )
+    }
+
+    suspend fun createRegistry(entry: Apps.AppRegistryUpsert): ApiResult<Apps.AppRegistryEntry> {
+        return manager.callWithResult(
+            ApiMethods.Apps.REGISTRY_CREATE,
+            listOf(entry),
+            Apps.AppRegistryEntry::class.java
+        )
+    }
+
+    suspend fun updateRegistry(id: Int, entry: Apps.AppRegistryUpsert): ApiResult<Apps.AppRegistryEntry> {
+        return manager.callWithResult(
+            ApiMethods.Apps.REGISTRY_UPDATE,
+            listOf(id, entry),
+            Apps.AppRegistryEntry::class.java
+        )
+    }
+
+    suspend fun deleteRegistry(id: Int): ApiResult<Unit> {
+        return manager.callWithResult(ApiMethods.Apps.REGISTRY_DELETE, listOf(id), Unit::class.java)
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Catalog (catalog.*)
+    // ─────────────────────────────────────────────────────────────
+
+    suspend fun getCatalogTrains(): ApiResult<List<String>> {
+        val type = Types.newParameterizedType(List::class.java, String::class.java)
+        return manager.callWithResult(ApiMethods.Apps.CATALOG_TRAINS, listOf(), type)
+    }
+
+    suspend fun getCatalogConfig(): ApiResult<Apps.CatalogEntry> {
+        return manager.callWithResult(ApiMethods.Apps.CATALOG_CONFIG, listOf(), Apps.CatalogEntry::class.java)
+    }
+
+    suspend fun updateCatalog(args: Apps.CatalogUpdateArgs): ApiResult<Apps.CatalogEntry> {
+        return manager.callWithResult(ApiMethods.Apps.CATALOG_UPDATE, listOf(args), Apps.CatalogEntry::class.java)
+    }
+
+    suspend fun syncCatalog(): ApiResult<Int> {
+        return manager.callWithResult(ApiMethods.Apps.CATALOG_SYNC, listOf(), Int::class.java)
+    }
+
+    suspend fun getCatalogApps(
+        options: Map<String, Any?> = emptyMap()
+    ): ApiResult<Map<String, Map<String, Apps.CatalogAppDetails>>> {
+        val type = Types.newParameterizedType(
+            Map::class.java,
+            String::class.java,
+            Types.newParameterizedType(Map::class.java, String::class.java, Apps.CatalogAppDetails::class.java)
+        )
+        return manager.callWithResult(ApiMethods.Apps.CATALOG_APPS, listOf(options), type)
+    }
+
 }
