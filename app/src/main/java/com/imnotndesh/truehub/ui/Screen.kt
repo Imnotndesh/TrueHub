@@ -34,6 +34,11 @@ sealed class Screen(val route:String, val title:String) {
             return "app_advanced_info/$appId"
         }
     }
+    object AppResourceUsage : Screen("app_resource_usage/{appId}", "App Resource Usage") {
+        fun createRoute(appId: String): String {
+            return "app_resource_usage/$appId"
+        }
+    }
     object SystemUpdateScreen : Screen("system_update", "TrueNAS Version Update")
     object MarketplaceCategory : Screen("marketplace?category={category}", "Marketplace Category") {
         fun createRoute(category: String): String {

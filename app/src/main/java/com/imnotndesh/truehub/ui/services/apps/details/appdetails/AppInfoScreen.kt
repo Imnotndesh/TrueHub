@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -112,7 +113,8 @@ fun AppInfoScreen(
     onEditClick: (String,String) -> Unit,
     onNavigateToMarketplaceCategory: (String) -> Unit = {},
     onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
-    onOpenAdvanced: (String) -> Unit = {}
+    onOpenAdvanced: (String) -> Unit = {},
+    onOpenResourceUsage: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: AppDetailsViewModel = viewModel(
@@ -162,7 +164,7 @@ fun AppInfoScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 74.dp, bottom = 10.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Card(
@@ -265,58 +267,20 @@ fun AppInfoScreen(
                 }
             }
 
-            // Advanced info entry (opens the get_instance-driven deep-dive screen).
-            Card(
-                onClick = { onOpenAdvanced(app.id) },
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Build,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Advanced Information",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Workloads, ports, storage, notes and screenshots",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Open advanced information",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppDetailEntryCard(
+                    icon = Icons.Default.Build,
+                    title = "Advanced Information",
+                    subtitle = "Workloads, ports, storage, notes and screenshots",
+                    onClick = { onOpenAdvanced(app.id) }
+                )
+                AppDetailEntryCard(
+                    icon = Icons.Default.MonitorHeart,
+                    title = "App Resource Usage",
+                    subtitle = "Live CPU, memory, network and disk I/O",
+                    onClick = { onOpenResourceUsage(app.id) }
+                )
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
             ExpressiveSection(title = "Basic Information", icon = Icons.Default.Info) {
                 ExpressiveInfoCard {
@@ -1504,5 +1468,62 @@ private fun DeleteOptionToggle(
                 checkedTrackColor = MaterialTheme.colorScheme.error
             )
         )
+    }
+}
+
+@Composable
+private fun AppDetailEntryCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Open $title",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

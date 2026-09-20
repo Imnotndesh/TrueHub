@@ -2,12 +2,16 @@ package com.imnotndesh.truehub.data
 
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
+import com.imnotndesh.truehub.data.models.JsonRpcEvent
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
 import okhttp3.WebSocket
@@ -59,6 +63,9 @@ class TrueNASClient(private val config: ClientConfig) {
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _events = MutableSharedFlow<JsonRpcEvent>(extraBufferCapacity = 64)
+    val events: SharedFlow<JsonRpcEvent> = _events.asSharedFlow()
 
     suspend fun connect(): Boolean {
         if (_connectionState.value is ConnectionState.Connected) {
@@ -163,6 +170,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
                 resp.id == null && resp.method != null -> {
                     TrueHubLogger.e(logName,"Notification: ${resp.method} ${resp.params}")
+                    _events.tryEmit(JsonRpcEvent(resp.method, resp.params))
                 }
                 resp.error != null -> {
                     val deferred = pendingRequests[resp.id]
@@ -200,6 +208,13 @@ class TrueNASClient(private val config: ClientConfig) {
             TrueHubLogger.e(logName,"Ping failed", e)
             false
         }
+    }
+
+    suspend fun subscribe(event: String): String =
+        call("core.subscribe", listOf(event), String::class.java)
+
+    suspend fun unsubscribe(subscriptionId: String) {
+        call<Unit>("core.unsubscribe", listOf(subscriptionId), Unit::class.java)
     }
     suspend fun <T> call(method: String, params: List<Any?>, resultType: Type): T {
         if (method.startsWith("auth.login") || method == "auth.generate_token") {

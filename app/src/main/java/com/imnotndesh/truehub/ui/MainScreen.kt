@@ -119,6 +119,7 @@ import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigPageV
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppConfigScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppAdvancedInfoScreen
+import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppResourceUsageScreen
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppDetailsScreen
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceAppInstallScreen
@@ -851,6 +852,9 @@ private fun TrueHubNavGraph(
                 },
                 onOpenAdvanced = { appId ->
                     navController.navigate(Screen.AppAdvancedInfoScreen.createRoute(appId))
+                },
+                onOpenResourceUsage = { appId ->
+                    navController.navigate(Screen.AppResourceUsage.createRoute(appId))
                 }
             )
         }
@@ -861,6 +865,18 @@ private fun TrueHubNavGraph(
         ) { backStackEntry ->
             val appId = backStackEntry.arguments?.getString("appId").orEmpty()
             AppAdvancedInfoScreen(
+                manager = manager,
+                appId = appId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.AppResourceUsage.route,
+            arguments = listOf(navArgument("appId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val appId = backStackEntry.arguments?.getString("appId").orEmpty()
+            AppResourceUsageScreen(
                 manager = manager,
                 appId = appId,
                 onNavigateBack = { navController.popBackStack() }

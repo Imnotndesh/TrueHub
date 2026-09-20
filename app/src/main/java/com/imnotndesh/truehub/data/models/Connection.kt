@@ -34,3 +34,8 @@ data class RpcError(
     @field:Json("data")
     val data: Any? = null
 )
+
+data class JsonRpcEvent(
+    val method: String,
+    val params: Any? = null
+)

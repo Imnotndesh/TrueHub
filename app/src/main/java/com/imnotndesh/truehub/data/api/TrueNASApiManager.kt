@@ -10,7 +10,10 @@ import com.imnotndesh.truehub.data.TrueNASRpcException
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.models.Auth
+import com.imnotndesh.truehub.data.models.JsonRpcEvent
 import com.imnotndesh.truehub.data.models.LoginMethod
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.OutputStream
@@ -33,6 +36,16 @@ class TrueNASApiManager(
     val user : UserService by lazy { UserService(this) }
     val storage : StorageService by lazy { StorageService(this) }
     val alertsService : AlertsService by lazy { AlertsService(this) }
+
+    val events: SharedFlow<JsonRpcEvent> get() = client.events
+
+    val connectionState: StateFlow<ConnectionState> get() = client.connectionState
+
+    suspend fun ensureConnected(): Boolean = client.connect()
+
+    suspend fun subscribe(event: String): String = client.subscribe(event)
+
+    suspend fun unsubscribe(subscriptionId: String) = client.unsubscribe(subscriptionId)
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {

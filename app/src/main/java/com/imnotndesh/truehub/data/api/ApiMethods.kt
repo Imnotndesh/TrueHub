@@ -325,6 +325,10 @@ object ApiMethods {
         const val LATEST_APPS_TRAIN = "latest"
         const val STABLE_APPS_TRAIN = "stable"
     }
+    object Events {
+        const val APP_STATS = "app.stats"
+        const val COLLECTION_UPDATE = "collection_update"
+    }
     object Virt{
         const val GET_ALL_INSTANCES = "virt.instance.query"
         const val START_INSTANCE = "virt.instance.start"
