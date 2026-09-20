@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.imnotndesh.truehub.data.models.AppControlEntry
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.QuickLaunchApp
 import com.imnotndesh.truehub.data.models.System
@@ -63,41 +62,6 @@ object WidgetDataStore {
             prefs[QUICK_LAUNCH_APPS_KEY] = quickLaunchAdapter.toJson(apps)
         }
     }
-
-    private val APP_CONTROL_KEY = stringPreferencesKey("widget_app_control_json")
-
-    private val appControlAdapter = moshi.adapter(AppControlEntry::class.java)
-
-    fun appControlEntryFlow(context: Context): Flow<AppControlEntry?> =
-        context.dataStore.data
-            .map { prefs ->
-                val json = prefs[APP_CONTROL_KEY] ?: return@map null
-                runCatching { appControlAdapter.fromJson(json) }.getOrNull()
-            }
-            .catch { emit(null) }
-
-    suspend fun getAppControlEntry(context: Context): AppControlEntry? {
-        val prefs = context.dataStore.data.first()
-        val json = prefs[APP_CONTROL_KEY] ?: return null
-        return runCatching { appControlAdapter.fromJson(json) }.getOrNull()
-    }
-
-    suspend fun saveAppControlEntry(context: Context, entry: AppControlEntry?) {
-        context.dataStore.edit { prefs ->
-            if (entry == null) {
-                prefs.remove(APP_CONTROL_KEY)
-            } else {
-                prefs[APP_CONTROL_KEY] = appControlAdapter.toJson(entry)
-            }
-        }
-    }
-
-    suspend fun updateAppControlState(context: Context, appName: String, newState: String) {
-        val current = getAppControlEntry(context) ?: return
-        if (current.appName != appName) return
-        saveAppControlEntry(context, current.copy(state = newState))
-    }
-
 
     private val appsAdapter = moshi.adapter<List<Apps.AppQueryResponse>>(
         Types.newParameterizedType(List::class.java, Apps.AppQueryResponse::class.java)

@@ -14,5 +14,4 @@
     <string name="shortcut_configure_instance_long">Configure the TrueNAS instance</string>
     <string name="shortcut_update_instance_short">Update Instance</string>
     <string name="shortcut_update_instance_long">Update the TrueNAS instance</string>
-    <string name="app_control_widget_description">Control a TrueNAS app from your home screen</string>
 </resources>
