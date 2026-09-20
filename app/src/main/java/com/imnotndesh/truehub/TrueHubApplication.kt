@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub
 
 import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.SvgDecoder
@@ -12,6 +13,7 @@ import com.imnotndesh.truehub.data.workers.AlertsWorker
 import com.imnotndesh.truehub.data.workers.AppUpdateWorker
 import com.imnotndesh.truehub.ui.utils.AppCache
 
+@HiltAndroidApp
 class TrueHubApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
