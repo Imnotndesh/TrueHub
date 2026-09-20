@@ -33,6 +33,38 @@ class TrueNASApiManager(
     val docker: DockerService by lazy { DockerService(this) }
     val core: CoreService by lazy { CoreService(this) }
     val cloudsync: CloudsyncService by lazy { CloudsyncService(this) }
+    val pool: PoolService by lazy { PoolService(this) }
+    val interfaceService: InterfaceService by lazy { InterfaceService(this) }
+    val acme: AcmeService by lazy { AcmeService(this) }
+    val config: ConfigService by lazy { ConfigService(this) }
+    val cronjob: CronjobService by lazy { CronjobService(this) }
+    val device: DeviceService by lazy { DeviceService(this) }
+    val directoryservices: DirectoryservicesService by lazy { DirectoryservicesService(this) }
+    val dns: DnsService by lazy { DnsService(this) }
+    val enclosure: EnclosureService by lazy { EnclosureService(this) }
+    val failover: FailoverService by lazy { FailoverService(this) }
+    val fc: FcService by lazy { FcService(this) }
+    val fcport: FcportService by lazy { FcportService(this) }
+    val ftp: FtpService by lazy { FtpService(this) }
+    val hardware: HardwareService by lazy { HardwareService(this) }
+    val idmap: IdmapService by lazy { IdmapService(this) }
+    val initshutdownscript: InitshutdownscriptService by lazy { InitshutdownscriptService(this) }
+    val jbof: JbofService by lazy { JbofService(this) }
+    val kmip: KmipService by lazy { KmipService(this) }
+    val mail: MailService by lazy { MailService(this) }
+    val nfs: NfsService by lazy { NfsService(this) }
+    val privilege: PrivilegeService by lazy { PrivilegeService(this) }
+    val route: RouteService by lazy { RouteService(this) }
+    val rsynctask: RsynctaskService by lazy { RsynctaskService(this) }
+    val smb: SmbService by lazy { SmbService(this) }
+    val snmp: SnmpService by lazy { SnmpService(this) }
+    val ssh: SshService by lazy { SshService(this) }
+    val staticroute: StaticrouteService by lazy { StaticrouteService(this) }
+    val systemdataset: SystemdatasetService by lazy { SystemdatasetService(this) }
+    val tunable: TunableService by lazy { TunableService(this) }
+    val update: UpdateService by lazy { UpdateService(this) }
+    val ups: UpsService by lazy { UpsService(this) }
+    val zfs: ZfsService by lazy { ZfsService(this) }
     val disk: DiskService by lazy { DiskService(this) }
     val reporting: ReportingService by lazy { ReportingService(this) }
     val filesystem: FilesystemService by lazy { FilesystemService(this) }

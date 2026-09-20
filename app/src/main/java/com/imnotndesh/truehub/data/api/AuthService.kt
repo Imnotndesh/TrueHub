@@ -208,4 +208,20 @@ class AuthService(val manager: TrueNASApiManager) {
             Boolean::class.java
         )
     }
+
+    suspend fun loginExContinueWithResult(loginData: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.Auth.AUTH_LOGIN_EX_CONTINUE, listOf(loginData), Any::class.java)
+
+    suspend fun setAttributeWithResult(key: Any?, value: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.Auth.AUTH_SET_ATTRIBUTE, listOf(key, value), Any::class.java)
+
+    suspend fun terminateOtherSessionsWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.Auth.AUTH_TERMINATE_OTHER_SESSIONS, listOf(), Any::class.java)
+
+    suspend fun twofactorConfigWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.Auth.AUTH_TWOFACTOR_CONFIG, listOf(), Any::class.java)
+
+    suspend fun twofactorUpdateWithResult(authTwofactorUpdate: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.Auth.AUTH_TWOFACTOR_UPDATE, listOf(authTwofactorUpdate), Any::class.java)
+
 }

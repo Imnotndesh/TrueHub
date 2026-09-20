@@ -15,6 +15,11 @@ object ApiMethods {
         const val GET_AUTH_SESSIONS = "auth.sessions"
         const val TERMINATE_OTHER_SESSION = "auth.terminate_other_session"
         const val TERMINATE_SESSION = "auth.terminate_session"
+        const val AUTH_LOGIN_EX_CONTINUE = "auth.login_ex_continue"
+        const val AUTH_SET_ATTRIBUTE = "auth.set_attribute"
+        const val AUTH_TERMINATE_OTHER_SESSIONS = "auth.terminate_other_sessions"
+        const val AUTH_TWOFACTOR_CONFIG = "auth.twofactor.config"
+        const val AUTH_TWOFACTOR_UPDATE = "auth.twofactor.update"
     }
     object User{
         const val CHANGE_PASSWORD = "user.set_password"
@@ -420,6 +425,47 @@ object ApiMethods {
         const val GET_VM_STATUS = "vm.status"
         // TODO : maybe implement this in a webview?
         const val GET_DISPLAY_URL = "vm.get_display_web_uri"
+        const val VM_BOOTLOADER_OPTIONS = "vm.bootloader_options"
+        const val VM_BOOTLOADER_OVMF_CHOICES = "vm.bootloader_ovmf_choices"
+        const val VM_CPU_MODEL_CHOICES = "vm.cpu_model_choices"
+        const val VM_CREATE = "vm.create"
+        const val VM_DEVICE = "vm.device"
+        const val VM_DEVICE_BIND_CHOICES = "vm.device.bind_choices"
+        const val VM_DEVICE_CONVERT = "vm.device.convert"
+        const val VM_DEVICE_CREATE = "vm.device.create"
+        const val VM_DEVICE_DELETE = "vm.device.delete"
+        const val VM_DEVICE_DISK_CHOICES = "vm.device.disk_choices"
+        const val VM_DEVICE_GET_INSTANCE = "vm.device.get_instance"
+        const val VM_DEVICE_IOMMU_ENABLED = "vm.device.iommu_enabled"
+        const val VM_DEVICE_IOTYPE_CHOICES = "vm.device.iotype_choices"
+        const val VM_DEVICE_NIC_ATTACH_CHOICES = "vm.device.nic_attach_choices"
+        const val VM_DEVICE_PASSTHROUGH_DEVICE = "vm.device.passthrough_device"
+        const val VM_DEVICE_PASSTHROUGH_DEVICE_CHOICES = "vm.device.passthrough_device_choices"
+        const val VM_DEVICE_PPTDEV_CHOICES = "vm.device.pptdev_choices"
+        const val VM_DEVICE_QUERY = "vm.device.query"
+        const val VM_DEVICE_UPDATE = "vm.device.update"
+        const val VM_DEVICE_USB_CONTROLLER_CHOICES = "vm.device.usb_controller_choices"
+        const val VM_DEVICE_USB_PASSTHROUGH_CHOICES = "vm.device.usb_passthrough_choices"
+        const val VM_DEVICE_USB_PASSTHROUGH_DEVICE = "vm.device.usb_passthrough_device"
+        const val VM_DEVICE_VIRTUAL_SIZE = "vm.device.virtual_size"
+        const val VM_EXPORT_DISK_IMAGE = "vm.export_disk_image"
+        const val VM_FLAGS = "vm.flags"
+        const val VM_GET_AVAILABLE_MEMORY = "vm.get_available_memory"
+        const val VM_GET_CONSOLE = "vm.get_console"
+        const val VM_GET_DISPLAY_DEVICES = "vm.get_display_devices"
+        const val VM_GET_VM_MEMORY_INFO = "vm.get_vm_memory_info"
+        const val VM_GET_VMEMORY_IN_USE = "vm.get_vmemory_in_use"
+        const val VM_GUEST_ARCHITECTURE_AND_MACHINE_CHOICES = "vm.guest_architecture_and_machine_choices"
+        const val VM_IMPORT_DISK_IMAGE = "vm.import_disk_image"
+        const val VM_LOG_FILE_DOWNLOAD = "vm.log_file_download"
+        const val VM_LOG_FILE_PATH = "vm.log_file_path"
+        const val VM_MAXIMUM_SUPPORTED_VCPUS = "vm.maximum_supported_vcpus"
+        const val VM_PORT_WIZARD = "vm.port_wizard"
+        const val VM_RANDOM_MAC = "vm.random_mac"
+        const val VM_RESOLUTION_CHOICES = "vm.resolution_choices"
+        const val VM_SUPPORTS_VIRTUALIZATION = "vm.supports_virtualization"
+        const val VM_UPDATE = "vm.update"
+        const val VM_VIRTUALIZATION_DETAILS = "vm.virtualization_details"
     }
     object Audit {
         const val CONFIG = "audit.config"
@@ -751,4 +797,298 @@ object ApiMethods {
         const val CREDENTIALS_VERIFY = "cloudsync.credentials.verify"
     }
 
+    object Pool {
+        const val POOL_ATTACH = "pool.attach"
+        const val POOL_ATTACHMENTS = "pool.attachments"
+        const val POOL_CREATE = "pool.create"
+        const val POOL_DATASET = "pool.dataset"
+        const val POOL_DATASET_ATTACHMENTS = "pool.dataset.attachments"
+        const val POOL_DATASET_CHANGE_KEY = "pool.dataset.change_key"
+        const val POOL_DATASET_CHECKSUM_CHOICES = "pool.dataset.checksum_choices"
+        const val POOL_DATASET_COMPRESSION_CHOICES = "pool.dataset.compression_choices"
+        const val POOL_DATASET_ENCRYPTION_ALGORITHM_CHOICES = "pool.dataset.encryption_algorithm_choices"
+        const val POOL_DATASET_ENCRYPTION_SUMMARY = "pool.dataset.encryption_summary"
+        const val POOL_DATASET_EXPORT_KEY = "pool.dataset.export_key"
+        const val POOL_DATASET_EXPORT_KEYS = "pool.dataset.export_keys"
+        const val POOL_DATASET_EXPORT_KEYS_FOR_REPLICATION = "pool.dataset.export_keys_for_replication"
+        const val POOL_DATASET_GET_INSTANCE = "pool.dataset.get_instance"
+        const val POOL_DATASET_GET_QUOTA = "pool.dataset.get_quota"
+        const val POOL_DATASET_INHERIT_PARENT_ENCRYPTION_PROPERTIES = "pool.dataset.inherit_parent_encryption_properties"
+        const val POOL_DATASET_LOCK = "pool.dataset.lock"
+        const val POOL_DATASET_PROCESSES = "pool.dataset.processes"
+        const val POOL_DATASET_PROMOTE = "pool.dataset.promote"
+        const val POOL_DATASET_RECOMMENDED_ZVOL_BLOCKSIZE = "pool.dataset.recommended_zvol_blocksize"
+        const val POOL_DATASET_RECORDSIZE_CHOICES = "pool.dataset.recordsize_choices"
+        const val POOL_DATASET_RENAME = "pool.dataset.rename"
+        const val POOL_DATASET_SET_QUOTA = "pool.dataset.set_quota"
+        const val POOL_DATASET_SNAPSHOT_COUNT = "pool.dataset.snapshot_count"
+        const val POOL_DATASET_UNLOCK = "pool.dataset.unlock"
+        const val POOL_DATASET_UPDATE = "pool.dataset.update"
+        const val POOL_DDT_PREFETCH = "pool.ddt_prefetch"
+        const val POOL_DDT_PRUNE = "pool.ddt_prune"
+        const val POOL_DETACH = "pool.detach"
+        const val POOL_EXPAND = "pool.expand"
+        const val POOL_EXPORT = "pool.export"
+        const val POOL_FILESYSTEM_CHOICES = "pool.filesystem_choices"
+        const val POOL_GET_DISKS = "pool.get_disks"
+        const val POOL_GET_INSTANCE = "pool.get_instance"
+        const val POOL_IMPORT_FIND = "pool.import_find"
+        const val POOL_IMPORT_POOL = "pool.import_pool"
+        const val POOL_IS_UPGRADED = "pool.is_upgraded"
+        const val POOL_OFFLINE = "pool.offline"
+        const val POOL_ONLINE = "pool.online"
+        const val POOL_PROCESSES = "pool.processes"
+        const val POOL_REMOVE = "pool.remove"
+        const val POOL_REPLACE = "pool.replace"
+        const val POOL_RESILVER = "pool.resilver"
+        const val POOL_RESILVER_CONFIG = "pool.resilver.config"
+        const val POOL_RESILVER_UPDATE = "pool.resilver.update"
+        const val POOL_SCRUB = "pool.scrub"
+        const val POOL_SNAPSHOT = "pool.snapshot"
+        const val POOL_SNAPSHOT_CLONE = "pool.snapshot.clone"
+        const val POOL_SNAPSHOT_CREATE = "pool.snapshot.create"
+        const val POOL_SNAPSHOT_DELETE = "pool.snapshot.delete"
+        const val POOL_SNAPSHOT_GET_INSTANCE = "pool.snapshot.get_instance"
+        const val POOL_SNAPSHOT_HOLD = "pool.snapshot.hold"
+        const val POOL_SNAPSHOT_QUERY = "pool.snapshot.query"
+        const val POOL_SNAPSHOT_RELEASE = "pool.snapshot.release"
+        const val POOL_SNAPSHOT_RENAME = "pool.snapshot.rename"
+        const val POOL_SNAPSHOT_ROLLBACK = "pool.snapshot.rollback"
+        const val POOL_SNAPSHOT_UPDATE = "pool.snapshot.update"
+        const val POOL_SNAPSHOTTASK = "pool.snapshottask"
+        const val POOL_SNAPSHOTTASK_MAX_COUNT = "pool.snapshottask.max_count"
+        const val POOL_SNAPSHOTTASK_MAX_TOTAL_COUNT = "pool.snapshottask.max_total_count"
+        const val POOL_UPDATE = "pool.update"
+        const val POOL_UPGRADE = "pool.upgrade"
+        const val POOL_VALIDATE_NAME = "pool.validate_name"
+    }
+    object Interface {
+        const val INTERFACE_BRIDGE_MEMBERS_CHOICES = "interface.bridge_members_choices"
+        const val INTERFACE_CANCEL_ROLLBACK = "interface.cancel_rollback"
+        const val INTERFACE_CHECKIN = "interface.checkin"
+        const val INTERFACE_CHECKIN_WAITING = "interface.checkin_waiting"
+        const val INTERFACE_CHOICES = "interface.choices"
+        const val INTERFACE_COMMIT = "interface.commit"
+        const val INTERFACE_CREATE = "interface.create"
+        const val INTERFACE_DELETE = "interface.delete"
+        const val INTERFACE_GET_INSTANCE = "interface.get_instance"
+        const val INTERFACE_HAS_PENDING_CHANGES = "interface.has_pending_changes"
+        const val INTERFACE_IP_IN_USE = "interface.ip_in_use"
+        const val INTERFACE_LACPDU_RATE_CHOICES = "interface.lacpdu_rate_choices"
+        const val INTERFACE_LAG_PORTS_CHOICES = "interface.lag_ports_choices"
+        const val INTERFACE_NETWORK_CONFIG_TO_BE_REMOVED = "interface.network_config_to_be_removed"
+        const val INTERFACE_QUERY = "interface.query"
+        const val INTERFACE_ROLLBACK = "interface.rollback"
+        const val INTERFACE_SAVE_NETWORK_CONFIG = "interface.save_network_config"
+        const val INTERFACE_SERVICES_RESTARTED_ON_SYNC = "interface.services_restarted_on_sync"
+        const val INTERFACE_UPDATE = "interface.update"
+        const val INTERFACE_VLAN_PARENT_INTERFACE_CHOICES = "interface.vlan_parent_interface_choices"
+        const val INTERFACE_WEBSOCKET_INTERFACE = "interface.websocket_interface"
+        const val INTERFACE_WEBSOCKET_LOCAL_IP = "interface.websocket_local_ip"
+        const val INTERFACE_XMIT_HASH_POLICY_CHOICES = "interface.xmit_hash_policy_choices"
+    }
+    object Acme {
+        const val ACME_DNS_AUTHENTICATOR_AUTHENTICATOR_SCHEMAS = "acme.dns.authenticator.authenticator_schemas"
+        const val ACME_DNS_AUTHENTICATOR_CREATE = "acme.dns.authenticator.create"
+        const val ACME_DNS_AUTHENTICATOR_DELETE = "acme.dns.authenticator.delete"
+        const val ACME_DNS_AUTHENTICATOR_GET_INSTANCE = "acme.dns.authenticator.get_instance"
+        const val ACME_DNS_AUTHENTICATOR_QUERY = "acme.dns.authenticator.query"
+        const val ACME_DNS_AUTHENTICATOR_UPDATE = "acme.dns.authenticator.update"
+    }
+
+    object Config {
+        const val CONFIG_RESET = "config.reset"
+        const val CONFIG_SAVE = "config.save"
+        const val CONFIG_UPLOAD = "config.upload"
+    }
+
+    object Cronjob {
+        const val CRONJOB_CREATE = "cronjob.create"
+        const val CRONJOB_DELETE = "cronjob.delete"
+        const val CRONJOB_GET_INSTANCE = "cronjob.get_instance"
+        const val CRONJOB_QUERY = "cronjob.query"
+        const val CRONJOB_RUN = "cronjob.run"
+        const val CRONJOB_UPDATE = "cronjob.update"
+    }
+
+    object Device {
+        const val DEVICE_GET_INFO = "device.get_info"
+    }
+
+    object Directoryservices {
+        const val DIRECTORYSERVICES_CACHE_REFRESH = "directoryservices.cache_refresh"
+        const val DIRECTORYSERVICES_CERTIFICATE_CHOICES = "directoryservices.certificate_choices"
+        const val DIRECTORYSERVICES_CONFIG = "directoryservices.config"
+        const val DIRECTORYSERVICES_LEAVE = "directoryservices.leave"
+        const val DIRECTORYSERVICES_STATUS = "directoryservices.status"
+        const val DIRECTORYSERVICES_SYNC_KEYTAB = "directoryservices.sync_keytab"
+        const val DIRECTORYSERVICES_UPDATE = "directoryservices.update"
+    }
+
+    object Dns {
+        const val DNS_QUERY = "dns.query"
+    }
+
+    object Enclosure {
+        const val ENCLOSURE_LABEL_SET = "enclosure.label.set"
+    }
+
+    object Failover {
+        const val FAILOVER_DISABLED_REASONS = "failover.disabled.reasons"
+        const val FAILOVER_REBOOT_INFO = "failover.reboot.info"
+        const val FAILOVER_REBOOT_OTHER_NODE = "failover.reboot.other_node"
+    }
+
+    object Fc {
+        const val FC_FC_HOST_CREATE = "fc.fc_host.create"
+        const val FC_FC_HOST_DELETE = "fc.fc_host.delete"
+        const val FC_FC_HOST_GET_INSTANCE = "fc.fc_host.get_instance"
+        const val FC_FC_HOST_QUERY = "fc.fc_host.query"
+        const val FC_FC_HOST_UPDATE = "fc.fc_host.update"
+    }
+
+    object Fcport {
+        const val FCPORT_CREATE = "fcport.create"
+        const val FCPORT_DELETE = "fcport.delete"
+        const val FCPORT_GET_INSTANCE = "fcport.get_instance"
+        const val FCPORT_PORT_CHOICES = "fcport.port_choices"
+        const val FCPORT_QUERY = "fcport.query"
+        const val FCPORT_STATUS = "fcport.status"
+        const val FCPORT_UPDATE = "fcport.update"
+    }
+
+    object Ftp {
+        const val FTP_CONFIG = "ftp.config"
+        const val FTP_UPDATE = "ftp.update"
+    }
+
+    object Hardware {
+        const val HARDWARE_VIRTUALIZATION_VARIANT = "hardware.virtualization.variant"
+    }
+
+    object Idmap {
+        const val IDMAP_CLEAR_IDMAP_CACHE = "idmap.clear_idmap_cache"
+    }
+
+    object Initshutdownscript {
+        const val INITSHUTDOWNSCRIPT_CREATE = "initshutdownscript.create"
+        const val INITSHUTDOWNSCRIPT_DELETE = "initshutdownscript.delete"
+        const val INITSHUTDOWNSCRIPT_GET_INSTANCE = "initshutdownscript.get_instance"
+        const val INITSHUTDOWNSCRIPT_QUERY = "initshutdownscript.query"
+        const val INITSHUTDOWNSCRIPT_UPDATE = "initshutdownscript.update"
+    }
+
+    object Jbof {
+        const val JBOF_CREATE = "jbof.create"
+        const val JBOF_DELETE = "jbof.delete"
+        const val JBOF_GET_INSTANCE = "jbof.get_instance"
+        const val JBOF_LICENSED = "jbof.licensed"
+        const val JBOF_QUERY = "jbof.query"
+        const val JBOF_REAPPLY_CONFIG = "jbof.reapply_config"
+        const val JBOF_UPDATE = "jbof.update"
+    }
+
+    object Kmip {
+        const val KMIP_CLEAR_SYNC_PENDING_KEYS = "kmip.clear_sync_pending_keys"
+        const val KMIP_CONFIG = "kmip.config"
+        const val KMIP_KMIP_SYNC_PENDING = "kmip.kmip_sync_pending"
+        const val KMIP_SYNC_KEYS = "kmip.sync_keys"
+        const val KMIP_UPDATE = "kmip.update"
+    }
+
+    object Mail {
+        const val MAIL_CONFIG = "mail.config"
+        const val MAIL_LOCAL_ADMINISTRATOR_EMAIL = "mail.local_administrator_email"
+        const val MAIL_SEND = "mail.send"
+        const val MAIL_UPDATE = "mail.update"
+    }
+
+    object Nfs {
+        const val NFS_BINDIP_CHOICES = "nfs.bindip_choices"
+        const val NFS_CLIENT_COUNT = "nfs.client_count"
+        const val NFS_CONFIG = "nfs.config"
+        const val NFS_GET_NFS3_CLIENTS = "nfs.get_nfs3_clients"
+        const val NFS_GET_NFS4_CLIENTS = "nfs.get_nfs4_clients"
+        const val NFS_UPDATE = "nfs.update"
+    }
+
+    object Privilege {
+        const val PRIVILEGE_CREATE = "privilege.create"
+        const val PRIVILEGE_DELETE = "privilege.delete"
+        const val PRIVILEGE_GET_INSTANCE = "privilege.get_instance"
+        const val PRIVILEGE_QUERY = "privilege.query"
+        const val PRIVILEGE_ROLES = "privilege.roles"
+        const val PRIVILEGE_UPDATE = "privilege.update"
+    }
+
+    object Route {
+        const val ROUTE_IPV4GW_REACHABLE = "route.ipv4gw_reachable"
+        const val ROUTE_SYSTEM_ROUTES = "route.system_routes"
+    }
+
+    object Rsynctask {
+        const val RSYNCTASK_CREATE = "rsynctask.create"
+        const val RSYNCTASK_DELETE = "rsynctask.delete"
+        const val RSYNCTASK_GET_INSTANCE = "rsynctask.get_instance"
+        const val RSYNCTASK_QUERY = "rsynctask.query"
+        const val RSYNCTASK_RUN = "rsynctask.run"
+        const val RSYNCTASK_UPDATE = "rsynctask.update"
+    }
+
+    object Smb {
+        const val SMB_BINDIP_CHOICES = "smb.bindip_choices"
+        const val SMB_CONFIG = "smb.config"
+        const val SMB_UNIXCHARSET_CHOICES = "smb.unixcharset_choices"
+        const val SMB_UPDATE = "smb.update"
+    }
+
+    object Snmp {
+        const val SNMP_CONFIG = "snmp.config"
+        const val SNMP_UPDATE = "snmp.update"
+    }
+
+    object Ssh {
+        const val SSH_BINDIFACE_CHOICES = "ssh.bindiface_choices"
+        const val SSH_CONFIG = "ssh.config"
+        const val SSH_UPDATE = "ssh.update"
+    }
+
+    object Staticroute {
+        const val STATICROUTE_CREATE = "staticroute.create"
+        const val STATICROUTE_DELETE = "staticroute.delete"
+        const val STATICROUTE_GET_INSTANCE = "staticroute.get_instance"
+        const val STATICROUTE_QUERY = "staticroute.query"
+        const val STATICROUTE_UPDATE = "staticroute.update"
+    }
+
+    object Systemdataset {
+        const val SYSTEMDATASET_CONFIG = "systemdataset.config"
+        const val SYSTEMDATASET_POOL_CHOICES = "systemdataset.pool_choices"
+        const val SYSTEMDATASET_UPDATE = "systemdataset.update"
+    }
+
+    object Tunable {
+        const val TUNABLE_CREATE = "tunable.create"
+        const val TUNABLE_DELETE = "tunable.delete"
+        const val TUNABLE_GET_INSTANCE = "tunable.get_instance"
+        const val TUNABLE_QUERY = "tunable.query"
+        const val TUNABLE_TUNABLE_TYPE_CHOICES = "tunable.tunable_type_choices"
+        const val TUNABLE_UPDATE = "tunable.update"
+    }
+
+    object Update {
+        const val UPDATE_FILE = "update.file"
+        const val UPDATE_MANUAL = "update.manual"
+    }
+
+    object Ups {
+        const val UPS_CONFIG = "ups.config"
+        const val UPS_DRIVER_CHOICES = "ups.driver_choices"
+        const val UPS_PORT_CHOICES = "ups.port_choices"
+        const val UPS_UPDATE = "ups.update"
+    }
+
+    object Zfs {
+        const val ZFS_RESOURCE_QUERY = "zfs.resource.query"
+    }
 }

@@ -91,4 +91,26 @@ object Vm {
         val zvols : Boolean? = false,
         val force : Boolean? = false
     )
+
+    @JsonClass(generateAdapter = true)
+    data class DeviceEntry(
+        val id: Int? = null,
+        val vm: Int? = null,
+        val order: Int? = null,
+        val dtype: String? = null,
+        val attributes: Map<String, Any?>? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class PassthroughInfo(
+        val capability: String? = null,
+        val product: String? = null,
+        @field:Json("product_id") val productId: String? = null,
+        val vendor: String? = null,
+        @field:Json("vendor_id") val vendorId: String? = null,
+        val available: Boolean? = null,
+        val error: String? = null,
+        val description: String? = null
+    )
+
 }
