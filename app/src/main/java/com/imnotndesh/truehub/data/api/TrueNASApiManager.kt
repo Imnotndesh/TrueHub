@@ -7,6 +7,7 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.ConnectionState
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.TrueNASRpcException
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.models.Auth
@@ -125,56 +126,14 @@ class TrueNASApiManager(
     private suspend fun recoverSession(): Boolean {
         recoveryMutex.withLock {
             val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext) ?: return false
-            // Another caller already refreshed while we waited for the lock.
-            if (!snapshot.isExpiringSoon(safetyFraction = 0f)) return true
+            // Another caller already refreshed a still-valid token while we waited for the lock.
+            if (!snapshot.isExpiringSoon(safetyFraction = 1f)) return true
             return recoverSessionLocked(snapshot)
         }
     }
 
-    private suspend fun recoverSessionLocked(snapshot: MultiAccountPrefs.SessionSnapshot): Boolean {
-        val account = MultiAccountPrefs.getAccount(applicationContext, snapshot.accountId) ?: return false
-        val (credentialPrimary, credentialSecondary) = MultiAccountPrefs.getAccountCredentials(
-            applicationContext,
-            snapshot.accountId,
-            account.loginMethod
-        )
-        val loginSuccess = when (account.loginMethod) {
-            LoginMethod.API_KEY -> {
-                if (credentialPrimary.isNullOrBlank()) return false
-                val result = auth.loginWithApiKeyWithResult(credentialPrimary)
-                result is ApiResult.Success && result.data == true
-            }
-            LoginMethod.PASSWORD, LoginMethod.TOTP -> {
-                if (credentialPrimary.isNullOrBlank() || credentialSecondary.isNullOrBlank()) return false
-                val result = auth.loginUserWithResult(
-                    AuthService.DefaultAuth(credentialPrimary, credentialSecondary)
-                )
-                result is ApiResult.Success && result.data == true
-            }
-        }
-        if (!loginSuccess) return false
-        return generateAndStoreTokenLocked(snapshot.serverId, snapshot.accountId)
-    }
-
-    /** Generates a token at the requested TTL and persists it together with freshness metadata. */
-    private suspend fun generateAndStoreTokenLocked(
-        serverId: String,
-        accountId: String,
-        ttlSeconds: Int = MultiAccountPrefs.DEFAULT_TOKEN_TTL_SECONDS
-    ): Boolean {
-        val tokenResult = auth.generateTokenWithResult(Auth.TokenRequest(ttl = ttlSeconds))
-        if (tokenResult is ApiResult.Success) {
-            MultiAccountPrefs.saveCurrentSession(
-                applicationContext,
-                serverId,
-                accountId,
-                tokenResult.data,
-                ttlSeconds
-            )
-            return true
-        }
-        return false
-    }
+    private suspend fun recoverSessionLocked(snapshot: MultiAccountPrefs.SessionSnapshot): Boolean =
+        SessionProvider.recover(applicationContext, this, snapshot.serverId, snapshot.accountId)
 
     private fun isAuthError(result: ApiResult<*>): Boolean {
         if (result !is ApiResult.Error) return false

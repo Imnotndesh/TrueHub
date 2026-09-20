@@ -8,6 +8,7 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
@@ -180,62 +181,12 @@ class MainViewModel : ViewModel() {
         server: SavedServer,
         account: SavedAccount
     ): TrueNASApiManager? {
-        return try {
-            val config = ClientConfig(
-                serverUrl = server.serverUrl,
-                insecure = server.insecure,
-                connectionTimeoutMs = 10000,
-                enablePing = true,
-                enableDebugLogging = false
-            )
-
-            val client = TrueNASClient(config)
-            val manager = TrueNASApiManager(client, context.applicationContext)
-
-            if (!manager.connect()) return null
-
-            val (cred1, cred2) = MultiAccountPrefs.getAccountCredentials(
-                context,
-                account.id,
-                account.loginMethod
-            )
-
-            val loginSuccess = when (account.loginMethod) {
-                LoginMethod.API_KEY -> {
-                    cred1?.let {
-                        val result = manager.auth.loginWithApiKeyWithResult(it)
-                        result is ApiResult.Success && result.data
-                    } ?: false
-                }
-                LoginMethod.PASSWORD, LoginMethod.TOTP -> {
-                    if (cred1 != null && cred2 != null) {
-                        val result = manager.auth.loginUserWithResult(
-                            AuthService.DefaultAuth(cred1, cred2)
-                        )
-                        result is ApiResult.Success && result.data
-                    } else false
-                }
+        return when (val outcome = SessionProvider.open(context, server, account)) {
+            is SessionProvider.OpenResult.Ready -> {
+                setActiveUser(context, account.id)
+                outcome.manager
             }
-
-            if (loginSuccess) {
-                val tokenResult = manager.auth.generateTokenWithResult(
-                    Auth.TokenRequest(ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS)
-                )
-                if (tokenResult is ApiResult.Success) {
-                    MultiAccountPrefs.saveCurrentSession(
-                        context,
-                        server.id,
-                        account.id,
-                        tokenResult.data,
-                        MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
-                    )
-                    setActiveUser(context, account.id)
-                    manager
-                } else null
-            } else null
-
-        } catch (_: Exception) {
-            null
+            else -> null
         }
     }
 

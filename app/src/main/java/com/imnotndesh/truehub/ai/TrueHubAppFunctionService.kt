@@ -13,6 +13,7 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.models.Config
 import com.imnotndesh.truehub.data.models.LoginMethod
 import kotlinx.coroutines.Dispatchers
@@ -193,37 +194,10 @@ abstract class BaseTrueHubAppFunctionService : AppFunctionService() {
         val server = MultiAccountPrefs.getServer(ctx, serverId) ?: return null
         val account = MultiAccountPrefs.getAccount(ctx, accountId) ?: return null
 
-        val client = TrueNASClient(
-            Config.ClientConfig(
-                serverUrl = server.serverUrl,
-                insecure = server.insecure,
-            )
-        )
-        if (!client.connect()) return null
-
-        val manager = TrueNASApiManager(client, ctx)
-        val token = MultiAccountPrefs.getTokenForLastUsed(ctx)
-        val authed = if (token != null) {
-            manager.auth.loginWithTokenAndResult(token) is ApiResult.Success
-        } else false
-
-        if (!authed) {
-            val (cred1, cred2) = MultiAccountPrefs.getAccountCredentials(
-                ctx, accountId, account.loginMethod
-            )
-            val loginResult = when (account.loginMethod) {
-                LoginMethod.API_KEY -> cred1?.let { manager.auth.loginWithApiKeyWithResult(it) }
-                LoginMethod.PASSWORD, LoginMethod.TOTP ->
-                    if (cred1 != null && cred2 != null) {
-                        manager.auth.loginUserWithResult(AuthService.DefaultAuth(cred1, cred2))
-                    } else null
-            }
-            if (loginResult == null || loginResult is ApiResult.Error) {
-                client.disconnect()
-                return null
-            }
+        return when (val outcome = SessionProvider.open(ctx, server, account)) {
+            is SessionProvider.OpenResult.Ready -> outcome.manager
+            else -> null
         }
-        return manager
     }
 }
 

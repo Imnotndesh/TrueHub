@@ -417,48 +417,38 @@ class LoginScreenViewModel(
         ToastManager.showInfo("Validating API key...")
         try {
             withTimeout(10000L) {
-                val mechanism = LoginMechanisms.AuthApiKeyPlain(
-                    username = state.username.ifBlank { "api-key" },
-                    api_key = state.apiKey,
-                    login_options = LoginMechanisms.LoginOptions(user_info = true)
-                )
-                val result = manager!!.auth.loginEx(mechanism, includeUserInfo = true)
+                // auth.login_ex API_KEY_PLAIN requires the key owner's username, which the
+                // key-only UI does not collect; auth.login_with_api_key authenticates on the key alone.
+                val result = manager!!.auth.loginWithApiKeyWithResult(state.apiKey)
 
                 when (result) {
                     is ApiResult.Success -> {
-                        when (val lr = result.data) {
-                            is LoginExResult.AuthRespSuccess -> {
-                                val tokenResult = manager!!.auth.generateTokenWithResult(
-                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
-                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
-                    )
-                )
-                                when (tokenResult) {
-                                    is ApiResult.Success -> {
-                                        saveBaseInfo(context, tokenResult.data, "api_key")
-                                        saveDetailsForAutoLogin(
-                                            context, "api_key", state.apiKey,
-                                            null, null, state.saveDetailsForAutoLogin
-                                        )
-                                        _uiState.update {
-                                            it.copy(isLoading = false, isLoginSuccessful = true)
-                                        }
-                                    }
-                                    is ApiResult.Error -> {
-                                        _uiState.update { it.copy(isLoading = false) }
-                                        ToastManager.showError("Token generation failed: ${tokenResult.message}")
-                                    }
-                                    is ApiResult.Loading -> {}
+                        if (!result.data) {
+                            _uiState.update { it.copy(isLoading = false) }
+                            ToastManager.showError("Invalid API key")
+                            return@withTimeout
+                        }
+                        val tokenResult = manager!!.auth.generateTokenWithResult(
+                            com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                                ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                            )
+                        )
+                        when (tokenResult) {
+                            is ApiResult.Success -> {
+                                saveBaseInfo(context, tokenResult.data, "api_key")
+                                saveDetailsForAutoLogin(
+                                    context, "api_key", state.apiKey,
+                                    null, null, state.saveDetailsForAutoLogin
+                                )
+                                _uiState.update {
+                                    it.copy(isLoading = false, isLoginSuccessful = true)
                                 }
                             }
-                            is LoginExResult.AuthRespAuthErr -> {
+                            is ApiResult.Error -> {
                                 _uiState.update { it.copy(isLoading = false) }
-                                ToastManager.showError("Invalid API key")
+                                ToastManager.showError("Token generation failed: ${tokenResult.message}")
                             }
-                            else -> {
-                                _uiState.update { it.copy(isLoading = false) }
-                                ToastManager.showError("API key authentication failed")
-                            }
+                            is ApiResult.Loading -> {}
                         }
                     }
                     is ApiResult.Error -> {
@@ -544,17 +534,16 @@ class LoginScreenViewModel(
         // Save account
         MultiAccountPrefs.saveAccount(context, account)
 
-        // Save credentials only if auto-login is enabled
-        if (autoLoginEnabled) {
-            MultiAccountPrefs.saveAccountCredentials(
-                context = context,
-                accountId = account.id,
-                loginMethod = account.loginMethod,
-                apiKey = apiKey,
-                username = username,
-                password = password
-            )
-        }
+        // Persist credentials unconditionally so the account switcher (and recovery) can
+        // re-authenticate; `autoLoginEnabled` still gates automatic login on startup.
+        MultiAccountPrefs.saveAccountCredentials(
+            context = context,
+            accountId = account.id,
+            loginMethod = account.loginMethod,
+            apiKey = apiKey,
+            username = username,
+            password = password
+        )
 
         // Mark as last used
         MultiAccountPrefs.saveLastUsedProfile(context, server.id, account.id)

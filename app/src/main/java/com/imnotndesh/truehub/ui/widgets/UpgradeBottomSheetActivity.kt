@@ -28,6 +28,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.WidgetDataStore
 import com.imnotndesh.truehub.data.models.AppUpdatableStates
 import com.imnotndesh.truehub.data.models.Apps
@@ -93,35 +94,11 @@ class UpgradeBottomSheetActivity : ComponentActivity() {
                 isLoading = false; loadFailed = true; return@LaunchedEffect
             }
 
-            val client = TrueNASClient(
-                Config.ClientConfig(serverUrl = server.serverUrl, insecure = server.insecure)
-            )
-            if (!client.connect()) {
+            val session = SessionProvider.open(appContext, server, account)
+            if (session !is SessionProvider.OpenResult.Ready) {
                 isLoading = false; loadFailed = true; return@LaunchedEffect
             }
-
-            val m = TrueNASApiManager(client, appContext)
-
-            val token = MultiAccountPrefs.getTokenForLastUsed(appContext)
-            var authed = token != null &&
-                    (m.auth.loginWithTokenAndResult(token) is ApiResult.Success)
-
-            if (!authed) {
-                val (credentialPrimary, credentialSecondary) = MultiAccountPrefs.getAccountCredentials(
-                    appContext, accountId, account.loginMethod
-                )
-                val loginResult = when (account.loginMethod) {
-                    LoginMethod.API_KEY -> credentialPrimary?.let { m.auth.loginWithApiKeyWithResult(it) }
-                    LoginMethod.PASSWORD, LoginMethod.TOTP -> if (credentialPrimary != null && credentialSecondary != null) {
-                        m.auth.loginUserWithResult(AuthService.DefaultAuth(credentialPrimary, credentialSecondary))
-                    } else null
-                }
-                authed = loginResult is ApiResult.Success && loginResult.data == true
-            }
-
-            if (!authed) {
-                isLoading = false; loadFailed = true; return@LaunchedEffect
-            }
+            val m = session.manager
 
             manager = m
 
