@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -29,6 +31,24 @@ jobs:
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="dev-$(date +%Y%m%d%H%M%S)"
+          fi
+          VERSION_NAME="${TAG#v}"
+          case "$TAG" in
+            *-rc*|*-RC*|*-beta*|*-Beta*|*-BETA*) CHANNEL="prerelease" ;;
+            *) CHANNEL="stable" ;;
+          esac
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
 
       - name: Set up release keystore
         id: keystore
@@ -48,32 +68,26 @@ jobs:
           fi
 
       - name: Build release APKs (per-ABI)
-        run: ./gradlew --build-cache assembleGithubRelease --no-daemon
+        run: ./gradlew --build-cache writeVersionProperties assembleGithubRelease --no-daemon -PappVersionName="${{ steps.version.outputs.version_name }}"
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8 -XX:+HeapDumpOnOutOfMemoryError"
-
-      - name: Get version from tag
-        id: version
-        run: |
-          if [ "${{ github.ref_type }}" == "tag" ]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "version=dev-$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
-          fi
 
       - name: Sign and rename APKs by ABI
         id: apks
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ steps.version.outputs.tag }}"
           KS="${{ steps.keystore.outputs.keystore_file }}"
           ALIAS="${{ steps.keystore.outputs.keystore_alias }}"
           STORE_PASS="${{ secrets.KEYSTORE_PASSWORD || 'android' }}"
           KEY_PASS="${STORE_PASS}"
 
+          VERSION_CODE=$(awk -F= '/^versionCode=/{print $2}' app/build/version.properties)
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
           mkdir -p dist
-          # Map ABI -> friendly arch suffix
           declare -A arch=( [armeabi-v7a]=armv7a [arm64-v8a]=arm64 [x86_64]=x86_64 )
+          rm -f /tmp/assets.txt
           for apk in app/build/outputs/apk/github/release/*-release-unsigned.apk; do
             base=$(basename "$apk" -release-unsigned.apk)
             abi="${base#app-github-}"
@@ -87,35 +101,108 @@ jobs:
             echo "$out" >> /tmp/assets.txt
           done
 
-      - name: Create Release with APKs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate release notes
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          ASSETS=$(paste -sd ' ' /tmp/assets.txt)
-          cat > release_body.md << EOF
-          ## 📱 TrueHub $VERSION
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+
+          if [ -f "RELEASE_NOTES.md" ]; then
+            cp RELEASE_NOTES.md release_notes_body.md
+          elif [ -f ".github/release-notes/${TAG}.md" ]; then
+            cp ".github/release-notes/${TAG}.md" release_notes_body.md
+          else
+            {
+              echo "## What's Changed"
+              echo
+              if [ -n "$PREV_TAG" ]; then
+                git log --pretty=format:'- %s' "${PREV_TAG}..${TAG}" | grep -vi -- '- merge ' || true
+              else
+                git log --pretty=format:'- %s' -n 50 | grep -vi -- '- merge ' || true
+              fi
+              echo
+            } > release_notes_body.md
+          fi
+
+          cat >> release_notes_body.md << 'EOF'
+
           ### 📦 Download
           Choose the APK matching your device architecture (ARM64 for most modern phones).
           - **armv7a** — older 32-bit ARM devices
           - **arm64** — most modern 64-bit devices
           - **x86_64** — 64-bit emulators / x86 devices
+
           ### ⚠️ Installing a New Version
           - APKs are signed with a release certificate.
           - If your previously installed build used a different certificate, uninstall it first.
-          ### 🔧 Build Info
-          - Commit: ${{ github.sha }}
           EOF
-          gh release create "$VERSION" $ASSETS \
-            --title "Release $VERSION" \
-            --notes-file release_body.md \
-            --prerelease=false
+
+      - name: Generate update manifest
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apks.outputs.version_code }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
+        run: |
+          set -euo pipefail
+          PUBLISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" python3 - <<'PY'
+          import glob, hashlib, json, os
+
+          tag = os.environ["TAG"]
+          repo = "Imnotndesh/TrueHub"
+          assets = {}
+          for path in sorted(glob.glob("dist/*.apk")):
+              filename = os.path.basename(path)
+              key = filename.rsplit("-", 1)[-1][:-4]
+              digest = hashlib.sha256()
+              with open(path, "rb") as handle:
+                  for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              assets[key] = {
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{filename}",
+                  "size": os.path.getsize(path),
+                  "sha256": digest.hexdigest(),
+              }
+
+          manifest = {
+              "versionName": os.environ["VERSION_NAME"],
+              "versionCode": int(os.environ["VERSION_CODE"]),
+              "tag": tag,
+              "channel": os.environ["CHANNEL"],
+              "publishedAt": os.environ.get("PUBLISHED_AT", ""),
+              "minSupportedVersionCode": 0,
+              "assets": assets,
+          }
+
+          with open("update-manifest.json", "w") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          PY
+          cat update-manifest.json
+
+      - name: Create Release with APKs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.version.outputs.tag }}"
+          ASSETS=$(paste -sd ' ' /tmp/assets.txt)
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.version.outputs.channel }}" == "prerelease" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "$TAG" $ASSETS update-manifest.json \
+            --title "Release $TAG" \
+            --notes-file release_notes_body.md \
+            $PRERELEASE_FLAG
 
       - name: Upload APKs as Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: truehub-${{ steps.version.outputs.version }}
-          path: dist/*.apk
+          name: truehub-${{ steps.version.outputs.tag }}
+          path: |
+            dist/*.apk
+            update-manifest.json
           retention-days: 30
 
   build-unsigned:

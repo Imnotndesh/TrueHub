@@ -62,6 +62,7 @@ import com.imnotndesh.truehub.ui.settings.SettingsEvent
 import com.imnotndesh.truehub.ui.settings.SettingsScreen
 import com.imnotndesh.truehub.ui.settings.SettingsScreenViewModel
 import com.imnotndesh.truehub.ui.settings.screens.AboutScreen
+import com.imnotndesh.truehub.ui.settings.screens.AppUpdateScreen
 import com.imnotndesh.truehub.ui.settings.logging.AppLoggingScreen
 import com.imnotndesh.truehub.ui.settings.screens.LicensesScreen
 import com.imnotndesh.truehub.ui.settings.screens.ThemeScreen
@@ -112,6 +113,8 @@ class MainActivity : ComponentActivity() {
                 viewModel.requestNavigateTo(Screen.InstanceConfigScreen.route)
             "com.imnotndesh.truehub.OPEN_UPDATE_INSTANCE" ->
                 viewModel.requestNavigateTo(Screen.SystemUpdateScreen.route)
+            "com.imnotndesh.truehub.OPEN_APP_UPDATE" ->
+                viewModel.requestNavigateTo(Screen.AppUpdate.route)
         }
     }
 
@@ -235,7 +238,10 @@ private fun AppNavigation(
     val personalizationUserKey = userKey ?: PersonalizationManager.DEFAULT_USER_KEY
     LaunchedEffect(pendingNav) {
         val route = pendingNav ?: return@LaunchedEffect
-        if (navController.currentDestination?.route != Screen.Main.route) {
+        if (route == Screen.AppUpdate.route) {
+            navController.navigate(Screen.AppUpdate.route) { launchSingleTop = true }
+            viewModel.clearPendingNavigation()
+        } else if (navController.currentDestination?.route != Screen.Main.route) {
             navController.navigate(Screen.Main.route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
@@ -343,6 +349,9 @@ private fun AppNavigation(
                 onNavigateToLogging = {
                     navController.navigate(Screen.AppLogging.route)
                 },
+                onNavigateToAppUpdate = {
+                    navController.navigate(Screen.AppUpdate.route)
+                },
                 onNavigateToLogin = {
                     navController.navigate(Screen.AccountSwitcher.route) {
                         popUpTo(Screen.Settings.route) { inclusive = true }
@@ -354,6 +363,11 @@ private fun AppNavigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+        composable(Screen.AppUpdate.route) {
+            AppUpdateScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.AppLogging.route) {

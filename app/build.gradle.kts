@@ -4,6 +4,36 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+fun versionCodeFrom(versionName: String): Int {
+    val match = Regex("""[vV]?(\d+)\.(\d+)\.(\d+)(?:[-_ ]?([A-Za-z]+)\.?(\d+)?)?""").find(versionName) ?: return 0
+    val (major, minor, patch) = match.destructured
+    val stage = when (match.groupValues[4].lowercase()) {
+        "beta" -> 1
+        "rc" -> 2
+        else -> 3
+    }
+    val prereleaseNumber = match.groupValues[5].toIntOrNull() ?: 0
+    return (major.toInt() * 100 + minor.toInt()) * 10_000 + patch.toInt() * 100 + stage * 10 + prereleaseNumber
+}
+
+val appVersionName: String = (findProperty("appVersionName") as String?)?.takeIf { it.isNotBlank() } ?: "0.8.1-rc"
+val appVersionCode: Int = (findProperty("appVersionCode") as String?)?.toIntOrNull()
+    ?: versionCodeFrom(appVersionName).takeIf { it > 0 }
+    ?: 1
+
+val versionPropertiesFile = layout.buildDirectory.file("version.properties")
+
+tasks.register("writeVersionProperties") {
+    inputs.property("versionName", appVersionName)
+    inputs.property("versionCode", appVersionCode)
+    outputs.file(versionPropertiesFile)
+    doLast {
+        versionPropertiesFile.get().asFile.writeText(
+            "versionName=$appVersionName\nversionCode=$appVersionCode\n"
+        )
+    }
+}
+
 android {
     namespace = "com.imnotndesh.truehub"
     compileSdk = 37
@@ -11,8 +41,8 @@ android {
     defaultConfig {
         minSdk = 33
         targetSdk = 37
-        versionCode = 70500
-        versionName = "0.7.5"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

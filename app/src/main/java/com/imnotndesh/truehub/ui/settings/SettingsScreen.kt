@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -61,6 +62,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.BugReport
+import com.imnotndesh.truehub.BuildConfig
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.LoggingPrefs
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -76,6 +78,7 @@ fun SettingsScreen(
     onNavigateToTheme : () -> Unit = {},
     onNavigateToChangePassword : () -> Unit = {},
     onNavigateToLogging: () -> Unit = {},
+    onNavigateToAppUpdate: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val viewModel : SettingsScreenViewModel = viewModel(
@@ -160,6 +163,12 @@ fun SettingsScreen(
                         name = "Theme",
                         description = "Choose light or dark mode",
                         onClick = { onNavigateToTheme() }
+                    ),
+                    SettingItem(
+                        icon = Icons.Default.SystemUpdateAlt,
+                        name = "App Updates",
+                        description = "Version ${BuildConfig.VERSION_NAME} · Check for new releases",
+                        onClick = { onNavigateToAppUpdate() }
                     ),
                     SettingItem(
                         icon = Icons.Default.PrivacyTip,
