@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.AppControlSync
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.WorkerSession
 import com.imnotndesh.truehub.data.helpers.QuickLaunchSync
@@ -113,12 +114,14 @@ class AppsRefreshWorker(
                 apps != null && pools != null -> {
                     WidgetDataStore.saveAppsAndPools(context, apps, pools)
                     AppCache.updateApps(apps)
+                    AppControlSync.refresh(context, apps)
                     AppCache.updatePools(pools)
                 }
                 apps != null -> {
                     WidgetDataStore.saveUpgradableApps(context, apps)
                     AppCache.updateApps(apps)
                     QuickLaunchSync.refresh(context, apps)
+                    AppControlSync.refresh(context, apps)
                 }
                 pools != null -> {
                     WidgetDataStore.savePools(context, pools)

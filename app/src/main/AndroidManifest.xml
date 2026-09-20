@@ -39,6 +39,11 @@
             android:theme="@style/Theme.TrueHub.Transparent"
             android:excludeFromRecents="true"
             android:exported="false" />
+        <activity
+            android:name=".ui.widgets.appcontrol.AppControlConfigActivity"
+            android:theme="@style/Theme.TrueHub.Transparent"
+            android:excludeFromRecents="true"
+            android:exported="false" />
 
         <receiver
             android:name=".ui.widgets.quicklaunch.QuickLaunchWidgetReceiver"
@@ -50,6 +55,17 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/quick_launch_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".ui.widgets.appcontrol.AppControlWidgetReceiver"
+            android:label="App Control"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/app_control_widget_info" />
         </receiver>
 
         <service
