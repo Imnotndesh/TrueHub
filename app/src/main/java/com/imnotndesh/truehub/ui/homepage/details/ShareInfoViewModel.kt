@@ -1,10 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.details
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
@@ -25,7 +24,8 @@ data class ShareInfoUiState(
     val error: String? = null
 )
 
-class ShareInfoViewModel(
+@HiltViewModel
+class ShareInfoViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -95,11 +95,5 @@ class ShareInfoViewModel(
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    companion object {
-        fun provideFactory(manager: TrueNASApiManager): ViewModelProvider.Factory = viewModelFactory {
-            initializer { ShareInfoViewModel(manager) }
-        }
     }
 }

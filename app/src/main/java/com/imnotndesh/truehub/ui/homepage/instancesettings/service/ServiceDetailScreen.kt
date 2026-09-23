@@ -50,7 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -71,9 +71,11 @@ fun ServiceDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: ServiceDetailViewModel = viewModel(
-        factory = ServiceDetailViewModel.ServiceDetailViewModelFactory(manager, service),
-        key = service.id.toString()
+    val viewModel: ServiceDetailViewModel = hiltViewModel<ServiceDetailViewModel, ServiceDetailViewModel.Factory>(
+        key = service.id.toString(),
+        creationCallback = { factory ->
+            factory.create(service)
+        }
     )
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }

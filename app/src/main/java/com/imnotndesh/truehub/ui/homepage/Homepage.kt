@@ -69,13 +69,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
@@ -102,9 +101,7 @@ fun HomeScreen(
     onNavigateToShareInfo: (ShareType) -> Unit = {},
     onSearchClick: (() -> Unit)? = null
 ) {
-    val viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
-    )
+    val viewModel: HomeViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()

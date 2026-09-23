@@ -77,7 +77,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.data.models.System
@@ -90,9 +90,7 @@ fun AlertClassesConfigScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: AlertClassesConfigViewModel = viewModel(
-        factory = AlertClassesConfigViewModel.AlertClassesConfigViewModelFactory(manager)
-    )
+    val viewModel: AlertClassesConfigViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 

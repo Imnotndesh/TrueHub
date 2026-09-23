@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -590,7 +591,7 @@ private fun TrueHubNavGraph(
             )
         }
         composable(Screen.AuditConfigScreen.route) {
-            val vm: AuditConfigViewModel = viewModel(factory = AuditConfigViewModel.AuditConfigViewModelFactory(manager))
+            val vm: AuditConfigViewModel = hiltViewModel()
             AuditConfigScreen(
                 manager = manager,
                 viewModel = vm,
@@ -598,7 +599,7 @@ private fun TrueHubNavGraph(
             )
         }
         composable(Screen.AuditLogsScreen.route) {
-            val vm: AuditLogsViewModel = viewModel(factory = AuditLogsViewModel.AuditLogsViewModelFactory(manager))
+            val vm: AuditLogsViewModel = hiltViewModel()
             AuditLogsScreen(
                 manager = manager,
                 viewModel = vm,

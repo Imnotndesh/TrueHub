@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.users
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -63,7 +64,6 @@ data class UserListUiState(
         }
 }
 
-
 data class UserDetailUiState(
     val isLoading: Boolean = false,
     val isUpdating: Boolean = false,
@@ -90,7 +90,8 @@ data class UserCreateUiState(
     val error: String? = null
 )
 
-class UserSettingsViewModel(
+@HiltViewModel
+class UserSettingsViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -337,14 +338,4 @@ class UserSettingsViewModel(
     fun setFilterRole(value: String?) {
         _listState.value = _listState.value.copy(filterRole = value)
     }
-
-    class UserSettingsViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return UserSettingsViewModel(manager) as T
-        }
-    }
-
 }

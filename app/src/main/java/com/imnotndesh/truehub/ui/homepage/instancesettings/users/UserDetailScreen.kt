@@ -61,7 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -75,10 +75,7 @@ fun UserDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: UserSettingsViewModel = viewModel(
-        factory = UserSettingsViewModel.UserSettingsViewModelFactory(manager),
-        key = userId.toString()
-    )
+    val viewModel: UserSettingsViewModel = hiltViewModel(key = userId.toString())
     val uiState by viewModel.detailState.collectAsState()
     var isEditing by remember { mutableStateOf(false) }
 

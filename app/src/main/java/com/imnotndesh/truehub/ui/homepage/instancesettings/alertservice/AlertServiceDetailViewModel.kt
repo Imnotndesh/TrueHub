@@ -1,8 +1,10 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertsservice
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
@@ -24,10 +26,13 @@ data class AlertServiceDetailUiState(
     val updateResult: Boolean? = null
 )
 
-class AlertServiceDetailViewModel(
+@HiltViewModel
+class AlertServiceDetailViewModel @Inject constructor(
     private val manager: TrueNASApiManager,
-    private val serviceId: Int
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val serviceId: Int = savedStateHandle.get<Int>("serviceId") ?: 0
 
     private val _uiState = MutableStateFlow(AlertServiceDetailUiState())
     val uiState: StateFlow<AlertServiceDetailUiState> = _uiState.asStateFlow()
@@ -106,14 +111,5 @@ class AlertServiceDetailViewModel(
 
     fun clearTestResult() {
         _uiState.update { it.copy(testResult = null) }
-    }
-
-    class AlertServiceDetailViewModelFactory(
-        private val manager: TrueNASApiManager,
-        private val serviceId: Int
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            AlertServiceDetailViewModel(manager, serviceId) as T
     }
 }

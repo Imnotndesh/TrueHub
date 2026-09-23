@@ -55,7 +55,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -68,10 +68,7 @@ fun AlertServiceDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: AlertServiceDetailViewModel = viewModel(
-        factory = AlertServiceDetailViewModel.AlertServiceDetailViewModelFactory(manager, serviceId),
-        key = serviceId.toString()
-    )
+    val viewModel: AlertServiceDetailViewModel = hiltViewModel(key = serviceId.toString())
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var isEditing by remember { mutableStateOf(false) }

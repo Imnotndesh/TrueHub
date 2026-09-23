@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -31,7 +32,10 @@ data class BootUiState(
  * navigating between the boot overview and boot pool detail screens stays snappy and does
  * not re-hit the network on every entry. Use [refresh] to reload from the server.
  */
-class BootViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class BootViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BootUiState())
     val uiState: StateFlow<BootUiState> = _uiState.asStateFlow()
@@ -179,15 +183,6 @@ class BootViewModel(private val manager: TrueNASApiManager) : ViewModel() {
             cachedBootState = null
             cachedDisks = null
             cachedEnvironments = null
-        }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return BootViewModel(manager) as T
         }
     }
 }

@@ -48,7 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -68,9 +68,7 @@ fun BootScreen(
     onNavigateToBootPool: () -> Unit = {},
     onNavigateToBootEnvironments: () -> Unit = {}
 ) {
-    val vm: BootViewModel = viewModel(
-        factory = BootViewModel.ViewModelFactory(manager)
-    )
+    val vm: BootViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
 
     LaunchedEffect(Unit) { vm.loadAll() }

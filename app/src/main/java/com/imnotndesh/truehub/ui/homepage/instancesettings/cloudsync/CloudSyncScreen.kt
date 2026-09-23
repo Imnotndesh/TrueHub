@@ -47,7 +47,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Cloudsync
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -59,7 +59,7 @@ fun CloudSyncScreen(
     onNavigateToDetail: (Int) -> Unit = {},
     onNavigateToCreate: () -> Unit = {}
 ) {
-    val viewModel: CloudSyncViewModel = viewModel(factory = CloudSyncViewModel.provideFactory(manager))
+    val viewModel: CloudSyncViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Cloudsync.Entry?>(null) }
 

@@ -2,8 +2,10 @@ package com.imnotndesh.truehub.ui.homepage
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
@@ -55,9 +57,10 @@ sealed class LoadAveragesState {
 }
 */
 
-class HomeViewModel(
+@HiltViewModel
+class HomeViewModel @Inject constructor(
     private val apiManager: TrueNASApiManager,
-    private val applicationContext: Context
+    @ApplicationContext private val applicationContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -342,19 +345,6 @@ class HomeViewModel(
                     is ApiResult.Loading -> { /* no-op */ }
                 }
             } catch (_: Exception) { /* fail silent */ }
-        }
-    }
-
-    class HomeViewModelFactory(
-        private val apiManager: TrueNASApiManager,
-        private val context: Context
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                return HomeViewModel(apiManager, context) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

@@ -77,7 +77,7 @@ import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 sealed class ShareType {
     data class Smb(val share: Shares.SmbShare) : ShareType()
@@ -91,7 +91,7 @@ fun ShareInfoScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit
 ) {
-    val viewModel: ShareInfoViewModel = viewModel(factory = ShareInfoViewModel.provideFactory(manager))
+    val viewModel: ShareInfoViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 

@@ -77,7 +77,7 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -92,9 +92,7 @@ fun AlertServicesListScreen(
     onNavigateToCreate: () -> Unit = {},
     onNavigateToClassesConfig: () -> Unit = {}
 ) {
-    val viewModel: AlertServicesListViewModel = viewModel(
-        factory = AlertServicesListViewModel.AlertServicesListViewModelFactory(manager)
-    )
+    val viewModel: AlertServicesListViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 

@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.advanced
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -27,7 +28,8 @@ data class AdvancedSystemSettingsUiState(
     val saveSuccess: Boolean = false
 )
 
-class AdvancedSystemSettingsViewModel(
+@HiltViewModel
+class AdvancedSystemSettingsViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
     init {
@@ -153,14 +155,5 @@ class AdvancedSystemSettingsViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return AdvancedSystemSettingsViewModel(manager) as T
-        }
     }
 }

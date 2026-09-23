@@ -44,7 +44,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -57,9 +57,7 @@ fun AdvancedSystemSettingsScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {}
 ) {
-    val vm: AdvancedSystemSettingsViewModel = viewModel(
-        factory = AdvancedSystemSettingsViewModel.ViewModelFactory(manager)
-    )
+    val vm: AdvancedSystemSettingsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val isFabVisible = !scrollState.isScrollInProgress
