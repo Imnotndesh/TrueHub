@@ -61,7 +61,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -83,10 +83,7 @@ fun AppResourceUsageScreen(
     appId: String,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: AppResourceUsageViewModel = viewModel(
-        factory = AppResourceUsageViewModel.provideFactory(manager, appId),
-        key = appId
-    )
+    val viewModel: AppResourceUsageViewModel = hiltViewModel(key = appId)
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val haptics = remember(context) { VibrationFeedback(context) }

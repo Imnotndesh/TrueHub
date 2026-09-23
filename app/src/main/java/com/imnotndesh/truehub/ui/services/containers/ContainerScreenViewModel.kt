@@ -2,8 +2,9 @@ package com.imnotndesh.truehub.ui.services.containers
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.utils.AppCache
@@ -24,7 +25,8 @@ data class ContainerScreenUiState(
     val operationJobs: Map<String, System.Job> = emptyMap()
 )
 
-class ContainerScreenViewModel(
+@HiltViewModel
+class ContainerScreenViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -263,15 +265,4 @@ class ContainerScreenViewModel(
         _uiState.update { it.copy(error = null) }
     }
 
-    class ContainerViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(ContainerScreenViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return ContainerScreenViewModel(manager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }

@@ -111,7 +111,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
@@ -140,9 +140,7 @@ fun AppsScreen(
     onNavigateToMarketplace: () -> Unit = {},
     onSearchClick: (() -> Unit)? = null
 ) {
-    val appsScreenViewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val appsScreenViewModel: AppsScreenViewModel = hiltViewModel()
     val uiState by appsScreenViewModel.uiState.collectAsState()
     val isCompact = AdaptiveLayoutHelper.isCompact()
     val context = LocalContext.current

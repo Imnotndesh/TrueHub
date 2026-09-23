@@ -3,8 +3,9 @@ package com.imnotndesh.truehub.ui.services.apps
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -65,7 +66,10 @@ data class AppConfigUiState(
     val saveError: String? = null
 )
 
-class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class AppsScreenViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AppsScreenUiState())
     val uiState: StateFlow<AppsScreenUiState> = _uiState.asStateFlow()
@@ -651,15 +655,4 @@ class AppsScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() 
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    class AppsScreenViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(AppsScreenViewModel::class.java)) {
-                return AppsScreenViewModel(manager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-        }
-    }
 }

@@ -92,7 +92,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.text.HtmlCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
@@ -121,10 +121,7 @@ fun AppInfoScreen(
     onOpenResourceUsage: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val viewModel: AppDetailsViewModel = viewModel(
-        factory = AppDetailsViewModel.provideFactory(manager),
-        key = app.name
-    )
+    val viewModel: AppDetailsViewModel = hiltViewModel(key = app.name)
     val remoteState by viewModel.appState.collectAsState()
     val displayState = remoteState ?: app.state
     val isRunning = displayState.equals("running", ignoreCase = true)

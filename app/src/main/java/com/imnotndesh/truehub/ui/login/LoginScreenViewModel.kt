@@ -1,11 +1,13 @@
 package com.imnotndesh.truehub.ui.login
 
-import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
@@ -18,6 +20,7 @@ import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.components.ToastManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,9 +68,10 @@ sealed class LoginEvent {
     data class UpdateSaveApiKey(val enabled: Boolean, val context: Context) : LoginEvent()
 }
 
-class LoginScreenViewModel(
-    private var manager: TrueNASApiManager?,
-    private val application: Application
+@HiltViewModel(assistedFactory = LoginScreenViewModel.Factory::class)
+class LoginScreenViewModel @AssistedInject constructor(
+    @Assisted private var manager: TrueNASApiManager?,
+    @ApplicationContext private val application: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -548,18 +552,9 @@ class LoginScreenViewModel(
         // Mark as last used
         MultiAccountPrefs.saveLastUsedProfile(context, server.id, account.id)
     }
-}
 
-class LoginViewModelFactory(
-    private val manager: TrueNASApiManager?,
-    private val application: Application
-) : ViewModelProvider.Factory {
-
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(LoginScreenViewModel::class.java)) {
-            return LoginScreenViewModel(manager, application) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    @AssistedFactory
+    interface Factory {
+        fun create(manager: TrueNASApiManager?): LoginScreenViewModel
     }
 }

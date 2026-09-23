@@ -84,7 +84,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
@@ -107,9 +107,7 @@ fun ContainersScreen(
     manager: TrueNASApiManager,
     onNavigateToContainerInfo: (Virt.ContainerResponse) -> Unit = {},
     onSearchClick: (() -> Unit)? = null,
-    viewModel: ContainerScreenViewModel = viewModel(
-        factory = ContainerScreenViewModel.ContainerViewModelFactory(manager)
-    )
+    viewModel: ContainerScreenViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadContainers()

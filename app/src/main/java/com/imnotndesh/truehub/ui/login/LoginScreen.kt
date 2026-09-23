@@ -73,10 +73,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -109,9 +109,9 @@ fun LoginScreen(
     }
     var showSetupSheet by remember { mutableStateOf( savedUrl == null) }
 
-    val viewModel: LoginScreenViewModel = viewModel(
-        factory = LoginViewModelFactory(existingManager, application)
-    )
+    val viewModel: LoginScreenViewModel = hiltViewModel<LoginScreenViewModel, LoginScreenViewModel.Factory> { factory ->
+        factory.create(existingManager)
+    }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Enter OTP mode on cold start for TOTP users

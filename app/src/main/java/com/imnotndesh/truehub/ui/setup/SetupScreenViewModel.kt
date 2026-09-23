@@ -3,6 +3,8 @@ package com.imnotndesh.truehub.ui.setup
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.Prefs
@@ -30,7 +32,8 @@ sealed class SetupEvent {
     object ResetSetupComplete : SetupEvent()
 }
 
-class SetupScreenViewModel : ViewModel() {
+@HiltViewModel
+class SetupScreenViewModel @Inject constructor() : ViewModel() {
 
     private val _uiState = MutableStateFlow(SetupUiState())
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()

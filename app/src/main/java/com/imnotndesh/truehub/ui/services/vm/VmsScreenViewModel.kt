@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.utils.AppCache
@@ -24,7 +25,8 @@ data class VmScreenUiState(
 )
 
 // TODO: In future maybe add the get memory usage api in the info sheet
-class VmsScreenViewModel(
+@HiltViewModel
+class VmsScreenViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -359,15 +361,4 @@ class VmsScreenViewModel(
         }
     }
 
-    class VmViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(VmsScreenViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return VmsScreenViewModel(manager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }

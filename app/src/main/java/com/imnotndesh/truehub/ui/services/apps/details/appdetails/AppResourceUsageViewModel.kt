@@ -1,10 +1,10 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.AppStatsRepository
 import com.imnotndesh.truehub.data.models.AppStats
@@ -33,11 +33,13 @@ data class AppResourceUsageUiState(
     val error: String? = null
 )
 
-class AppResourceUsageViewModel(
-    manager: TrueNASApiManager,
-    private val appId: String
+@HiltViewModel
+class AppResourceUsageViewModel @Inject constructor(
+    private val manager: TrueNASApiManager,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
+    private val appId: String = savedStateHandle.get<String>("appId").orEmpty()
     private val repository = AppStatsRepository(manager)
     private val interval = MutableStateFlow(BOOTSTRAP_INTERVAL)
     private val restart = MutableStateFlow(0)
@@ -124,9 +126,4 @@ class AppResourceUsageViewModel(
         _uiState.update { it.copy(error = null) }
     }
 
-    companion object {
-        fun provideFactory(manager: TrueNASApiManager, appId: String): ViewModelProvider.Factory = viewModelFactory {
-            initializer { AppResourceUsageViewModel(manager, appId) }
-        }
-    }
 }
