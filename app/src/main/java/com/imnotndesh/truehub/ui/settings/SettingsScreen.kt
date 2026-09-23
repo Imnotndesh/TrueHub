@@ -74,6 +74,7 @@ fun SettingsScreen(
     onNavigateToLicenses: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {},
+    onSignOutComplete: () -> Unit = {},
     onDummyAction: (String) -> Unit = {},
     onNavigateToTheme : () -> Unit = {},
     onNavigateToChangePassword : () -> Unit = {},
@@ -102,7 +103,7 @@ fun SettingsScreen(
 
     LaunchedEffect(uiState.logoutSuccess) {
         if (uiState.logoutSuccess) {
-            onNavigateToLogin()
+            onSignOutComplete()
             viewModel.handleEvent(SettingsEvent.ClearLogoutSuccess)
         }
     }

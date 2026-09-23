@@ -1,6 +1,8 @@
 package com.imnotndesh.truehub.data.helpers
 
 import android.content.Context
+import androidx.work.Data
+import androidx.work.workDataOf
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -13,6 +15,22 @@ import com.imnotndesh.truehub.data.models.Config.ClientConfig
  */
 object WorkerSession {
 
+    const val KEY_SERVER_ID = "worker_server_id"
+    const val KEY_ACCOUNT_ID = "worker_account_id"
+
+    fun profileInputData(serverId: String?, accountId: String?): Data {
+        return workDataOf(
+            KEY_SERVER_ID to serverId,
+            KEY_ACCOUNT_ID to accountId
+        )
+    }
+
+    fun Data.profileIds(): Pair<String, String>? {
+        val serverId = getString(KEY_SERVER_ID) ?: return null
+        val accountId = getString(KEY_ACCOUNT_ID) ?: return null
+        return serverId to accountId
+    }
+
     sealed interface Result {
         data class Ready(
             val manager: TrueNASApiManager,
@@ -24,16 +42,31 @@ object WorkerSession {
         data object Retryable : Result
     }
 
-    suspend fun open(context: Context): Result {
-        val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context)
+    suspend fun open(
+        context: Context,
+        serverId: String? = null,
+        accountId: String? = null
+    ): Result {
+        val profile = if (serverId != null && accountId != null) {
+            serverId to accountId
+        } else {
+            MultiAccountPrefs.getLastUsedProfile(context)
+        } ?: return Result.Unauthenticated
+        val (resolvedServerId, resolvedAccountId) = profile
+        val server = MultiAccountPrefs.getServer(context, resolvedServerId)
             ?: return Result.Unauthenticated
-        val server = MultiAccountPrefs.getServer(context, serverId)
+        val account = MultiAccountPrefs.getAccount(context, resolvedAccountId)
             ?: return Result.Unauthenticated
-        val account = MultiAccountPrefs.getAccount(context, accountId)
-            ?: return Result.Unauthenticated
+        if (account.serverId != resolvedServerId || !account.autoLoginEnabled) {
+            return Result.Unauthenticated
+        }
 
-        val snapshot = MultiAccountPrefs.getSessionSnapshot(context)
-        if (snapshot != null && snapshot.serverId == serverId && !snapshot.isExpiringSoon()) {
+        val snapshot = MultiAccountPrefs.resolveAccountTokenSnapshot(
+            context,
+            resolvedServerId,
+            resolvedAccountId
+        )
+        if (snapshot != null && !snapshot.isExpiringSoon()) {
             val client = TrueNASClient(
                 ClientConfig(serverUrl = server.serverUrl, insecure = server.insecure)
             )
@@ -42,16 +75,30 @@ object WorkerSession {
                 return Result.Retryable
             }
             val manager = TrueNASApiManager(client, context.applicationContext)
-            if (manager.auth.loginWithTokenAndResult(snapshot.token) is ApiResult.Success) {
-                com.imnotndesh.truehub.ui.utils.AppCache.bindServer(context, serverId)
-                return Result.Ready(manager, client)
+            val tokenResult = manager.auth.loginWithTokenAndResult(snapshot.token)
+            if (SessionProvider.isSuccessfulBooleanResult(tokenResult)) {
+                val identity = manager.auth.getUserDetailsWithResult()
+                if (identity is ApiResult.Success &&
+                    SessionProvider.isValidTokenIdentity(
+                        identity.data.pw_name,
+                        account.loginMethod,
+                        account.username
+                    )
+                ) {
+                    com.imnotndesh.truehub.ui.utils.AppCache.bindServer(context, resolvedServerId)
+                    return Result.Ready(manager, client)
+                }
             }
             client.disconnect()
         }
 
         return when (val outcome = SessionProvider.open(context, server, account)) {
             is SessionProvider.OpenResult.Ready -> {
-                com.imnotndesh.truehub.ui.utils.AppCache.bindServer(context, serverId)
+                com.imnotndesh.truehub.ui.utils.AppCache.bindServer(context, resolvedServerId)
+                Result.Ready(outcome.manager, outcome.client)
+            }
+            is SessionProvider.OpenResult.TemporaryAuthenticated -> {
+                com.imnotndesh.truehub.ui.utils.AppCache.bindServer(context, resolvedServerId)
                 Result.Ready(outcome.manager, outcome.client)
             }
             SessionProvider.OpenResult.Retryable -> Result.Retryable

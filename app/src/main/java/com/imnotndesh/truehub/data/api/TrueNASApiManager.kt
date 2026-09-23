@@ -20,6 +20,27 @@ import kotlinx.coroutines.sync.withLock
 import java.io.OutputStream
 import java.lang.reflect.Type
 
+internal fun isAuthenticationError(result: ApiResult<*>): Boolean {
+    if (result !is ApiResult.Error) return false
+    if (result.throwable is TrueNASRpcException) {
+        val code = result.throwable.code
+        if (code == 207) return true
+    }
+    val msg = result.message.lowercase()
+    return msg.contains("enotauthenticated") || msg.contains("invalid session")
+}
+
+internal fun allowsRequestRetry(result: SessionProvider.RecoveryResult): Boolean {
+    return when (result) {
+        SessionProvider.RecoveryResult.Recovered,
+        SessionProvider.RecoveryResult.AuthenticatedTemporary -> true
+        is SessionProvider.RecoveryResult.OtpRequired,
+        SessionProvider.RecoveryResult.CredentialsRejected,
+        SessionProvider.RecoveryResult.Unauthenticated,
+        SessionProvider.RecoveryResult.Retryable -> false
+    }
+}
+
 class TrueNASApiManager(
     private val client: TrueNASClient,
     private val applicationContext: Context
@@ -93,6 +114,17 @@ class TrueNASApiManager(
 
     suspend fun ensureConnected(): Boolean = client.connect()
 
+    suspend fun recoverAfterDisconnect(): SessionProvider.RecoveryResult = recoveryMutex.withLock {
+        val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext)
+            ?: return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        SessionProvider.recoverAfterDisconnect(
+            applicationContext,
+            this,
+            snapshot.serverId,
+            snapshot.accountId
+        )
+    }
+
     suspend fun subscribe(event: String): String = client.subscribe(event)
 
     suspend fun unsubscribe(subscriptionId: String) = client.unsubscribe(subscriptionId)
@@ -101,11 +133,17 @@ class TrueNASApiManager(
     suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
         ensureFreshSession()
         var result = client.callWithResult<T>(method, params, resultType)
-        if (isAuthError(result) && recoverSession()) {
+        if (isAuthenticationError(result) && allowsRequestRetry(recoverSession())) {
             result = client.callWithResult<T>(method, params, resultType)
         }
         return result
     }
+
+    internal suspend fun <T> callWithResultWithoutRecovery(
+        method: String,
+        params: List<Any?>,
+        resultType: Type
+    ): ApiResult<T> = client.callWithResult(method, params, resultType)
 
     /** Proactively refreshes a near-expiry token so most calls never hit a 401. */
     private suspend fun ensureFreshSession() {
@@ -123,27 +161,23 @@ class TrueNASApiManager(
      * arrives after a successful refresh simply reuses the newly stored token instead of
      * re-authenticating (the dedupe fix).
      */
-    private suspend fun recoverSession(): Boolean {
+    private suspend fun recoverSession(): SessionProvider.RecoveryResult {
         recoveryMutex.withLock {
-            val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext) ?: return false
+            val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext)
+                ?: return SessionProvider.RecoveryResult.Unauthenticated
             // Another caller already refreshed a still-valid token while we waited for the lock.
-            if (!snapshot.isExpiringSoon(safetyFraction = 1f)) return true
+            if (!snapshot.isExpiringSoon(safetyFraction = 1f)) {
+                return SessionProvider.RecoveryResult.Recovered
+            }
             return recoverSessionLocked(snapshot)
         }
     }
 
-    private suspend fun recoverSessionLocked(snapshot: MultiAccountPrefs.SessionSnapshot): Boolean =
+    private suspend fun recoverSessionLocked(
+        snapshot: MultiAccountPrefs.SessionSnapshot
+    ): SessionProvider.RecoveryResult =
         SessionProvider.recover(applicationContext, this, snapshot.serverId, snapshot.accountId)
 
-    private fun isAuthError(result: ApiResult<*>): Boolean {
-        if (result !is ApiResult.Error) return false
-        if (result.throwable is TrueNASRpcException) {
-            val code = (result.throwable as TrueNASRpcException).code
-            if (code == 207 || code == -32001) return true
-        }
-        val msg = result.message.lowercase()
-        return msg.contains("enotauthenticated") || msg.contains("invalid session")
-    }
     suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
         return client.downloadFile(urlPath, outputStream)
     }

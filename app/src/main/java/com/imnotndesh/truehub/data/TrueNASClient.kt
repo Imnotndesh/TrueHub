@@ -110,6 +110,10 @@ class TrueNASClient(private val config: ClientConfig) {
                     super.onClosed(webSocket, code, reason)
                     _connectionState.value = ConnectionState.Disconnected
                     TrueHubLogger.e(logName,"Connection closed: $code - $reason")
+
+                    val error = RuntimeException("Connection closed: $code - $reason")
+                    pendingRequests.values.forEach { it.completeExceptionally(error) }
+                    pendingRequests.clear()
                 }
             })
 

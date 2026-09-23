@@ -177,13 +177,21 @@ class SettingsScreenViewModel(
 
         viewModelScope.launch {
             try {
-                val (_, accountId) = MultiAccountPrefs.getLastUsedProfile(application)?: Pair(null,null)
-                MultiAccountPrefs.clearCurrentSession(application)
-                if (accountId != null) {
-                    MultiAccountPrefs.deleteAccount(application, accountId)
+                try {
+                    manager?.auth?.logoutUserWithResult()
+                } catch (_: Exception) {
                 }
 
-                // Disconnect manager
+                val lastUsedProfile = MultiAccountPrefs.getLastUsedProfile(application)
+                val currentSession = MultiAccountPrefs.getCurrentSession(application)
+                val accountId = currentSession?.second ?: lastUsedProfile?.second
+                MultiAccountPrefs.clearCurrentSession(application)
+                if (accountId != null) {
+                    MultiAccountPrefs.clearAccountToken(application, accountId)
+                    MultiAccountPrefs.clearLastUsedProfile(application, accountId)
+                    MultiAccountPrefs.deleteAccount(application, accountId)
+                }
+                EncryptedPrefs.clearLegacyAuth(application)
                 manager?.disconnect()
 
                 _uiState.value = _uiState.value.copy(

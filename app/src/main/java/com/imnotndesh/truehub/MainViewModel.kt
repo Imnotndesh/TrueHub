@@ -7,10 +7,11 @@ import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
-import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.ConnectionState
+import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
-import com.imnotndesh.truehub.data.helpers.SessionHolder
+import com.imnotndesh.truehub.data.helpers.SessionCoordinator
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
@@ -18,16 +19,18 @@ import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.Auth
 import com.imnotndesh.truehub.data.models.LoginExResult
 import com.imnotndesh.truehub.data.models.LoginMechanisms
-import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.data.workers.AppsRefreshWorker
 import com.imnotndesh.truehub.ui.Screen
 import com.imnotndesh.truehub.ui.utils.AppCache
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
@@ -46,7 +49,9 @@ sealed class AppState {
 enum class TotpResult { OTP_REQUIRED, SUCCESS }
 
 @HiltViewModel
-class MainViewModel @Inject constructor() : ViewModel() {
+class MainViewModel @Inject constructor(
+    private val sessionCoordinator: SessionCoordinator
+) : ViewModel() {
 
     private val _appState = MutableStateFlow<AppState>(AppState.Initializing)
     val appState: StateFlow<AppState> = _appState.asStateFlow()
@@ -58,7 +63,9 @@ class MainViewModel @Inject constructor() : ViewModel() {
     private val _currentUserKey = MutableStateFlow<String?>(null)
     val currentUserKey: StateFlow<String?> = _currentUserKey.asStateFlow()
 
-    private var hasInitialized = false
+    private var initializationJob: Job? = null
+    private var connectivityRecoveryJob: Job? = null
+    private var periodicPingJob: Job? = null
     private val _pendingNavigation = MutableStateFlow<String?>(null)
     val pendingNavigation: StateFlow<String?> = _pendingNavigation.asStateFlow()
 
@@ -84,58 +91,75 @@ class MainViewModel @Inject constructor() : ViewModel() {
         }
     }
     fun initializeApp(context: Context) {
-        if (hasInitialized) return
-        hasInitialized = true
-        viewModelScope.launch {
+        val applicationContext = context.applicationContext
+        startConnectivityRecovery(applicationContext)
+        if (initializationJob?.isActive == true) return
+        initializationJob = viewModelScope.launch {
             try {
                 _appState.value = AppState.Initializing
-                val networkUtils = NetworkConnectivityObserver(context)
+                val networkUtils = NetworkConnectivityObserver(applicationContext)
                 if (!networkUtils.isNetworkAvailable()) {
                     _appState.value = AppState.NoInternet
                     return@launch
                 }
 
-                val hasSavedAccounts = MultiAccountPrefs.getAccounts(context).isNotEmpty()
+                val hasSavedAccounts = MultiAccountPrefs.getAccounts(applicationContext).isNotEmpty()
 
                 if (hasSavedAccounts) {
                     _appState.value = AppState.ValidatingToken
 
-                    val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: run {
+                    val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(applicationContext) ?: run {
                         _appState.value = AppState.Ready(Screen.AccountSwitcher.route)
                         return@launch
                     }
 
-                    val server = MultiAccountPrefs.getServer(context, serverId)
-                    val account = MultiAccountPrefs.getAccount(context, accountId)
-                    val token = MultiAccountPrefs.getTokenForLastUsed(context)
+                    val server = MultiAccountPrefs.getServer(applicationContext, serverId)
+                    val account = MultiAccountPrefs.getAccount(applicationContext, accountId)
 
                     if (server != null && account != null) {
+                        if (!account.autoLoginEnabled) {
+                            _appState.value = AppState.Ready(Screen.AccountSwitcher.route)
+                            return@launch
+                        }
+                        val token = MultiAccountPrefs.getTokenForLastUsed(applicationContext)
                         var manager: TrueNASApiManager? = null
 
                         // Phase 1: try saved token
                         if (token != null) {
-                            manager = attemptLoginWithToken(context, server, account, token)
+                            manager = attemptLoginWithToken(applicationContext, server, account, token)
                             if (manager != null) {
                                 _manager.value = manager
-                                SessionHolder.current = manager
-                                setActiveUser(context, accountId)
+                                sessionCoordinator.publishAuthenticated(
+                                    manager,
+                                    server.id,
+                                    account.id,
+                                    tokenPersisted = true
+                                )
+                                setActiveUser(applicationContext, accountId)
                                 _appState.value = AppState.Ready(Screen.Main.route)
                                 return@launch
                             }
                         }
 
                         // Phase 2: token failed or missing — try loginEx with saved password
-                        val totpManager = attemptTotpAutoLogin(context, server, account)
+                        val totpManager = attemptTotpAutoLogin(applicationContext, server, account)
                         if (totpManager != null) {
                             when (totpManager.second) {
                                 TotpResult.OTP_REQUIRED -> {
+                                    _manager.value = totpManager.first
+                                    sessionCoordinator.publishPending(totpManager.first)
                                     _appState.value = AppState.TotpRequired(account.username)
                                     return@launch
                                 }
                                 TotpResult.SUCCESS -> {
                                     _manager.value = totpManager.first
-                                    SessionHolder.current = totpManager.first
-                                    setActiveUser(context, accountId)
+                                    sessionCoordinator.publishAuthenticated(
+                                        totpManager.first,
+                                        server.id,
+                                        account.id,
+                                        tokenPersisted = true
+                                    )
+                                    setActiveUser(applicationContext, accountId)
                                     _appState.value = AppState.Ready(Screen.Main.route)
                                     return@launch
                                 }
@@ -148,34 +172,118 @@ class MainViewModel @Inject constructor() : ViewModel() {
                     _appState.value = AppState.Ready(Screen.Login.route)
                 }
 
-            } catch (e: Exception) {
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
                 _appState.value = AppState.Error(
-                    "Initialization failed: ${e.message}",
+                    "Initialization failed: ${error.message}",
                     Screen.Login.route
                 )
             }
         }
     }
 
+    private fun startConnectivityRecovery(context: Context) {
+        if (connectivityRecoveryJob != null) return
+        val observer = NetworkConnectivityObserver(context)
+        connectivityRecoveryJob = viewModelScope.launch {
+            try {
+                observer.observe().collect { state ->
+                    when (state) {
+                        ConnectionState.Connected,
+                        ConnectionState.Connecting -> recoverActiveSession(context)
+                        else -> Unit
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private suspend fun recoverActiveSession(context: Context) {
+        val currentManager = sessionCoordinator.currentAuthenticatedManager ?: return
+        try {
+            if (!currentManager.isConnected() && !currentManager.ensureConnected()) return
+            if (_manager.value !== currentManager) return
+
+            val snapshot = MultiAccountPrefs.getSessionSnapshot(context) ?: return
+            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return
+            if (snapshot.serverId != serverId || snapshot.accountId != accountId) return
+
+            currentManager.recoverAfterDisconnect()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+        }
+    }
+
     fun updateManager(newManager: TrueNASApiManager) {
         _manager.value = newManager
-        SessionHolder.current = newManager
+        sessionCoordinator.publishPending(newManager)
     }
+
+    suspend fun activateSession(context: Context) {
+        val currentManager = _manager.value ?: return
+        val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return
+        val snapshot = MultiAccountPrefs.getSessionSnapshot(context)
+        val tokenPersisted = EncryptedPrefs.getAuthToken(context) != null ||
+            snapshot?.let { it.serverId == serverId && it.accountId == accountId } == true
+        sessionCoordinator.publishAuthenticated(
+            currentManager,
+            serverId,
+            accountId,
+            tokenPersisted
+        )
+    }
+
+    fun clearSession() {
+        sessionCoordinator.clear()
+        _manager.value = null
+        _currentUserKey.value = null
+        periodicPingJob?.cancel()
+        periodicPingJob = null
+        clearPendingNavigation()
+    }
+
+    suspend fun replaceManager(
+        newManager: TrueNASApiManager,
+        serverId: String,
+        accountId: String,
+        tokenPersisted: Boolean
+    ) {
+        val previousManager = _manager.value
+        if (previousManager != null && previousManager !== newManager) {
+            previousManager.disconnect()
+        }
+        _manager.value = newManager
+        sessionCoordinator.publishAuthenticated(
+            newManager,
+            serverId,
+            accountId,
+            tokenPersisted
+        )
+    }
+
     fun startPeriodicAppSync(context: Context) {
         AppsRefreshWorker.scheduleRecurring(context)
         AppsRefreshWorker.scheduleImmediate(context)
     }
 
     fun startPeriodicPing(context: Context) {
-        viewModelScope.launch {
-            while (true) {
+        periodicPingJob?.cancel()
+        val currentManager = _manager.value ?: return
+        val applicationContext = context.applicationContext
+        periodicPingJob = viewModelScope.launch {
+            while (isActive) {
+                if (_manager.value !== currentManager || !currentManager.isConnected()) break
                 try {
-                    val authToken = MultiAccountPrefs.getTokenForLastUsed(context)
-                    val currentManager = _manager.value
-
-                    if (authToken != null && currentManager?.isConnected() == true) {
+                    if (MultiAccountPrefs.getTokenForLastUsed(applicationContext) != null) {
                         currentManager.connection.pingConnectionWithResult()
                     }
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (_: Exception) {
                 }
                 delay(30000.milliseconds)
@@ -193,8 +301,21 @@ class MainViewModel @Inject constructor() : ViewModel() {
                 setActiveUser(context, account.id)
                 outcome.manager
             }
+            is SessionProvider.OpenResult.TemporaryAuthenticated -> {
+                setActiveUser(context, account.id)
+                outcome.manager
+            }
             else -> null
         }
+    }
+
+    suspend fun isTokenPersisted(
+        context: Context,
+        serverId: String,
+        accountId: String
+    ): Boolean {
+        val snapshot = MultiAccountPrefs.getSessionSnapshot(context) ?: return false
+        return snapshot.serverId == serverId && snapshot.accountId == accountId
     }
 
     /**
@@ -234,11 +355,8 @@ class MainViewModel @Inject constructor() : ViewModel() {
                 val result = manager.auth.loginEx(mechanism, includeUserInfo = true)
 
                 when {
-                    result is ApiResult.Success && result.data is LoginExResult.AuthRespOTPRequired -> {
-                        _manager.value = manager
-                                SessionHolder.current = manager
+                    result is ApiResult.Success && result.data is LoginExResult.AuthRespOTPRequired ->
                         Pair(manager, TotpResult.OTP_REQUIRED)
-                    }
                     result is ApiResult.Success && result.data is LoginExResult.AuthRespSuccess -> {
                         // loginEx succeeded directly — generate token and save
                         val tokenResult = manager.auth.generateTokenWithResult(
@@ -254,8 +372,6 @@ class MainViewModel @Inject constructor() : ViewModel() {
                                 context, account.id, account.loginMethod,
                                 username = cred1, password = cred2
                             )
-                            _manager.value = manager
-                                SessionHolder.current = manager
                             Pair(manager, TotpResult.SUCCESS)
                         } else null
                     }
@@ -274,39 +390,42 @@ class MainViewModel @Inject constructor() : ViewModel() {
         token: String
     ): TrueNASApiManager? {
         return withTimeoutOrNull(10000.milliseconds) {
+            val config = ClientConfig(
+                serverUrl = server.serverUrl,
+                insecure = server.insecure,
+                connectionTimeoutMs = 5000,
+                enablePing = true,
+                enableDebugLogging = false
+            )
+            val client = TrueNASClient(config)
+            val manager = TrueNASApiManager(client, context)
+            var keepConnected = false
             try {
-                val config = ClientConfig(
-                    serverUrl = server.serverUrl,
-                    insecure = server.insecure,
-                    connectionTimeoutMs = 5000,
-                    enablePing = true,
-                    enableDebugLogging = false
-                )
-
-                val client = TrueNASClient(config)
-                val manager = TrueNASApiManager(client, context)
-
                 if (!manager.connect()) return@withTimeoutOrNull null
 
                 val tryLogin = manager.auth.loginWithTokenAndResult(token)
-                if (tryLogin is ApiResult.Error) return@withTimeoutOrNull null
+                if (!SessionProvider.isSuccessfulBooleanResult(tryLogin)) {
+                    return@withTimeoutOrNull null
+                }
 
                 val newTokenResult = manager.auth.generateTokenWithResult(
                     Auth.TokenRequest(ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS)
                 )
-                if (newTokenResult is ApiResult.Success) {
-                    MultiAccountPrefs.saveTokenForLastUsed(
-                        context,
-                        newTokenResult.data,
-                        MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
-                    )
-                    manager
-                } else {
-                    null
+                if (newTokenResult !is ApiResult.Success) {
+                    return@withTimeoutOrNull null
                 }
 
+                MultiAccountPrefs.saveTokenForLastUsed(
+                    context,
+                    newTokenResult.data,
+                    MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                )
+                keepConnected = true
+                manager
             } catch (_: Exception) {
                 null
+            } finally {
+                if (!keepConnected) client.disconnect()
             }
         }
     }
