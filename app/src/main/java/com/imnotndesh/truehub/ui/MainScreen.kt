@@ -53,7 +53,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -590,7 +590,7 @@ private fun TrueHubNavGraph(
             )
         }
         composable(Screen.AuditConfigScreen.route) {
-            val vm: AuditConfigViewModel = viewModel(factory = AuditConfigViewModel.AuditConfigViewModelFactory(manager))
+            val vm: AuditConfigViewModel = hiltViewModel()
             AuditConfigScreen(
                 manager = manager,
                 viewModel = vm,
@@ -598,7 +598,7 @@ private fun TrueHubNavGraph(
             )
         }
         composable(Screen.AuditLogsScreen.route) {
-            val vm: AuditLogsViewModel = viewModel(factory = AuditLogsViewModel.AuditLogsViewModelFactory(manager))
+            val vm: AuditLogsViewModel = hiltViewModel()
             AuditLogsScreen(
                 manager = manager,
                 viewModel = vm,
@@ -847,7 +847,7 @@ private fun TrueHubNavGraph(
         ) { backStackEntry ->
             val appName = backStackEntry.arguments?.getString("appName") ?: ""
             val context = LocalContext.current
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             val uiState by appsViewModel.uiState.collectAsState()
 
             LaunchedEffect(appName) {
@@ -868,7 +868,7 @@ private fun TrueHubNavGraph(
 
         composable(Screen.AppDetailsScreen.route) {
             val app = AppDataHolder.selectedApp
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             LaunchedEffect(Unit) {
                 if (appsViewModel.uiState.value.marketplaceApps.isEmpty()) appsViewModel.loadMarketplaceApps()
             }
@@ -932,12 +932,12 @@ private fun TrueHubNavGraph(
             arguments = listOf(navArgument("category") { type = NavType.StringType; defaultValue = ""; nullable = true })
         ) { backStackEntry ->
             val category = backStackEntry.arguments?.getString("category")?.takeIf { it.isNotBlank() }
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             MarketplaceScreen(manager = manager, initialCategory = category, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
         composable(Screen.Marketplace.route) {
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             MarketplaceScreen(manager = manager, onNavigateBack = { navController.popBackStack() }, onMarketplaceApplicationClicked = { app -> AppDataHolder.selectedMarketplaceApp = app; navController.navigate("marketplace_app_details") }, onInstallApplication = { app -> appsViewModel.loadCatalogAppDetails(app.name, app.train); navController.navigate(Screen.CatalogInstall.createRoute(app.name, app.train)) })
         }
 
@@ -948,7 +948,7 @@ private fun TrueHubNavGraph(
         ) { backStackEntry ->
             val appName = backStackEntry.arguments?.getString("appName") ?: ""
             val context = LocalContext.current
-            val viewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val viewModel: AppsScreenViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
             LaunchedEffect(appName) { viewModel.clearUpgradeSummary(); viewModel.loadUpgradeSummary(appName) }
             val currentApp = uiState.apps.find { it.name == appName }
@@ -978,7 +978,7 @@ private fun TrueHubNavGraph(
         }
 
         composable(Screen.MarketplaceAppDetails.route) {
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             val app = AppDataHolder.selectedMarketplaceApp
             if (app != null) {
                 MarketplaceAppDetailsScreen(app = app, onNavigateBack = { navController.popBackStack() }, manager = manager, onInstallClick = { appName, train -> appsViewModel.loadCatalogAppDetails(appName, train); navController.navigate(Screen.CatalogInstall.createRoute(appName,train)) })
@@ -986,7 +986,7 @@ private fun TrueHubNavGraph(
         }
 
         composable(route = Screen.CatalogInstall.route, arguments = listOf(navArgument("appName") { type = NavType.StringType }, navArgument("train") { type = NavType.StringType })) { backStackEntry ->
-            val appsViewModel: AppsScreenViewModel = viewModel(factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager))
+            val appsViewModel: AppsScreenViewModel = hiltViewModel()
             val appName = backStackEntry.arguments?.getString("appName") ?: ""
             val train = backStackEntry.arguments?.getString("train") ?: ""
             MarketplaceAppInstallScreen(appName = appName, train = train, viewModel = appsViewModel, manager = manager, onBack = { navController.popBackStack() }, onInstallSuccess = { navController.popBackStack() })

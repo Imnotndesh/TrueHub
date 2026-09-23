@@ -56,7 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
@@ -86,9 +86,7 @@ fun AppConfigScreen(
     appValues: AppConfigPageValues,
     onNavigateBack: () -> Unit
 ) {
-    val viewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val viewModel: AppsScreenViewModel = hiltViewModel()
     val configState by viewModel.appConfigState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()

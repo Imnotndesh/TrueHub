@@ -50,7 +50,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System.formatDate
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -62,9 +62,7 @@ fun ApiKeyDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: ApiKeyViewModel = viewModel(
-        factory = ApiKeyViewModel.ApiKeyViewModelFactory(manager), key = keyId.toString()
-    )
+    val vm: ApiKeyViewModel = hiltViewModel(key = keyId.toString())
     val uiState by vm.detailState.collectAsState()
     val clipboard = LocalClipboardManager.current
     var showDeleteDialog by remember { mutableStateOf(false) }

@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.audit
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -25,7 +26,10 @@ data class AuditConfigUiState(
     val error: String? = null
 )
 
-class AuditConfigViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class AuditConfigViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuditConfigUiState())
     val uiState: StateFlow<AuditConfigUiState> = _uiState.asStateFlow()
@@ -99,14 +103,5 @@ class AuditConfigViewModel(private val manager: TrueNASApiManager) : ViewModel()
 
     fun clearSaveResult() {
         _uiState.update { it.copy(saveResult = null) }
-    }
-
-    class AuditConfigViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return AuditConfigViewModel(manager) as T
-        }
     }
 }

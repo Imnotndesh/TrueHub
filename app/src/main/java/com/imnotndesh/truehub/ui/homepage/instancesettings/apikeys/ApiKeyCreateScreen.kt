@@ -39,7 +39,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -49,9 +49,7 @@ fun ApiKeyCreateScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: ApiKeyViewModel = viewModel(
-        factory = ApiKeyViewModel.ApiKeyViewModelFactory(manager)
-    )
+    val vm: ApiKeyViewModel = hiltViewModel()
     val uiState by vm.createState.collectAsState()
     val clipboard = LocalClipboardManager.current
 

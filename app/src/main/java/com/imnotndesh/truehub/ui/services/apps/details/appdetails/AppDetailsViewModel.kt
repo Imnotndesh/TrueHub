@@ -2,10 +2,9 @@ package com.imnotndesh.truehub.ui.services.apps.details.appdetails
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
@@ -17,7 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class AppDetailsViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _similarApps = MutableStateFlow<List<Apps.AppSimilarResponse>>(emptyList())
     val similarApps: StateFlow<List<Apps.AppSimilarResponse>> = _similarApps
@@ -98,14 +100,5 @@ class AppDetailsViewModel(private val manager: TrueNASApiManager) : ViewModel() 
     companion object {
         private const val STATE_POLL_ATTEMPTS = 30
         private const val STATE_POLL_INTERVAL_MS = 2000L
-
-        /**
-         * Returns a Factory that injects the TrueNASApiManager.
-         */
-        fun provideFactory(manager: TrueNASApiManager): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                AppDetailsViewModel(manager)
-            }
-        }
     }
 }

@@ -69,7 +69,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobState
 import com.imnotndesh.truehub.data.models.Storage
@@ -92,9 +92,7 @@ fun PoolDetailsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToFiles: (String) -> Unit
 ) {
-    val viewModel: PoolDetailsViewModel = viewModel(
-        factory = PoolDetailsViewModel.PoolDetailsViewModelFactory(manager)
-    )
+    val viewModel: PoolDetailsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var isLoading by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }

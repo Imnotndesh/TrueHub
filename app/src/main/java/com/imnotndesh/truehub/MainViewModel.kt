@@ -2,12 +2,15 @@ package com.imnotndesh.truehub
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.SessionHolder
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
@@ -42,7 +45,8 @@ sealed class AppState {
 
 enum class TotpResult { OTP_REQUIRED, SUCCESS }
 
-class MainViewModel : ViewModel() {
+@HiltViewModel
+class MainViewModel @Inject constructor() : ViewModel() {
 
     private val _appState = MutableStateFlow<AppState>(AppState.Initializing)
     val appState: StateFlow<AppState> = _appState.asStateFlow()
@@ -113,6 +117,7 @@ class MainViewModel : ViewModel() {
                             manager = attemptLoginWithToken(context, server, account, token)
                             if (manager != null) {
                                 _manager.value = manager
+                                SessionHolder.current = manager
                                 setActiveUser(context, accountId)
                                 _appState.value = AppState.Ready(Screen.Main.route)
                                 return@launch
@@ -129,6 +134,7 @@ class MainViewModel : ViewModel() {
                                 }
                                 TotpResult.SUCCESS -> {
                                     _manager.value = totpManager.first
+                                    SessionHolder.current = totpManager.first
                                     setActiveUser(context, accountId)
                                     _appState.value = AppState.Ready(Screen.Main.route)
                                     return@launch
@@ -153,6 +159,7 @@ class MainViewModel : ViewModel() {
 
     fun updateManager(newManager: TrueNASApiManager) {
         _manager.value = newManager
+        SessionHolder.current = newManager
     }
     fun startPeriodicAppSync(context: Context) {
         AppsRefreshWorker.scheduleRecurring(context)
@@ -229,6 +236,7 @@ class MainViewModel : ViewModel() {
                 when {
                     result is ApiResult.Success && result.data is LoginExResult.AuthRespOTPRequired -> {
                         _manager.value = manager
+                                SessionHolder.current = manager
                         Pair(manager, TotpResult.OTP_REQUIRED)
                     }
                     result is ApiResult.Success && result.data is LoginExResult.AuthRespSuccess -> {
@@ -247,6 +255,7 @@ class MainViewModel : ViewModel() {
                                 username = cred1, password = cred2
                             )
                             _manager.value = manager
+                                SessionHolder.current = manager
                             Pair(manager, TotpResult.SUCCESS)
                         } else null
                     }

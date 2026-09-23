@@ -3,8 +3,9 @@ package com.imnotndesh.truehub.ui.homepage.dataset
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
@@ -14,7 +15,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class DatasetExplorerViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class DatasetExplorerViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     sealed class UiState {
         object Loading : UiState()
@@ -172,12 +176,5 @@ class DatasetExplorerViewModel(private val manager: TrueNASApiManager) : ViewMod
 
     fun selectNode(dataset: Storage.ZfsDataset) {
         _selectedDataset.value = dataset
-    }
-
-    class Factory(private val manager: TrueNASApiManager) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return DatasetExplorerViewModel(manager) as T
-        }
     }
 }

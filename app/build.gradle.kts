@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.hilt)
 }
 
 fun versionCodeFrom(versionName: String): Int {
@@ -95,6 +96,11 @@ android {
 dependencies {
     implementation(libs.androidx.appfunctions)
     ksp(libs.androidx.appfunctions.compiler)
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    ksp(libs.androidx.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
     implementation(libs.androidx.compose.material3.window.size.class1)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.runtime.saveable)

@@ -30,7 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
@@ -42,9 +42,7 @@ fun SoftwareInformationScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: SystemInformationViewModel = viewModel(
-        factory = SystemInformationViewModel.ViewModelFactory(manager)
-    )
+    val vm: SystemInformationViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
 
     LaunchedEffect(Unit) { vm.refresh() }

@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -29,7 +30,10 @@ data class HardwareInformationUiState(
     val error: String? = null
 )
 
-class HardwareInformationViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class HardwareInformationViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HardwareInformationUiState())
     val uiState: StateFlow<HardwareInformationUiState> = _uiState.asStateFlow()
@@ -81,14 +85,5 @@ class HardwareInformationViewModel(private val manager: TrueNASApiManager) : Vie
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return HardwareInformationViewModel(manager) as T
-        }
     }
 }

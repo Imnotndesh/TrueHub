@@ -29,7 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -45,7 +45,7 @@ fun CloudSyncFormScreen(
     onNavigateBack: () -> Unit = {},
     onSaved: () -> Unit = {}
 ) {
-    val viewModel: CloudSyncViewModel = viewModel(factory = CloudSyncViewModel.provideFactory(manager))
+    val viewModel: CloudSyncViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     val isEdit = taskId >= 0
 

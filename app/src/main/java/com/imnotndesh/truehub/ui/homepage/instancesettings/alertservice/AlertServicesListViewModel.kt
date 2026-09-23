@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
@@ -19,7 +20,10 @@ data class AlertServicesListUiState(
     val error: String? = null
 )
 
-class AlertServicesListViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class AlertServicesListViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertServicesListUiState())
     val uiState: StateFlow<AlertServicesListUiState> = _uiState.asStateFlow()
@@ -63,12 +67,5 @@ class AlertServicesListViewModel(private val manager: TrueNASApiManager) : ViewM
                 is ApiResult.Loading -> { /* no-op */ }
             }
         }
-    }
-
-    class AlertServicesListViewModelFactory(private val manager: TrueNASApiManager) :
-        ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            AlertServicesListViewModel(manager) as T
     }
 }

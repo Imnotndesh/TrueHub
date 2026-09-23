@@ -102,7 +102,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -117,8 +117,7 @@ fun DatasetExplorerScreen(
     poolName: String,
     onNavigateBack: () -> Unit
 ) {
-    val viewModel: DatasetExplorerViewModel =
-        viewModel(factory = DatasetExplorerViewModel.Factory(manager))
+    val viewModel: DatasetExplorerViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val selectedDataset by viewModel.selectedDataset.collectAsState()
 

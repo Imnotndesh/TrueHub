@@ -14,57 +14,32 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
-import com.imnotndesh.truehub.data.helpers.PersonalizationManager
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.imnotndesh.truehub.data.models.AccountProfile
 import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
 import com.imnotndesh.truehub.ui.setup.ServerConfigBottomSheet
-import kotlinx.coroutines.launch
 
 @Composable
 fun AccountSwitcherScreen(
     onAccountSelected: (SavedServer, SavedAccount) -> Unit,
     onAddNewAccount: () -> Unit
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-
-    var profiles by remember { mutableStateOf<List<AccountProfile>>(emptyList()) }
-    var savedServers by remember { mutableStateOf<List<SavedServer>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val viewModel: AccountSwitcherViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf<AccountProfile?>(null) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var showAddMenu by remember { mutableStateOf(false) }
     var showServerPicker by remember { mutableStateOf(false) }
     var showSetupSheet by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        val servers = MultiAccountPrefs.getServers(context)
-        savedServers = servers
-        loadProfiles(context) { loaded ->
-            profiles = loaded
-            isLoading = false
-        }
-    }
-
-    fun reload() {
-        scope.launch {
-            val servers = MultiAccountPrefs.getServers(context)
-            savedServers = servers
-            loadProfiles(context) { loaded ->
-                profiles = loaded
-            }
-        }
-    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -87,17 +62,17 @@ fun AccountSwitcherScreen(
                 )
 
                 Text(
-                    text = if (profiles.isEmpty()) {
+                    text = if (uiState.profiles.isEmpty()) {
                         "No saved accounts yet"
                     } else {
-                        "${profiles.size} saved account${if (profiles.size != 1) "s" else ""}"
+                        "${uiState.profiles.size} saved account${if (uiState.profiles.size != 1) "s" else ""}"
                     },
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
 
-                if (isLoading) {
+                if (uiState.isLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -114,7 +89,7 @@ fun AccountSwitcherScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         contentPadding = PaddingValues(bottom = 16.dp)
                     ) {
-                        items(profiles) { profile ->
+                        items(uiState.profiles) { profile ->
                             AccountProfileCard(
                                 profile = profile,
                                 onClick = { onAccountSelected(profile.server, profile.account) },
@@ -131,7 +106,7 @@ fun AccountSwitcherScreen(
                         primaryIcon = Icons.Default.Add,
                         onPrimaryClick = {
                             // If multiple saved servers exist, ask the user which server to add an account to.
-                            if (savedServers.size > 1) {
+                            if (uiState.savedServers.size > 1) {
                                 showServerPicker = true
                             } else {
                                 onAddNewAccount()
@@ -150,7 +125,7 @@ fun AccountSwitcherScreen(
                             leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
                             onClick = {
                                 showAddMenu = false
-                                if (savedServers.size > 1) {
+                                if (uiState.savedServers.size > 1) {
                                     showServerPicker = true
                                 } else {
                                     onAddNewAccount()
@@ -192,12 +167,8 @@ fun AccountSwitcherScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            scope.launch {
-                                MultiAccountPrefs.deleteAccount(context, profile.account.id)
-                                PersonalizationManager.deleteForUser(context, profile.account.id)
-                                reload()
-                                showDeleteDialog = null
-                            }
+                            viewModel.deleteAccount(profile.account.id)
+                            showDeleteDialog = null
                         }
                     ) {
                         Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -223,14 +194,7 @@ fun AccountSwitcherScreen(
                     TextButton(
                         onClick = {
                             showDeleteAllDialog = false
-                            scope.launch {
-                                val accounts = MultiAccountPrefs.getAccounts(context)
-                                accounts.forEach { account ->
-                                    MultiAccountPrefs.deleteAccount(context, account.id)
-                                    PersonalizationManager.deleteForUser(context, account.id)
-                                }
-                                reload()
-                            }
+                            viewModel.deleteAllAccounts()
                         }
                     ) {
                         Text("Delete All", color = MaterialTheme.colorScheme.error)
@@ -247,7 +211,7 @@ fun AccountSwitcherScreen(
         // ── Server picker for adding an account ────────────────
         if (showServerPicker) {
             ServerPickerDialog(
-                servers = savedServers,
+                servers = uiState.savedServers,
                 onDismiss = { showServerPicker = false },
                 onSelect = { server ->
                     showServerPicker = false
@@ -261,14 +225,7 @@ fun AccountSwitcherScreen(
             ServerConfigBottomSheet(
                 onDismiss = { showSetupSheet = false },
                 onConfigured = { url, insecure ->
-                    scope.launch {
-                        val server = SavedServer(
-                            serverUrl = url,
-                            insecure = insecure
-                        )
-                        MultiAccountPrefs.saveServer(context, server)
-                        reload()
-                    }
+                    viewModel.saveNewServer(url, insecure)
                     showSetupSheet = false
                 }
             )
@@ -536,21 +493,4 @@ private fun AccountProfileCard(
             }
         }
     }
-}
-
-private suspend fun loadProfiles(
-    context: android.content.Context,
-    onLoaded: (List<AccountProfile>) -> Unit
-) {
-    val servers = MultiAccountPrefs.getServers(context)
-    val accounts = MultiAccountPrefs.getAccounts(context)
-
-    val profiles = accounts.mapNotNull { account ->
-        val server = servers.find { it.id == account.serverId }
-        if (server != null) {
-            AccountProfile(server, account)
-        } else null
-    }.sortedByDescending { it.account.lastUsed }
-
-    onLoaded(profiles)
 }

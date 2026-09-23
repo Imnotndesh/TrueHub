@@ -53,7 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -66,9 +66,7 @@ fun GeneralSystemSettingsEditScreen(
     onNavigateBack: () -> Unit = {},
     onCheckinNavigateBack: () -> Unit = {}
 ) {
-    val vm: GeneralSystemSettingsViewModel = viewModel(
-        factory = GeneralSystemSettingsViewModel.ViewModelFactory(manager)
-    )
+    val vm: GeneralSystemSettingsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 

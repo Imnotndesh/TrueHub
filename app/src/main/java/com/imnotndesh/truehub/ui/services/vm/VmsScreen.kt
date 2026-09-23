@@ -83,7 +83,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Vm
@@ -106,9 +106,7 @@ fun VmsScreen(
     manager: TrueNASApiManager,
     onNavigateToVmInfo: (Vm.VmQueryResponse) -> Unit = {},
     onSearchClick: (() -> Unit)? = null,
-    viewModel: VmsScreenViewModel = viewModel(
-        factory = VmsScreenViewModel.VmViewModelFactory(manager)
-    )
+    viewModel: VmsScreenViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadVms()

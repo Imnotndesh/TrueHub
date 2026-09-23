@@ -75,7 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
@@ -102,13 +102,9 @@ fun MarketplaceAppDetailsScreen(
 ) {
     val context = LocalContext.current
 
-    val appsViewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val appsViewModel: AppsScreenViewModel = hiltViewModel()
     var activeScreenshotIndex by remember { mutableStateOf<Int?>(null) }
-    val appDetailsViewModel: AppDetailsViewModel = viewModel(
-        factory = AppDetailsViewModel.provideFactory(manager)
-    )
+    val appDetailsViewModel: AppDetailsViewModel = hiltViewModel()
 
     val deletionJobId by appDetailsViewModel.deletionJobId.collectAsStateWithLifecycle()
     val activeJobs by JobRepository.activeJobs.collectAsStateWithLifecycle()

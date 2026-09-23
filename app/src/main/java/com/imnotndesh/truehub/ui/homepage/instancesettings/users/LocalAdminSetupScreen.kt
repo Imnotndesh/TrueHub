@@ -40,7 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
@@ -49,9 +49,7 @@ fun LocalAdminSetupScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: UserSettingsViewModel = viewModel(
-        factory = UserSettingsViewModel.UserSettingsViewModelFactory(manager)
-    )
+    val viewModel: UserSettingsViewModel = hiltViewModel()
     val uiState by viewModel.createState.collectAsState()
 
     var username by remember { mutableStateOf("truenas_admin") }
