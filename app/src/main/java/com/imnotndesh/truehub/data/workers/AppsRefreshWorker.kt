@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.data.workers
 
 import android.content.Context
+import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -16,6 +17,7 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.WorkerSession
+import com.imnotndesh.truehub.data.helpers.WorkerSession.profileIds
 import com.imnotndesh.truehub.data.helpers.QuickLaunchSync
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.WidgetDataStore
@@ -24,8 +26,12 @@ import com.imnotndesh.truehub.data.workers.AppsRefreshWorker.Companion.scheduleR
 import com.imnotndesh.truehub.ui.utils.AppCache
 import com.imnotndesh.truehub.ui.widgets.AppsUpdateWidgetUpdater
 import com.imnotndesh.truehub.ui.widgets.pools.PoolsWidgetUpdater
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
@@ -39,9 +45,10 @@ import java.util.concurrent.TimeUnit
  * [WidgetDataStore.saveAppsAndPools], and [PoolsWidgetUpdater.update] is
  * called so the pools widget refreshes alongside the apps widget.
  */
-class AppsRefreshWorker(
-    private val context: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class AppsRefreshWorker @AssistedInject constructor(
+    @Assisted private val context: Context,
+    @Assisted workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
@@ -49,36 +56,48 @@ class AppsRefreshWorker(
         const val ONE_TIME_WORK_NAME = "TrueHub_Apps_Refresh_Once"
 
         fun scheduleRecurring(context: Context) {
-            val request = PeriodicWorkRequestBuilder<AppsRefreshWorker>(3, TimeUnit.HOURS)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
-                .build()
+            val applicationContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                val requestBuilder = PeriodicWorkRequestBuilder<AppsRefreshWorker>(3, TimeUnit.HOURS)
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+                    )
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
+                MultiAccountPrefs.getLastUsedProfile(applicationContext)?.let { (serverId, accountId) ->
+                    requestBuilder.setInputData(WorkerSession.profileInputData(serverId, accountId))
+                }
+                val request = requestBuilder.build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+                WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                    WORK_NAME,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    request
+                )
+            }
         }
 
         fun scheduleImmediate(context: Context) {
-            val request = OneTimeWorkRequestBuilder<AppsRefreshWorker>()
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
-                .build()
+            val applicationContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                val requestBuilder = OneTimeWorkRequestBuilder<AppsRefreshWorker>()
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+                    )
+                MultiAccountPrefs.getLastUsedProfile(applicationContext)?.let { (serverId, accountId) ->
+                    requestBuilder.setInputData(WorkerSession.profileInputData(serverId, accountId))
+                }
+                val request = requestBuilder.build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                ONE_TIME_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                request
-            )
+                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                    ONE_TIME_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    request
+                )
+            }
         }
     }
 
@@ -88,8 +107,15 @@ class AppsRefreshWorker(
             val servers = MultiAccountPrefs.getServers(context)
             if (servers.isEmpty()) return@withContext Result.success()
 
+            val profileIds = inputData.profileIds()
             val manager: TrueNASApiManager
-            when (val session = WorkerSession.open(context)) {
+            when (
+                val session = WorkerSession.open(
+                    context,
+                    profileIds?.first,
+                    profileIds?.second
+                )
+            ) {
                 is WorkerSession.Result.Ready -> {
                     manager = session.manager
                     client = session.client

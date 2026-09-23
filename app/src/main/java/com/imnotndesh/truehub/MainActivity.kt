@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -234,6 +235,7 @@ private fun AppNavigation(
     totpUsername: String? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val pendingNav by viewModel.pendingNavigation.collectAsState()
     val personalization by PersonalizationManager.state.collectAsState()
     val userKey by viewModel.currentUserKey.collectAsState()
@@ -275,14 +277,17 @@ private fun AppNavigation(
                     viewModel.updateManager(newManager)
                 },
                 onLoginSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                        launchSingleTop = true
-                        anim {
-                            enter = 0
-                            exit = 0
-                            popEnter = 0
-                            popExit = 0
+                    (context as? ComponentActivity)?.lifecycleScope?.launch {
+                        viewModel.activateSession(context)
+                        navController.navigate(Screen.Main.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                            anim {
+                                enter = 0
+                                exit = 0
+                                popEnter = 0
+                                popExit = 0
+                            }
                         }
                     }
                 },
@@ -297,9 +302,14 @@ private fun AppNavigation(
                     (context as? ComponentActivity)?.lifecycleScope?.launch {
                         val loginManager = viewModel.attemptLoginWithProfile(context, server, account)
                         if (loginManager != null) {
-                            viewModel.updateManager(loginManager)
+                            viewModel.replaceManager(
+                                loginManager,
+                                server.id,
+                                account.id,
+                                viewModel.isTokenPersisted(context, server.id, account.id)
+                            )
                             navController.navigate(Screen.Main.route) {
-                                popUpTo(Screen.AccountSwitcher.route) { inclusive = true }
+                                popUpTo(Screen.Main.route) { inclusive = true }
                             }
                         } else {
                             ToastManager.showError("Failed to login with saved account")
@@ -357,6 +367,12 @@ private fun AppNavigation(
                 onNavigateToLogin = {
                     navController.navigate(Screen.AccountSwitcher.route) {
                         popUpTo(Screen.Settings.route) { inclusive = true }
+                    }
+                },
+                onSignOutComplete = {
+                    viewModel.clearSession()
+                    navController.navigate(Screen.AccountSwitcher.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
                     }
                 },
                 onNavigateToChangePassword = {

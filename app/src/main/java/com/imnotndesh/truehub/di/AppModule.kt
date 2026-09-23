@@ -1,7 +1,7 @@
 package com.imnotndesh.truehub.di
 
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
-import com.imnotndesh.truehub.data.helpers.SessionHolder
+import com.imnotndesh.truehub.data.helpers.SessionCoordinator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,6 +13,6 @@ object AppModule {
 
     /** The manager for the active session. Feature ViewModels are only built post-login. */
     @Provides
-    fun provideTrueNASApiManager(): TrueNASApiManager =
-        SessionHolder.current ?: error("No active TrueNAS session")
+    fun provideTrueNASApiManager(sessionCoordinator: SessionCoordinator): TrueNASApiManager =
+        sessionCoordinator.currentAuthenticatedManager ?: error("No authenticated TrueNAS session")
 }

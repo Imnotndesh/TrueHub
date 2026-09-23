@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -24,17 +25,23 @@ import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.WorkerSession
+import com.imnotndesh.truehub.data.helpers.WorkerSession.profileIds
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.dataStore
 import com.imnotndesh.truehub.data.models.System
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-class AlertsWorker(
-    private val context: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class AlertsWorker @AssistedInject constructor(
+    @Assisted private val context: Context,
+    @Assisted workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
@@ -75,27 +82,40 @@ class AlertsWorker(
         }
 
         fun schedule(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+            val applicationContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
 
-            val workRequest = PeriodicWorkRequestBuilder<AlertsWorker>(15, TimeUnit.MINUTES)
-                .setConstraints(constraints)
-                .build()
+                val requestBuilder = PeriodicWorkRequestBuilder<AlertsWorker>(15, TimeUnit.MINUTES)
+                    .setConstraints(constraints)
+                MultiAccountPrefs.getLastUsedProfile(applicationContext)?.let { (serverId, accountId) ->
+                    requestBuilder.setInputData(WorkerSession.profileInputData(serverId, accountId))
+                }
+                val workRequest = requestBuilder.build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
-                workRequest
-            )
+                WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                    WORK_NAME,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    workRequest
+                )
+            }
         }
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         var client: TrueNASClient? = null
         try {
+            val profileIds = inputData.profileIds()
             val manager: TrueNASApiManager
-            when (val session = WorkerSession.open(context)) {
+            when (
+                val session = WorkerSession.open(
+                    context,
+                    profileIds?.first,
+                    profileIds?.second
+                )
+            ) {
                 is WorkerSession.Result.Ready -> {
                     manager = session.manager
                     client = session.client
@@ -118,7 +138,7 @@ class AlertsWorker(
                     val newAlerts = unDismissedAlerts.filter { !seenAlertUuids.contains(it.uuid) }
 
                     if (newAlerts.isNotEmpty()) {
-                        notifyAlerts(newAlerts)
+                        notifyAlerts(newAlerts, profileIds?.first, profileIds?.second)
                     }
 
                     context.dataStore.edit { it[SEEN_ALERTS_KEY] = currentActiveUuids }
@@ -139,7 +159,11 @@ class AlertsWorker(
         }
     }
 
-    private fun notifyAlerts(alerts: List<System.AlertResponse>) {
+    private fun notifyAlerts(
+        alerts: List<System.AlertResponse>,
+        serverId: String?,
+        accountId: String?
+    ) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             Log.w("AlertsWorker", "Skipping alert notification: POST_NOTIFICATIONS not granted")
             return
@@ -170,6 +194,8 @@ class AlertsWorker(
                 action = DismissAlertReceiver.ACTION_DISMISS_ALERT
                 putExtra(DismissAlertReceiver.EXTRA_ALERT_UUID, alert.uuid)
                 putExtra(DismissAlertReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+                putExtra(DismissAlertReceiver.EXTRA_SERVER_ID, serverId)
+                putExtra(DismissAlertReceiver.EXTRA_ACCOUNT_ID, accountId)
             }
             val dismissPendingIntent = PendingIntent.getBroadcast(
                 context,

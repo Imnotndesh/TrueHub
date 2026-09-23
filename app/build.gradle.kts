@@ -101,6 +101,7 @@ dependencies {
     ksp(libs.androidx.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.hilt.work)
+    implementation(libs.guava)
     implementation(libs.androidx.compose.material3.window.size.class1)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.runtime.saveable)

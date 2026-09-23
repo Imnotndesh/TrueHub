@@ -91,10 +91,13 @@ class QuickLaunchConfigActivity : ComponentActivity() {
             }
 
             val session = SessionProvider.open(context, server, account)
-            if (session !is SessionProvider.OpenResult.Ready) {
-                isLoading = false; loadError = "Authentication failed"; return@LaunchedEffect
+            val m = when (session) {
+                is SessionProvider.OpenResult.Ready -> session.manager
+                is SessionProvider.OpenResult.TemporaryAuthenticated -> session.manager
+                else -> {
+                    isLoading = false; loadError = "Authentication failed"; return@LaunchedEffect
+                }
             }
-            val m = session.manager
 
             when (val result = m.apps.getInstalledAppsWithResult()) {
                 is ApiResult.Success -> eligibleApps = result.data.filter { !it.portals.isNullOrEmpty() }

@@ -194,8 +194,14 @@ abstract class BaseTrueHubAppFunctionService : AppFunctionService() {
         val server = MultiAccountPrefs.getServer(ctx, serverId) ?: return null
         val account = MultiAccountPrefs.getAccount(ctx, accountId) ?: return null
 
-        return when (val outcome = SessionProvider.open(ctx, server, account)) {
+        return when (val outcome = SessionProvider.open(
+                ctx,
+                server,
+                account,
+                allowCredentialRecovery = account.autoLoginEnabled
+            )) {
             is SessionProvider.OpenResult.Ready -> outcome.manager
+            is SessionProvider.OpenResult.TemporaryAuthenticated -> outcome.manager
             else -> null
         }
     }

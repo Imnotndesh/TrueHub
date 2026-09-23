@@ -2,6 +2,7 @@ package com.imnotndesh.truehub.data.helpers
 
 import android.content.Context
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -70,7 +71,10 @@ object MultiAccountPrefs {
 
     suspend fun deleteServer(context: Context, serverId: String) {
         val servers = getServers(context).filterNot { it.id == serverId }
-        val accounts = getAccounts(context).filterNot { it.serverId == serverId }
+        val allAccounts = getAccounts(context)
+        val deletedAccounts = allAccounts.filter { it.serverId == serverId }
+        val accounts = allAccounts.filterNot { it.serverId == serverId }
+        val currentSession = getCurrentSession(context)
 
         context.multiAccountDataStore.edit { prefs ->
             prefs[SERVERS_KEY] = serversAdapter.toJson(servers)
@@ -78,8 +82,13 @@ object MultiAccountPrefs {
         }
 
         // Clear credentials for deleted accounts
-        accounts.filter { it.serverId == serverId }.forEach { account ->
+        deletedAccounts.forEach { account ->
             clearAccountCredentials(context, account.id)
+            removeAccountToken(context, account.id)
+            clearLastUsedProfile(context, account.id)
+        }
+        if (currentSession?.second?.let { it in deletedAccounts.map { account -> account.id } } == true) {
+            clearCurrentSession(context)
         }
     }
 
@@ -115,12 +124,18 @@ object MultiAccountPrefs {
 
     suspend fun deleteAccount(context: Context, accountId: String) {
         val accounts = getAccounts(context).filterNot { it.id == accountId }
+        val currentSession = getCurrentSession(context)
 
         context.multiAccountDataStore.edit { prefs ->
             prefs[ACCOUNTS_KEY] = accountsAdapter.toJson(accounts)
         }
 
         clearAccountCredentials(context, accountId)
+        removeAccountToken(context, accountId)
+        clearLastUsedProfile(context, accountId)
+        if (currentSession?.second == accountId) {
+            clearCurrentSession(context)
+        }
     }
 
     // Credential Storage (encrypted)
@@ -191,12 +206,33 @@ object MultiAccountPrefs {
         }
     }
 
+    suspend fun activateLastUsedProfileThenSaveCurrentSession(
+        context: Context,
+        serverId: String,
+        accountId: String,
+        token: String,
+        ttlSeconds: Int = LONG_TOKEN_TTL_SECONDS
+    ) {
+        saveLastUsedProfile(context, serverId, accountId)
+        saveCurrentSession(context, serverId, accountId, token, ttlSeconds)
+    }
+
     suspend fun getLastUsedProfile(context: Context): Pair<String, String>? {
         val prefs = context.multiAccountDataStore.data.first()
         val value = prefs[LAST_USED_PROFILE_KEY] ?: return null
         val parts = value.split(":")
         if (parts.size != 2) return null
         return parts[0] to parts[1]
+    }
+
+    suspend fun clearLastUsedProfile(context: Context, accountId: String) {
+        context.multiAccountDataStore.edit { prefs ->
+            val value = prefs[LAST_USED_PROFILE_KEY] ?: return@edit
+            val parts = value.split(":")
+            if (parts.size == 2 && parts[1] == accountId) {
+                prefs.remove(LAST_USED_PROFILE_KEY)
+            }
+        }
     }
 
     suspend fun getTokenForLastUsed(context: Context): String? {
@@ -227,6 +263,48 @@ object MultiAccountPrefs {
     private val TOKEN_ACQUIRED_AT_KEY = stringPreferencesKey("current_token_acquired_at")
     private val TOKEN_TTL_KEY = stringPreferencesKey("current_token_ttl")
 
+    private fun getAccountTokenKey(accountId: String, type: String) =
+        stringPreferencesKey("account_token_${accountId}_$type")
+
+    private fun getAccountTokenEntries(prefs: Preferences, accountId: String): Triple<String, Long, Int>? {
+        val token = prefs[getAccountTokenKey(accountId, "token")] ?: return null
+        val acquiredAt = prefs[getAccountTokenKey(accountId, "acquired_at")]?.toLongOrNull() ?: 0L
+        val ttl = prefs[getAccountTokenKey(accountId, "ttl")]?.toIntOrNull() ?: DEFAULT_TOKEN_TTL_SECONDS
+        return Triple(token, acquiredAt, ttl)
+    }
+
+    private fun writeAccountToken(
+        prefs: MutablePreferences,
+        accountId: String,
+        token: String,
+        acquiredAtEpochMs: Long,
+        ttlSeconds: Int
+    ) {
+        prefs[getAccountTokenKey(accountId, "token")] = token
+        prefs[getAccountTokenKey(accountId, "acquired_at")] = acquiredAtEpochMs.toString()
+        prefs[getAccountTokenKey(accountId, "ttl")] = ttlSeconds.toString()
+    }
+
+    private fun tokenElapsedFraction(acquiredAtEpochMs: Long, ttlSeconds: Int, nowMs: Long): Float {
+        if (ttlSeconds <= 0) return 1f
+        val lifetimeMs = ttlSeconds * 1000L
+        return ((nowMs - acquiredAtEpochMs).toFloat() / lifetimeMs).coerceIn(0f, 2f)
+    }
+
+    data class AccountTokenSnapshot(
+        val accountId: String,
+        val token: String,
+        val acquiredAtEpochMs: Long,
+        val ttlSeconds: Int
+    ) {
+        fun elapsedFraction(nowMs: Long = System.currentTimeMillis()): Float {
+            return tokenElapsedFraction(acquiredAtEpochMs, ttlSeconds, nowMs)
+        }
+
+        fun isExpiringSoon(nowMs: Long = System.currentTimeMillis(), safetyFraction: Float = 0.8f): Boolean =
+            elapsedFraction(nowMs) >= safetyFraction
+    }
+
     /** A persisted session plus the metadata we need to reason about token freshness. */
     data class SessionSnapshot(
         val serverId: String,
@@ -237,14 +315,60 @@ object MultiAccountPrefs {
     ) {
         /** Fraction of the token lifetime already elapsed (1.0 == expired). */
         fun elapsedFraction(nowMs: Long = System.currentTimeMillis()): Float {
-            if (ttlSeconds <= 0) return 1f
-            val lifetimeMs = ttlSeconds * 1000L
-            return ((nowMs - acquiredAtEpochMs).toFloat() / lifetimeMs).coerceIn(0f, 2f)
+            return tokenElapsedFraction(acquiredAtEpochMs, ttlSeconds, nowMs)
         }
 
         /** True once the token is close enough to expiry that we should refresh proactively. */
         fun isExpiringSoon(nowMs: Long = System.currentTimeMillis(), safetyFraction: Float = 0.8f): Boolean =
             elapsedFraction(nowMs) >= safetyFraction
+    }
+
+    suspend fun saveAccountToken(
+        context: Context,
+        accountId: String,
+        token: String,
+        ttlSeconds: Int = DEFAULT_TOKEN_TTL_SECONDS,
+        acquiredAtEpochMs: Long = System.currentTimeMillis()
+    ) {
+        context.dataStore.edit { prefs ->
+            writeAccountToken(prefs, accountId, token, acquiredAtEpochMs, ttlSeconds)
+        }
+    }
+
+    suspend fun getAccountToken(context: Context, accountId: String): AccountTokenSnapshot? {
+        val prefs = context.dataStore.data.first()
+        val (token, acquiredAt, ttl) = getAccountTokenEntries(prefs, accountId) ?: return null
+        return AccountTokenSnapshot(accountId, token, acquiredAt, ttl)
+    }
+
+    suspend fun getAccountTokenSnapshot(context: Context, accountId: String): AccountTokenSnapshot? {
+        return getAccountToken(context, accountId)
+    }
+
+    suspend fun resolveAccountTokenSnapshot(
+        context: Context,
+        serverId: String,
+        accountId: String
+    ): AccountTokenSnapshot? {
+        val account = getAccount(context, accountId) ?: return null
+        if (account.serverId != serverId) return null
+        return getAccountToken(context, accountId)
+    }
+
+    private suspend fun removeAccountTokenEntries(context: Context, accountId: String) {
+        context.dataStore.edit { prefs ->
+            prefs.remove(getAccountTokenKey(accountId, "token"))
+            prefs.remove(getAccountTokenKey(accountId, "acquired_at"))
+            prefs.remove(getAccountTokenKey(accountId, "ttl"))
+        }
+    }
+
+    suspend fun clearAccountToken(context: Context, accountId: String) {
+        removeAccountTokenEntries(context, accountId)
+    }
+
+    suspend fun removeAccountToken(context: Context, accountId: String) {
+        removeAccountTokenEntries(context, accountId)
     }
 
     suspend fun saveCurrentSession(
@@ -254,11 +378,13 @@ object MultiAccountPrefs {
         token: String,
         ttlSeconds: Int = DEFAULT_TOKEN_TTL_SECONDS
     ) {
+        val acquiredAtEpochMs = System.currentTimeMillis()
         context.dataStore.edit { prefs ->
             prefs[CURRENT_SESSION_KEY] = "$serverId:$accountId"
             prefs[CURRENT_TOKEN_KEY] = token
-            prefs[TOKEN_ACQUIRED_AT_KEY] = System.currentTimeMillis().toString()
+            prefs[TOKEN_ACQUIRED_AT_KEY] = acquiredAtEpochMs.toString()
             prefs[TOKEN_TTL_KEY] = ttlSeconds.toString()
+            writeAccountToken(prefs, accountId, token, acquiredAtEpochMs, ttlSeconds)
         }
     }
 

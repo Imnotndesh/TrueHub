@@ -71,6 +71,18 @@ object EncryptedPrefs {
         }
     }
 
+    suspend fun clearLegacyAuth(context: Context) {
+        context.dataStore.edit { prefs ->
+            prefs.remove(stringPreferencesKey(AUTH_TOKEN_PREF))
+            prefs.remove(booleanPreferencesKey(IS_LOGGED_IN))
+            prefs.remove(stringPreferencesKey(LOGIN_METHOD_PREF))
+            prefs.remove(booleanPreferencesKey(AUTO_LOGIN_PREF))
+            prefs.remove(stringPreferencesKey(USERNAME_PREF))
+            prefs.remove(passPref)
+            prefs.remove(stringPreferencesKey(API_KEY_PREF))
+        }
+    }
+
     suspend fun saveAuthToken(context: Context,token:String){
         val tokenPref = stringPreferencesKey(AUTH_TOKEN_PREF)
         context.dataStore.edit {

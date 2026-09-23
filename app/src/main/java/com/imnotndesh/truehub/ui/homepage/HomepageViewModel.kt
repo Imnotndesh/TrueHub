@@ -9,6 +9,7 @@ import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.ToastManager
@@ -187,26 +188,30 @@ class HomeViewModel @Inject constructor(
         } else {
             _uiState.value = HomeUiState.Loading
         }
-        loadDashboardData()
+        loadDashboardData(recoverSession = !apiManager.isConnected() || currentState is HomeUiState.Error)
     }
 
     fun retryLoad() {
         _uiState.value = HomeUiState.Loading
-        loadDashboardData()
+        loadDashboardData(recoverSession = true)
     }
 
     fun clearError() {
         if (_uiState.value is HomeUiState.Error) {
             _uiState.value = HomeUiState.Loading
-            loadDashboardData()
+            loadDashboardData(recoverSession = true)
         }
+    }
+
+    private suspend fun recoverBeforeLoad(): Boolean {
+        return SessionProvider.allowsRefreshAfterRecovery(apiManager.recoverAfterDisconnect())
     }
 
     // ═══════════════════════════════════════════════════════════
     //  Dashboard data load (batched to reduce API pressure)
     // ═══════════════════════════════════════════════════════════
 
-    private fun loadDashboardData() {
+    private fun loadDashboardData(recoverSession: Boolean = false) {
         viewModelScope.launch {
             val cachedSystemInfo = AppCache.cachedSystemInfo.value
             if (cachedSystemInfo != null && _uiState.value !is HomeUiState.Success) {
@@ -225,6 +230,12 @@ class HomeViewModel @Inject constructor(
                 )
             }
             try {
+                if (recoverSession && !recoverBeforeLoad()) {
+                    _uiState.value = HomeUiState.Error("Failed to reconnect")
+                    _isConnected.value = false
+                    return@launch
+                }
+
                 val systemInfoResult = apiManager.system.getSystemInfoWithResult()
                 if (systemInfoResult !is ApiResult.Success) {
                     _uiState.value = HomeUiState.Error("Failed to load system information")

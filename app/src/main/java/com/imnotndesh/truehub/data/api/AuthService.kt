@@ -17,7 +17,7 @@ class AuthService(val manager: TrueNASApiManager) {
 
     suspend fun loginUserWithResult(details: DefaultAuth): ApiResult<Boolean> {
         val defaultParams = listOf(details.username, details.password)
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.AUTH_LOGIN,
             params = defaultParams,
             resultType = Boolean::class.java
@@ -25,7 +25,7 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun loginWithApiKeyWithResult(apiKey: String): ApiResult<Boolean> {
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.AUTH_API_LOGIN,
             params = listOf(apiKey),
             resultType = Boolean::class.java
@@ -33,7 +33,7 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun logoutUserWithResult(): ApiResult<Boolean> {
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.AUTH_LOGOUT,
             params = listOf(),
             resultType = Boolean::class.java
@@ -41,7 +41,7 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun getUserDetailsWithResult(): ApiResult<Auth.AuthResponse> {
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.AUTH_ME,
             params = listOf(),
             resultType = Auth.AuthResponse::class.java
@@ -49,7 +49,7 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun generateTokenWithResult(tokenRequest: Auth.TokenRequest = Auth.TokenRequest()): ApiResult<String> {
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.GEN_AUTH_TOKEN,
             params = listOf(
                 tokenRequest.ttl,
@@ -62,7 +62,7 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun loginWithTokenAndResult(token: String): ApiResult<Boolean> {
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.AUTH_TOKEN_LOGIN,
             params = listOf(token),
             resultType = Boolean::class.java
@@ -78,7 +78,7 @@ class AuthService(val manager: TrueNASApiManager) {
         val request = Auth.AdminMethods.GenerateOneTimePasswordRequest(
             username
         )
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.GEN_ONETIME_PASSWORD,
             params = listOf(request),
             resultType = String::class.java
@@ -92,7 +92,7 @@ class AuthService(val manager: TrueNASApiManager) {
      */
     suspend fun getMechanismChoices(): ApiResult<List<String>> {
         val result = Types.newParameterizedType(List::class.java, String::class.java)
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.GET_MECHANISM_CHOICES,
             params = listOf(),
             resultType = result
@@ -134,7 +134,7 @@ class AuthService(val manager: TrueNASApiManager) {
         }
 
         val resType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
-        val result = manager.callWithResult<Map<String, Any?>>(
+        val result = manager.callWithResultWithoutRecovery<Map<String, Any?>>(
             method = ApiMethods.Auth.LOGIN_EX,
             params = listOf(paramsMap),
             resultType = resType
@@ -188,21 +188,21 @@ class AuthService(val manager: TrueNASApiManager) {
     }
     suspend fun getSessions(): ApiResult<List<Auth.AuthSessionResultItem>>{
         val types = Types.newParameterizedType(List::class.java,Auth.AuthSessionResultItem::class.java)
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.GET_AUTH_SESSIONS,
             params = listOf(),
             resultType = types
         )
     }
     suspend fun terminateOtherSessions(): ApiResult<Boolean>{
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             method = ApiMethods.Auth.TERMINATE_OTHER_SESSION,
             params = listOf(),
             resultType = Boolean::class.java
         )
     }
     suspend fun terminateSession(id: String): ApiResult<Boolean>{
-        return manager.callWithResult(
+        return manager.callWithResultWithoutRecovery(
             ApiMethods.Auth.TERMINATE_SESSION,
             listOf(id),
             Boolean::class.java
@@ -210,18 +210,18 @@ class AuthService(val manager: TrueNASApiManager) {
     }
 
     suspend fun loginExContinueWithResult(loginData: Any?): ApiResult<Any?> =
-        manager.callWithResult(ApiMethods.Auth.AUTH_LOGIN_EX_CONTINUE, listOf(loginData), Any::class.java)
+        manager.callWithResultWithoutRecovery(ApiMethods.Auth.AUTH_LOGIN_EX_CONTINUE, listOf(loginData), Any::class.java)
 
     suspend fun setAttributeWithResult(key: Any?, value: Any?): ApiResult<Any?> =
-        manager.callWithResult(ApiMethods.Auth.AUTH_SET_ATTRIBUTE, listOf(key, value), Any::class.java)
+        manager.callWithResultWithoutRecovery(ApiMethods.Auth.AUTH_SET_ATTRIBUTE, listOf(key, value), Any::class.java)
 
     suspend fun terminateOtherSessionsWithResult(): ApiResult<Any?> =
-        manager.callWithResult(ApiMethods.Auth.AUTH_TERMINATE_OTHER_SESSIONS, listOf(), Any::class.java)
+        manager.callWithResultWithoutRecovery(ApiMethods.Auth.AUTH_TERMINATE_OTHER_SESSIONS, listOf(), Any::class.java)
 
     suspend fun twofactorConfigWithResult(): ApiResult<Any?> =
-        manager.callWithResult(ApiMethods.Auth.AUTH_TWOFACTOR_CONFIG, listOf(), Any::class.java)
+        manager.callWithResultWithoutRecovery(ApiMethods.Auth.AUTH_TWOFACTOR_CONFIG, listOf(), Any::class.java)
 
     suspend fun twofactorUpdateWithResult(authTwofactorUpdate: Any?): ApiResult<Any?> =
-        manager.callWithResult(ApiMethods.Auth.AUTH_TWOFACTOR_UPDATE, listOf(authTwofactorUpdate), Any::class.java)
+        manager.callWithResultWithoutRecovery(ApiMethods.Auth.AUTH_TWOFACTOR_UPDATE, listOf(authTwofactorUpdate), Any::class.java)
 
 }

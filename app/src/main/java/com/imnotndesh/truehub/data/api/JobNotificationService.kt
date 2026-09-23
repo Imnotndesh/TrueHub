@@ -50,6 +50,8 @@ class JobNotificationService : Service() {
         val progress = intent.getIntExtra("progress", 0)
         val isDone = intent.getBooleanExtra("done", false)
         val statusText = intent.getStringExtra("status_text") ?: "Provisioning resource nodes..."
+        val serverId = intent.getStringExtra(CancelJobReceiver.EXTRA_SERVER_ID)
+        val accountId = intent.getStringExtra(CancelJobReceiver.EXTRA_ACCOUNT_ID)
 
         if (jobId != -1) {
             handler.removeCallbacksAndMessages(jobId)
@@ -58,7 +60,9 @@ class JobNotificationService : Service() {
                 // Job finished: build a distinct, non-ongoing completion notification and
                 // demote it out of the foreground/live state so it visibly shows "Done"
                 // instead of vanishing abruptly.
-                val doneNotification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
+                val doneNotification = buildJobNotification(
+                    jobId, type, appName, progress, statusText, isDone, serverId, accountId
+                )
                 activeJobsTracker.remove(jobId)
 
                 if (activeJobsTracker.isEmpty()) {
@@ -72,7 +76,9 @@ class JobNotificationService : Service() {
                     checkAndShutdownService()
                 }, token, android.os.SystemClock.uptimeMillis() + 6000)
             } else {
-                val notification = buildJobNotification(jobId, type, appName, progress, statusText, isDone)
+                val notification = buildJobNotification(
+                    jobId, type, appName, progress, statusText, isDone, serverId, accountId
+                )
                 if (activeJobsTracker.isEmpty()) {
                     activeJobsTracker.add(jobId)
                     startForeground(jobId, notification)
@@ -99,7 +105,9 @@ class JobNotificationService : Service() {
         appName: String,
         progress: Int,
         statusText: String,
-        isDone: Boolean
+        isDone: Boolean,
+        serverId: String?,
+        accountId: String?
     ): Notification {
         val titleText = if (isDone) "✓ Completed: $appName" else appName
         val explicitStatus = if (isDone) "Task finished successfully." else statusText
@@ -153,6 +161,8 @@ class JobNotificationService : Service() {
             val cancelIntent = Intent(this, CancelJobReceiver::class.java).apply {
                 action = CancelJobReceiver.ACTION_CANCEL_JOB
                 putExtra(CancelJobReceiver.EXTRA_JOB_ID, jobId)
+                putExtra(CancelJobReceiver.EXTRA_SERVER_ID, serverId)
+                putExtra(CancelJobReceiver.EXTRA_ACCOUNT_ID, accountId)
             }
             val cancelPendingIntent = PendingIntent.getBroadcast(
                 this,

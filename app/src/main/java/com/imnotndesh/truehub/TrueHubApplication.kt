@@ -1,6 +1,8 @@
 package com.imnotndesh.truehub
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -12,9 +14,18 @@ import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.workers.AlertsWorker
 import com.imnotndesh.truehub.data.workers.AppUpdateWorker
 import com.imnotndesh.truehub.ui.utils.AppCache
+import javax.inject.Inject
 
 @HiltAndroidApp
-class TrueHubApplication : Application(), ImageLoaderFactory {
+class TrueHubApplication : Application(), ImageLoaderFactory, Configuration.Provider {
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         TrueHubLogger.initialize(this)

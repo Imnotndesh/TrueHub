@@ -95,10 +95,13 @@ class UpgradeBottomSheetActivity : ComponentActivity() {
             }
 
             val session = SessionProvider.open(appContext, server, account)
-            if (session !is SessionProvider.OpenResult.Ready) {
-                isLoading = false; loadFailed = true; return@LaunchedEffect
+            val m = when (session) {
+                is SessionProvider.OpenResult.Ready -> session.manager
+                is SessionProvider.OpenResult.TemporaryAuthenticated -> session.manager
+                else -> {
+                    isLoading = false; loadFailed = true; return@LaunchedEffect
+                }
             }
-            val m = session.manager
 
             manager = m
 
