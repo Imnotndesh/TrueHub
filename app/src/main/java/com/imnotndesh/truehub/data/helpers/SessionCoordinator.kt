@@ -35,6 +35,24 @@ internal fun recoveryBackoffMillis(failureCount: Int): Long {
     return (1_000L shl exponent).coerceAtMost(30_000L)
 }
 
+internal fun redactedIdentifier(value: String?): String {
+    if (value.isNullOrBlank()) return "none"
+    var hash = 1_125_899_906_842_597L
+    value.forEach { character -> hash = hash * 31 + character.code }
+    return "id:" + java.lang.Long.toHexString(hash)
+}
+
+internal fun recoveryResultName(result: SessionProvider.RecoveryResult): String {
+    return when (result) {
+        SessionProvider.RecoveryResult.Recovered -> "recovered"
+        SessionProvider.RecoveryResult.AuthenticatedTemporary -> "authenticated_temporary"
+        is SessionProvider.RecoveryResult.OtpRequired -> "otp_required"
+        SessionProvider.RecoveryResult.CredentialsRejected -> "credentials_rejected"
+        SessionProvider.RecoveryResult.Unauthenticated -> "unauthenticated"
+        SessionProvider.RecoveryResult.Retryable -> "retryable"
+    }
+}
+
 data class SessionRuntimeState(
     val generation: Long,
     val serverId: String?,
@@ -226,6 +244,7 @@ class SessionCoordinator @Inject constructor() {
         return scheduleDeferredRecovery(
             manager = state.manager,
             generation = state.generation,
+            trigger = trigger,
             immediate = immediate,
             skipIfConnected = skipIfConnected
         )
@@ -254,24 +273,43 @@ class SessionCoordinator @Inject constructor() {
     private fun scheduleDeferredRecovery(
         manager: TrueNASApiManager,
         generation: Long,
+        trigger: RecoveryTrigger,
         immediate: Boolean,
         skipIfConnected: Boolean
     ): Boolean {
         if (!isCurrent(manager, generation) || deferredRecoveryJob?.isActive == true) return false
         val delayMillis = if (immediate) 0L else recoveryBackoffMillis(recoveryFailureCount)
+        TrueHubLogger.i(
+            "SessionRecovery",
+            "scheduled trigger=${trigger.name} generation=$generation " +
+                "server=${redactedIdentifier(runtimeState.value.serverId)} " +
+                "account=${redactedIdentifier(runtimeState.value.accountId)} delayMs=$delayMillis"
+        )
         deferredRecoveryJob = scope.launch {
+            val startedAt = System.nanoTime()
             if (delayMillis > 0) delay(delayMillis)
             if (!isCurrent(manager, generation)) return@launch
             if (skipIfConnected && manager.isConnected()) {
                 recoveryFailureCount = 0
+                TrueHubLogger.i(
+                    "SessionRecovery",
+                    "skipped trigger=${trigger.name} generation=$generation reason=already_connected"
+                )
                 return@launch
             }
-            when (manager.recoverAfterDisconnect()) {
+            val outcome = manager.recoverAfterDisconnect()
+            val durationMillis = (System.nanoTime() - startedAt) / 1_000_000
+            TrueHubLogger.i(
+                "SessionRecovery",
+                "outcome=${recoveryResultName(outcome)} trigger=${trigger.name} " +
+                    "generation=$generation durationMs=$durationMillis"
+            )
+            when (outcome) {
                 SessionProvider.RecoveryResult.Recovered,
                 SessionProvider.RecoveryResult.AuthenticatedTemporary -> recoveryFailureCount = 0
                 SessionProvider.RecoveryResult.Retryable -> {
                     recoveryFailureCount = (recoveryFailureCount + 1).coerceAtMost(5)
-                    scheduleDeferredRecovery(manager, generation, immediate, skipIfConnected)
+                    scheduleDeferredRecovery(manager, generation, trigger, immediate, skipIfConnected)
                 }
                 is SessionProvider.RecoveryResult.OtpRequired,
                 SessionProvider.RecoveryResult.CredentialsRejected,
@@ -304,6 +342,7 @@ class SessionCoordinator @Inject constructor() {
                     scheduleDeferredRecovery(
                         manager = manager,
                         generation = generation,
+                        trigger = RecoveryTrigger.TransportEvent,
                         immediate = false,
                         skipIfConnected = true
                     )

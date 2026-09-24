@@ -2,7 +2,9 @@ package com.imnotndesh.truehub.data.helpers
 
 import com.imnotndesh.truehub.data.ConnectionState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SessionCoordinatorTest {
@@ -27,6 +29,19 @@ class SessionCoordinatorTest {
         assertEquals(1_000L, recoveryBackoffMillis(0))
         assertEquals(2_000L, recoveryBackoffMillis(1))
         assertEquals(30_000L, recoveryBackoffMillis(20))
+    }
+
+    @Test
+    fun recoveryDiagnosticsRedactIdentifiersAndResults() {
+        val first = redactedIdentifier("server-secret")
+        val second = redactedIdentifier("server-secret")
+        val other = redactedIdentifier("another-server")
+
+        assertEquals(first, second)
+        assertNotEquals(first, other)
+        assertTrue(!first.contains("server-secret"))
+        assertEquals("otp_required", recoveryResultName(SessionProvider.RecoveryResult.OtpRequired("user")))
+        assertEquals("credentials_rejected", recoveryResultName(SessionProvider.RecoveryResult.CredentialsRejected))
     }
 
     @Test
