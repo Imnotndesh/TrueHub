@@ -81,6 +81,17 @@ sealed class SearchResult {
         override val route = Screen.ShareInfo.route
     }
 
+    data class NfsShareResult(
+        override val id: String,
+        override val title: String,
+        override val subtitle: String,
+        override val relevanceScore: Float,
+        val share: Shares.NfsShare
+    ) : SearchResult() {
+        override val category = SearchCategory.SHARES
+        override val route = Screen.ShareInfo.route
+    }
+
     // ── System Info ──────────────────────────────────────────
     data class SystemInfoResult(
         override val id: String,
@@ -392,13 +403,28 @@ class SearchViewModel(
                 // Shares
                 if (selectedCategory == SearchCategory.ALL || selectedCategory == SearchCategory.SHARES) {
                     AppCache.cachedSmbShares.value.forEach { share ->
-                        val relevance = calculateRelevance(lowerQuery, share.name, share.path, share.comment ?: "")
+                        val shareName = share.name.orEmpty()
+                        val relevance = calculateRelevance(lowerQuery, shareName, share.path, share.comment ?: "")
                         if (relevance > 0) {
                             results.add(
                                 SearchResult.ShareResult(
                                     id = "share_${share.id}",
-                                    title = share.name,
+                                    title = shareName,
                                     subtitle = "SMB Share • ${share.path}",
+                                    relevanceScore = relevance,
+                                    share = share
+                                )
+                            )
+                        }
+                    }
+                    AppCache.cachedNfsShares.value.forEach { share ->
+                        val relevance = calculateRelevance(lowerQuery, share.path, share.comment)
+                        if (relevance > 0) {
+                            results.add(
+                                SearchResult.NfsShareResult(
+                                    id = "nfs_share_${share.id}",
+                                    title = share.path.substringAfterLast('/').ifEmpty { share.path },
+                                    subtitle = "NFS Share • ${share.path}",
                                     relevanceScore = relevance,
                                     share = share
                                 )

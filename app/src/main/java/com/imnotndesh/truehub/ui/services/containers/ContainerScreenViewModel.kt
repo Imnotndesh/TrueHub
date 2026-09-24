@@ -63,10 +63,11 @@ class ContainerScreenViewModel @Inject constructor(
             }
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
-                    AppCache.updateContainers(result.data)
+                    val containers = result.data.filter { it.type == Virt.Type.CONTAINER }
+                    AppCache.updateContainers(containers)
                     _uiState.update {
                         it.copy(
-                            containers = result.data,
+                            containers = containers,
                             isLoading = false,
                             isRefreshing = false,
                             error = null
@@ -101,11 +102,12 @@ class ContainerScreenViewModel @Inject constructor(
 
             when (val result = manager.virtService.getAllInstancesWithResult()) {
                 is ApiResult.Success -> {
-                    AppCache.updateContainers(result.data)
-                    ToastManager.showSuccess("Refreshed ${result.data.size} containers")
+                    val containers = result.data.filter { it.type == Virt.Type.CONTAINER }
+                    AppCache.updateContainers(containers)
+                    ToastManager.showSuccess("Refreshed ${containers.size} containers")
                     _uiState.update {
                         it.copy(
-                            containers = result.data,
+                            containers = containers,
                             isRefreshing = false,
                             error = null
                         )

@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +37,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerConfig
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerSheet
+import com.imnotndesh.truehub.ui.homepage.dataset.toFullMountPath
 
 private val DIRECTIONS = listOf("PUSH", "PULL")
 private val TRANSFER_MODES = listOf("COPY", "MOVE", "SYNC")
@@ -54,6 +61,7 @@ fun CloudSyncFormScreen(
     var direction by remember { mutableStateOf("PUSH") }
     var transferMode by remember { mutableStateOf("COPY") }
     var enabled by remember { mutableStateOf(true) }
+    var showDatasetPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(taskId) {
         if (!isEdit) return@LaunchedEffect
@@ -104,9 +112,14 @@ fun CloudSyncFormScreen(
             OutlinedTextField(
                 value = path,
                 onValueChange = { path = it },
-                label = { Text("Path") },
-                placeholder = { Text("/mnt/…") },
-                modifier = Modifier.fillMaxWidth()
+                 label = { Text("Path") },
+                 placeholder = { Text("/mnt/…") },
+                 trailingIcon = {
+                     IconButton(onClick = { showDatasetPicker = true }) {
+                         Icon(Icons.Default.FolderOpen, contentDescription = "Choose dataset")
+                     }
+                 },
+                 modifier = Modifier.fillMaxWidth()
             )
 
             FieldLabel("Direction")
@@ -157,6 +170,22 @@ fun CloudSyncFormScreen(
                 Text(if (isEdit) "Save Changes" else "Create Task")
             }
         }
+    }
+
+    if (showDatasetPicker) {
+        DatasetPickerSheet(
+            manager = manager,
+            config = DatasetPickerConfig(
+                title = "Choose cloud-sync dataset",
+                confirmLabel = "Use dataset",
+                filterPredicate = { it.mountpoint != null }
+            ),
+            onConfirm = { selected ->
+                selected.firstOrNull()?.toFullMountPath()?.let { selectedPath -> path = selectedPath }
+                showDatasetPicker = false
+            },
+            onDismiss = { showDatasetPicker = false }
+        )
     }
 }
 

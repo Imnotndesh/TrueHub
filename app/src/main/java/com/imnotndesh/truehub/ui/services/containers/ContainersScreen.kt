@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Error
@@ -88,6 +89,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
+import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -106,6 +108,7 @@ enum class ContainerFilterCategory(val label: String) {
 fun ContainersScreen(
     manager: TrueNASApiManager,
     onNavigateToContainerInfo: (Virt.ContainerResponse) -> Unit = {},
+    onCreateContainer: () -> Unit = {},
     onSearchClick: (() -> Unit)? = null,
     viewModel: ContainerScreenViewModel = hiltViewModel()
 ) {
@@ -141,7 +144,14 @@ fun ContainersScreen(
             onRefresh = { viewModel.loadContainers() },
             onDismissError = { viewModel.clearError() },
             manager = manager,
-            onSearchClick = onSearchClick
+            onSearchClick = onSearchClick,
+            trailingActions = {
+                ExpressiveIconButton(
+                    onClick = onCreateContainer,
+                    icon = Icons.Default.Add,
+                    contentDescription = "Create container"
+                )
+            }
         )
 
         ContainerFilterBar(

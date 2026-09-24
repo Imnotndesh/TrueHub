@@ -122,6 +122,24 @@ object AppCache {
         persist { ctx, id -> PersistentCache.saveNfsShares(ctx, id, shares) }
     }
 
+    fun addSmbShare(share: Shares.SmbShare) {
+        updateSmbShares((_cachedSmbShares.value.filterNot { it.id == share.id } + share)
+            .sortedBy { it.name.orEmpty().ifBlank { it.path }.lowercase() })
+    }
+
+    fun addNfsShare(share: Shares.NfsShare) {
+        updateNfsShares((_cachedNfsShares.value.filterNot { it.id == share.id } + share)
+            .sortedBy { it.path.lowercase() })
+    }
+
+    fun removeSmbShare(shareId: Int) {
+        updateSmbShares(_cachedSmbShares.value.filterNot { it.id == shareId })
+    }
+
+    fun removeNfsShare(shareId: Int) {
+        updateNfsShares(_cachedNfsShares.value.filterNot { it.id == shareId })
+    }
+
     fun updateContainers(containers: List<Virt.ContainerResponse>) {
         _cachedContainers.value = containers
         persist { ctx, id -> PersistentCache.saveContainers(ctx, id, containers) }

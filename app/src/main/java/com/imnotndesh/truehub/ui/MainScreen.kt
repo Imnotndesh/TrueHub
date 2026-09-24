@@ -75,6 +75,7 @@ import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
 import com.imnotndesh.truehub.ui.homepage.details.DiskInfoScreen
 import com.imnotndesh.truehub.ui.homepage.details.PerformanceScreen
 import com.imnotndesh.truehub.ui.homepage.details.ShareInfoScreen
+import com.imnotndesh.truehub.ui.homepage.shares.CreateShareScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.InstanceConfigScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.AdvancedSystemSettingsEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.AdvancedSystemSettingsScreen
@@ -130,7 +131,8 @@ import com.imnotndesh.truehub.ui.services.apps.details.marketplace.MarketplaceSc
 import com.imnotndesh.truehub.ui.services.apps.details.rollback.RollbackVersionScreen
 import com.imnotndesh.truehub.ui.services.apps.details.upgrade.UpgradeSummaryScreen
 import com.imnotndesh.truehub.ui.services.containers.ContainersScreen
-import com.imnotndesh.truehub.ui.services.containers.details.ContainerDataHolder
+import com.imnotndesh.truehub.ui.services.containers.create.ContainerCreateScreen
+import com.imnotndesh.truehub.ui.services.containers.edit.ContainerEditScreen
 import com.imnotndesh.truehub.ui.services.containers.details.ContainerInfoScreen
 import com.imnotndesh.truehub.ui.services.system.services.ServiceDetailScreen
 import com.imnotndesh.truehub.ui.services.vm.VmsScreen
@@ -358,6 +360,9 @@ private fun TrueHubNavGraph(
                 onNavigateToShareInfo = { shareType ->
                     AppDataHolder.selectedShareType = shareType
                     navController.navigate(Screen.ShareInfo.route)
+                },
+                onCreateShare = {
+                    navController.navigate(Screen.CreateShare.route)
                 },
                 onDisksClick = {
                     navController.navigate(Screen.DiskInfo.route)
@@ -793,6 +798,18 @@ private fun TrueHubNavGraph(
             )
         }
 
+        composable(Screen.CreateShare.route) {
+            CreateShareScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onCreated = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
         composable(Screen.ShareInfo.route) {
             val shareType = AppDataHolder.selectedShareType
             if (shareType != null) {
@@ -995,14 +1012,53 @@ private fun TrueHubNavGraph(
         composable(Screen.Containers.route) {
             ContainersScreen(
                 manager = manager,
-                onNavigateToContainerInfo = { container -> ContainerDataHolder.selectedContainer = container; navController.navigate("container_info") },
+                onNavigateToContainerInfo = { container -> navController.navigate(Screen.ContainerInfo.createRoute(container.id)) },
+                onCreateContainer = { navController.navigate(Screen.CreateContainer.route) },
                 onSearchClick = onSearchClick
             )
         }
 
-        composable(Screen.ContainerInfo.route) {
-            val container = ContainerDataHolder.selectedContainer
-            ContainerInfoScreen(manager = manager, container = container!!, onNavigateBack = { navController.popBackStack() })
+        composable(Screen.CreateContainer.route) {
+            ContainerCreateScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onCreated = {
+                    navController.navigate(Screen.Containers.route) {
+                        popUpTo(Screen.Containers.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ContainerEdit.route,
+            arguments = listOf(navArgument("containerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val containerId = backStackEntry.arguments?.getString("containerId").orEmpty()
+            if (containerId.isNotBlank()) {
+                ContainerEditScreen(
+                    containerId = containerId,
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.ContainerInfo.route,
+            arguments = listOf(navArgument("containerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val containerId = backStackEntry.arguments?.getString("containerId").orEmpty()
+            if (containerId.isNotBlank()) {
+                ContainerInfoScreen(
+                    containerId = containerId,
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(Screen.ContainerEdit.createRoute(containerId)) }
+                )
+            }
         }
 
         composable(Screen.Vms.route) {

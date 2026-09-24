@@ -18,7 +18,7 @@ class VirtService(val manager: TrueNASApiManager) {
     // Get an instance
     suspend fun genAnInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse>{
         return manager.callWithResult(
-            method = ApiMethods.Virt.GET_ALL_INSTANCES,
+            method = ApiMethods.Virt.GET_INSTANCE,
             params = listOf(id),
             resultType = Virt.ContainerResponse::class.java
         )
@@ -44,7 +44,7 @@ class VirtService(val manager: TrueNASApiManager) {
         return manager.callWithResult(
             method = ApiMethods.Virt.RESTART_INSTANCE,
             params = listOf(id, Virt.stopArgs(timeout, force)),
-            resultType = Int::class.java
+            resultType = Double::class.java
         )
     }
     // Delete virt instance
@@ -57,22 +57,16 @@ class VirtService(val manager: TrueNASApiManager) {
     }
 
     // Update Instance
-    suspend fun updateVirtInstanceWithResult(id : String,newInstanceInfo: Virt.ContainerUpdate): ApiResult<Virt.ContainerResponse> {
+    suspend fun updateVirtInstanceWithResult(id : String,newInstanceInfo: Virt.ContainerUpdate): ApiResult<Int> {
         return manager.callWithResult(
             method = ApiMethods.Virt.UPDATE_INSTANCE,
             params = listOf(id,newInstanceInfo),
-            resultType = Virt.ContainerResponse::class.java
+            resultType = Int::class.java
         )
     }
     // Get all instance devices
-    suspend fun getVirtInstanceDeviceListWithResult(id:String): ApiResult<List<Virt.Device>>{
-        val type = Types.newParameterizedType(List::class.java, Virt.Device::class.java)
-        return manager.callWithResult(
-            method = ApiMethods.Virt.GET_ALL_INSTANCES,
-            params = listOf(id),
-            resultType = type::class.java
-        )
-    }
+    suspend fun getVirtInstanceDeviceListWithResult(id:String): ApiResult<List<Virt.Device>> =
+        getInstanceDeviceListWithResult(id)
     // Delete virt instance device
     suspend fun deleteVirtInstanceDeviceWithResult(id: String,deviceName: String): ApiResult<Boolean>{
         return manager.callWithResult(
@@ -133,8 +127,8 @@ class VirtService(val manager: TrueNASApiManager) {
         manager.callWithResult(ApiMethods.Virt.GLOBAL_POOL_CHOICES, listOf(), choiceType())
 
     // ── virt.instance ──
-    suspend fun createInstanceWithResult(payload: Map<String, Any?>): ApiResult<Virt.ContainerResponse> =
-        manager.callWithResult(ApiMethods.Virt.CREATE_INSTANCE, listOf(payload), Virt.ContainerResponse::class.java)
+    suspend fun createInstanceWithResult(payload: Map<String, Any?>): ApiResult<Int> =
+        manager.callWithResult(ApiMethods.Virt.CREATE_INSTANCE, listOf(payload), Int::class.java)
 
     suspend fun getInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse> =
         manager.callWithResult(ApiMethods.Virt.GET_INSTANCE, listOf(id), Virt.ContainerResponse::class.java)

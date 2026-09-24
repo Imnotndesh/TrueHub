@@ -92,6 +92,13 @@ data class DatasetPickerConfig(
     val initialPoolName: String? = null
 )
 
+internal fun fullDatasetMountPath(name: String, mountpoint: String?): String {
+    return mountpoint?.trim()?.takeIf { it.isNotBlank() }
+        ?: "/mnt/${name.trimStart('/')}"
+}
+
+fun Storage.ZfsDataset.toFullMountPath(): String = fullDatasetMountPath(name, mountpoint)
+
 /**
  * A reusable dataset picker bottom sheet, similar to the system file picker.
  * Can be launched from any screen to let the user pick one or more datasets.

@@ -13,6 +13,7 @@ sealed class Screen(val route:String, val title:String) {
     object Settings : Screen("settings","Settings")
     object Licenses : Screen("licenses","Licenses")
     object ShareInfo : Screen ("share_info","Exposed shares details")
+    object CreateShare : Screen ("create_share","Create share")
     object About : Screen("about","About")
     object AppLogging : Screen("app_logging","App Logging")
     object Theme : Screen("theme","Theme")
@@ -22,7 +23,13 @@ sealed class Screen(val route:String, val title:String) {
     object Files : Screen("file_explorer","file_explorer")
     object Marketplace : Screen("marketplace", "Marketplace")
     object MarketplaceAppDetails : Screen("marketplace_app_details", "Marketplace App Details")
-    object ContainerInfo : Screen("container_info", "Container Info")
+    object CreateContainer : Screen("create_container", "Create Container")
+    object ContainerEdit : Screen("container_edit/{containerId}", "Edit Container") {
+        fun createRoute(containerId: String): String = "container_edit/$containerId"
+    }
+    object ContainerInfo : Screen("container_info/{containerId}", "Container Info") {
+        fun createRoute(containerId: String): String = "container_info/$containerId"
+    }
     object VmDetails : Screen("vm_details", "VM Details")
     object ChangePassword : Screen("change_password", "Change Password")
     object DiskInfo : Screen("disk_info", "Disk information")

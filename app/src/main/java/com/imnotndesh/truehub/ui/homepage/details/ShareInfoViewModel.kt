@@ -8,6 +8,7 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.components.ToastManager
+import com.imnotndesh.truehub.ui.utils.AppCache
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,19 +55,27 @@ class ShareInfoViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             when (current) {
                 is ShareType.Smb -> {
-                    val result = manager.sharing.getSmbShareWithResult(current.share.id)
-                    if (result is ApiResult.Success) {
-                        _uiState.update { it.copy(smbShare = result.data) }
-                    }
-                    val acl = manager.sharing.getSmbShareAclWithResult(current.share.name)
-                    if (acl is ApiResult.Success) {
-                        _uiState.update { it.copy(smbAcl = acl.data) }
+                    when (val result = manager.sharing.getSmbShareWithResult(current.share.id)) {
+                        is ApiResult.Success -> {
+                            _uiState.update { it.copy(smbShare = result.data, smbAcl = null, error = null) }
+                            val refreshedName = result.data.name.orEmpty()
+                            if (refreshedName.isNotBlank()) {
+                                when (val acl = manager.sharing.getSmbShareAclWithResult(refreshedName)) {
+                                    is ApiResult.Success -> _uiState.update { it.copy(smbAcl = acl.data) }
+                                    is ApiResult.Error -> _uiState.update { it.copy(smbAcl = null, error = acl.message) }
+                                    ApiResult.Loading -> Unit
+                                }
+                            }
+                        }
+                        is ApiResult.Error -> _uiState.update { it.copy(smbAcl = null, error = result.message) }
+                        ApiResult.Loading -> Unit
                     }
                 }
                 is ShareType.Nfs -> {
-                    val result = manager.sharing.getNfsShareWithResult(current.share.id)
-                    if (result is ApiResult.Success) {
-                        _uiState.update { it.copy(nfsShare = result.data) }
+                    when (val result = manager.sharing.getNfsShareWithResult(current.share.id)) {
+                        is ApiResult.Success -> _uiState.update { it.copy(nfsShare = result.data, error = null) }
+                        is ApiResult.Error -> _uiState.update { it.copy(error = result.message) }
+                        ApiResult.Loading -> Unit
                     }
                 }
             }
@@ -83,7 +92,19 @@ class ShareInfoViewModel @Inject constructor(
                 is ShareType.Nfs -> manager.sharing.deleteNfsShareWithResult(current.share.id)
             }
             when (result) {
-                is ApiResult.Success -> _uiState.update { it.copy(isDeleting = false, deleted = true) }
+                is ApiResult.Success -> {
+                    if (result.data) {
+                        when (current) {
+                            is ShareType.Smb -> AppCache.removeSmbShare(current.share.id)
+                            is ShareType.Nfs -> AppCache.removeNfsShare(current.share.id)
+                        }
+                        _uiState.update { it.copy(isDeleting = false, deleted = true) }
+                    } else {
+                        val message = "The server did not confirm deletion"
+                        ToastManager.showError(message)
+                        _uiState.update { it.copy(isDeleting = false, error = message) }
+                    }
+                }
                 is ApiResult.Error -> {
                     ToastManager.showError(result.message)
                     _uiState.update { it.copy(isDeleting = false, error = result.message) }

@@ -12,7 +12,7 @@ object Shares {
         val path: String,
         val path_suffix: String?,
         val home: Boolean?,
-        val name: String,
+        val name: String? = null,
         val comment: String?,
         val ro: Boolean?,
         val browsable: Boolean,
@@ -76,7 +76,7 @@ object Shares {
 
     @JsonClass(generateAdapter = true)
     data class SmbAcl(
-        @field:Json("share_name") val shareName: String,
+        @field:Json("share_name") val shareName: String? = null,
         @field:Json("share_acl") val shareAcl: List<SmbAclEntry> = emptyList()
     )
 //    @JsonClass(generateAdapter = true)

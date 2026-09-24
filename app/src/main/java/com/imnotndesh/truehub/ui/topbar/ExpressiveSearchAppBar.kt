@@ -800,6 +800,7 @@ private fun AppFallbackIcon(result: SearchResult) {
         is SearchResult.DiskResult -> Icons.Default.Storage
         is SearchResult.ServiceResult -> Icons.Default.PlayArrow
         is SearchResult.ShareResult -> Icons.Default.FolderShared
+        is SearchResult.NfsShareResult -> Icons.Default.FolderShared
         is SearchResult.SystemInfoResult -> Icons.Default.Info
         is SearchResult.ActionResult -> Icons.Default.TouchApp
         is SearchResult.InstalledAppResult -> Icons.Default.Apps

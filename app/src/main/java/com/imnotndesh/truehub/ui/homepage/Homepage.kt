@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Error
@@ -79,6 +80,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.details.MetricType
@@ -99,6 +101,7 @@ fun HomeScreen(
     onSystemInfoClick: () -> Unit = {},
     onNavigateToPerformance: (MetricType) -> Unit,
     onNavigateToShareInfo: (ShareType) -> Unit = {},
+    onCreateShare: () -> Unit = {},
     onSearchClick: (() -> Unit)? = null
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
@@ -144,6 +147,7 @@ fun HomeScreen(
                     onPoolClick = onPoolClick,
                     onDiskClick = { onDisksClick() },
                     onNavigateToShareInfo = onNavigateToShareInfo,
+                    onCreateShare = onCreateShare,
                     onNavigateToPerformance = {metricType ->
                         onNavigateToPerformance(metricType)
                     },
@@ -247,6 +251,7 @@ private fun HomeContent(
     onSystemInfoClick: () -> Unit = {},
     onDiskClick: () -> Unit,
     onNavigateToShareInfo: (ShareType) -> Unit,
+    onCreateShare: () -> Unit,
     onNavigateToPerformance: (MetricType) -> Unit,
     onUpdateClick: () -> Unit
 ) {
@@ -289,6 +294,7 @@ private fun HomeContent(
                 // onTempClick = {AppDataHolder.temperatureData = state.temperatureData; onNavigateToPerformance(MetricType.TEMPERATURE)},
                 onDiskClick = { AppDataHolder.disks = state.diskDetails; onDiskClick() },
                 onPoolClick = onPoolClick,
+                onCreateShare = onCreateShare,
                 onSmbShareClick = { share -> onNavigateToShareInfo(ShareType.Smb(share)) },
                 onNfsShareClick = { share -> onNavigateToShareInfo(ShareType.Nfs(share)) }
             )
@@ -313,6 +319,7 @@ private fun HomeContent(
             SharesCard(
                 smbShares = state.smbShares,
                 nfsShares = state.nfsShares,
+                onCreateShare = onCreateShare,
                 onSmbShareClick = { share -> onNavigateToShareInfo(ShareType.Smb(share)) },
                 onNfsShareClick = { share -> onNavigateToShareInfo(ShareType.Nfs(share)) }
             )
@@ -331,6 +338,7 @@ private fun AdaptiveGridLayout(
     // onTempClick: () -> Unit,
     onDiskClick: () -> Unit,
     onPoolClick: (System.Pool) -> Unit,
+    onCreateShare: () -> Unit,
     onSmbShareClick: (Shares.SmbShare) -> Unit,
     onNfsShareClick: (Shares.NfsShare) -> Unit
 ) {
@@ -343,7 +351,7 @@ private fun AdaptiveGridLayout(
         } else {
             add(SectionItem.NoStorage)
         }
-        add(SectionItem.Shares(state.smbShares, state.nfsShares, onSmbShareClick, onNfsShareClick))
+        add(SectionItem.Shares(state.smbShares, state.nfsShares, onCreateShare, onSmbShareClick, onNfsShareClick))
     }
 
     FlowRow(
@@ -366,6 +374,7 @@ private fun AdaptiveGridLayout(
                     is SectionItem.Shares -> SharesCard(
                         smbShares = section.smbShares,
                         nfsShares = section.nfsShares,
+                        onCreateShare = section.onCreateShare,
                         onSmbShareClick = section.onSmbShareClick,
                         onNfsShareClick = section.onNfsShareClick
                     )
@@ -757,6 +766,7 @@ private fun SharesCard(
     smbShares: List<Shares.SmbShare>,
     nfsShares: List<Shares.NfsShare>,
     modifier: Modifier = Modifier,
+    onCreateShare: () -> Unit = {},
     onSmbShareClick: (Shares.SmbShare) -> Unit = {},
     onNfsShareClick: (Shares.NfsShare) -> Unit = {}
 ) {
@@ -764,8 +774,15 @@ private fun SharesCard(
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("SMB Shares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(100.dp)) {
-                    Text("${smbShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(100.dp)) {
+                        Text("${smbShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                    ExpressiveIconButton(
+                        onClick = onCreateShare,
+                        icon = Icons.Default.Add,
+                        contentDescription = "Create share"
+                    )
                 }
             }
             if (smbShares.isEmpty()) {
@@ -789,8 +806,15 @@ private fun SharesCard(
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("NFS Shares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(100.dp)) {
-                    Text("${nfsShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(100.dp)) {
+                        Text("${nfsShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                    ExpressiveIconButton(
+                        onClick = onCreateShare,
+                        icon = Icons.Default.Add,
+                        contentDescription = "Create share"
+                    )
                 }
             }
             if (nfsShares.isEmpty()) {
@@ -831,7 +855,7 @@ private fun SmbShareItem(share: Shares.SmbShare, onShareClick: (Shares.SmbShare)
                     }
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(share.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(share.name.orEmpty().ifBlank { share.path }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(share.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -1172,5 +1196,5 @@ private sealed class SectionItem {
     // data class LoadAverages(val state: LoadAveragesState, val onCpuClick: () -> Unit, val onMemoryClick: () -> Unit, val onLoadClick: () -> Unit, val onTempClick: () -> Unit) : SectionItem()
     data class StoragePool(val pool: System.Pool, val onPoolClick: (System.Pool) -> Unit) : SectionItem()
     object NoStorage : SectionItem()
-    data class Shares(val smbShares: List<Shares.SmbShare>, val nfsShares: List<Shares.NfsShare>, val onSmbShareClick: (Shares.SmbShare) -> Unit, val onNfsShareClick: (Shares.NfsShare) -> Unit) : SectionItem()
+    data class Shares(val smbShares: List<Shares.SmbShare>, val nfsShares: List<Shares.NfsShare>, val onCreateShare: () -> Unit, val onSmbShareClick: (Shares.SmbShare) -> Unit, val onNfsShareClick: (Shares.NfsShare) -> Unit) : SectionItem()
 }

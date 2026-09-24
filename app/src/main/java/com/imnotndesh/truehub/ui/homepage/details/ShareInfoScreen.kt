@@ -102,7 +102,7 @@ fun ShareInfoScreen(
     val nfs = state.nfsShare ?: (shareType as? ShareType.Nfs)?.share
 
     val title = when {
-        smb != null -> smb.name
+        smb != null -> smb.name.orEmpty().ifBlank { "SMB Share" }
         nfs != null -> nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" }
         else -> "Share"
     }
@@ -138,7 +138,7 @@ fun ShareInfoScreen(
             item {
                 when {
                     smb != null -> ShareHeroCard(
-                        name = smb.name,
+                        name = smb.name.orEmpty(),
                         path = smb.path,
                         enabled = smb.enabled,
                         icon = if (smb.timemachine == true) Icons.Default.Backup
@@ -388,11 +388,11 @@ private fun SmbShareSections(share: Shares.SmbShare) {
         ShareInfoSection(title = "Basic Information", icon = Icons.Default.Info) {
             ExpressiveInfoGrid(
                 items = buildList {
-                    add("Share Name" to share.name)
+                    add("Share Name" to share.name.orEmpty())
                     add("Path" to share.path)
                     if (!share.path_suffix.isNullOrEmpty()) add("Path Suffix" to share.path_suffix)
                     if (!share.comment.isNullOrEmpty()) add("Description" to share.comment)
-                    add("Purpose" to share.purpose!!.ifEmpty { "General" })
+                    add("Purpose" to share.purpose.orEmpty().ifEmpty { "General" })
                 }
             )
         }

@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
@@ -111,6 +112,9 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerConfig
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerSheet
+import com.imnotndesh.truehub.ui.homepage.dataset.toFullMountPath
 import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
 import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
@@ -239,8 +243,9 @@ fun MarketplaceAppInstallScreen(
                         details = details,
                         versionData = versionData,
                         versionsMap = details.versions ?: emptyMap(),
-                        selectedVersionKey = selectedVersionKey,
-                        onVersionSelected = { selectedVersionKey = it },
+                         selectedVersionKey = selectedVersionKey,
+                         manager = manager,
+                         onVersionSelected = { selectedVersionKey = it },
                         onBack = onBack,
                         onInstallAction = { targetedInstanceName, flatMapValues ->
                             viewModel.installMarketplaceApp(
@@ -278,6 +283,7 @@ private fun InstallOptionsContent(
     versionData: Apps.CatalogAppVersion?,
     versionsMap: Map<String, Apps.CatalogAppVersion>,
     selectedVersionKey: String,
+    manager: TrueNASApiManager,
     onVersionSelected: (String) -> Unit,
     onBack: () -> Unit,
     onInstallAction: (appName: String, values: Map<String, Any?>) -> Unit
@@ -439,8 +445,9 @@ private fun InstallOptionsContent(
                         SchemaGroupSection(
                             group = group,
                             questions = groupQuestions,
-                            formState = formState,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                             formState = formState,
+                             manager = manager,
+                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -541,6 +548,7 @@ internal fun SchemaGroupSection(
     group: Apps.SchemaGroup,
     questions: List<Apps.SchemaQuestion>,
     formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager? = null,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -601,9 +609,10 @@ internal fun SchemaGroupSection(
                     } else {
                         Box(modifier = Modifier.padding(start = indent)) {
                             LeafQuestionField(
-                                question = fq.question,
-                                formState = formState,
-                                path = fq.path
+                                 question = fq.question,
+                                 formState = formState,
+                                 manager = manager,
+                                 path = fq.path
                             )
                         }
                     }
@@ -628,6 +637,7 @@ internal fun SchemaGroupSection(
 private fun LeafQuestionField(
     question: Apps.SchemaQuestion,
     formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager?,
     path: String
 ) {
     val schema = question.schema ?: return
@@ -668,7 +678,7 @@ private fun LeafQuestionField(
             "boolean"  -> BooleanField(schema = schema, path = path, formState = formState)
             "list"     -> ListFieldInfo()
             "path",
-            "hostpath" -> PathField(path = path, formState = formState)
+            "hostpath" -> PathField(path = path, formState = formState, manager = manager)
             else       -> DefaultField(type = schema.type, path = path, formState = formState)
         }
     }
@@ -832,8 +842,13 @@ private fun BooleanField(schema: Apps.SchemaDefinition, path: String, formState:
 }
 
 @Composable
-private fun PathField(path: String, formState: MutableMap<String, Any?>) {
+private fun PathField(
+    path: String,
+    formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager?
+) {
     var text by remember(path) { mutableStateOf(formState[path]?.toString() ?: "") }
+    var showDatasetPicker by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; formState[path] = it },
@@ -841,8 +856,34 @@ private fun PathField(path: String, formState: MutableMap<String, Any?>) {
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
         placeholder = { Text("/mnt/dataset/appdata") },
-        leadingIcon = { Icon(Icons.Default.Folder, null, modifier = Modifier.size(18.dp)) }
+        leadingIcon = { Icon(Icons.Default.Folder, null, modifier = Modifier.size(18.dp)) },
+        trailingIcon = if (manager != null) {
+            {
+                IconButton(onClick = { showDatasetPicker = true }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Choose dataset")
+                }
+            }
+        } else null
     )
+
+    if (showDatasetPicker && manager != null) {
+        DatasetPickerSheet(
+            manager = manager,
+            config = DatasetPickerConfig(
+                title = "Choose dataset",
+                confirmLabel = "Use dataset",
+                filterPredicate = { it.mountpoint != null }
+            ),
+            onConfirm = { selected ->
+                selected.firstOrNull()?.toFullMountPath()?.let { selectedPath ->
+                    text = selectedPath
+                    formState[path] = selectedPath
+                }
+                showDatasetPicker = false
+            },
+            onDismiss = { showDatasetPicker = false }
+        )
+    }
 }
 
 @Composable

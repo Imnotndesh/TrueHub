@@ -316,9 +316,10 @@ fun AppConfigScreen(
                                     item(key = group.name) {
                                         SchemaGroupSection(
                                             group = group,
-                                            questions = groupQuestions,
-                                            formState = formState,
-                                            modifier = Modifier.padding(horizontal = 0.dp)
+                                             questions = groupQuestions,
+                                             formState = formState,
+                                             manager = manager,
+                                             modifier = Modifier.padding(horizontal = 0.dp)
                                         )
                                     }
                                 }
