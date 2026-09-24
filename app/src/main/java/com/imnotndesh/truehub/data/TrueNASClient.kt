@@ -89,7 +89,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     super.onMessage(webSocket, text)
-                    TrueHubLogger.e(logName,"Received message: $text")
+                    TrueHubLogger.e(logName, "Received message")
                     handleMessage(text)
                 }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
@@ -174,7 +174,7 @@ class TrueNASClient(private val config: ClientConfig) {
                 resp == null -> TrueHubLogger.e(logName,"Null response from server")
 
                 resp.id == null && resp.method != null -> {
-                    TrueHubLogger.e(logName,"Notification: ${resp.method} ${resp.params}")
+                        TrueHubLogger.e(logName, "Notification: ${resp.method}")
                     _events.tryEmit(JsonRpcEvent(resp.method, resp.params))
                 }
                 resp.error != null -> {
@@ -243,7 +243,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
         return try {
             val json = requestAdapter.toJson(request)
-            TrueHubLogger.e(logName,"Sending: $json")
+            TrueHubLogger.e(logName, "Sending request id=$id method=$method")
 
             webSocket?.send(json) ?: throw RuntimeException("WebSocket not connected")
 

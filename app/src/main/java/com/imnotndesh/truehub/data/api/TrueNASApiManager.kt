@@ -8,6 +8,7 @@ import com.imnotndesh.truehub.data.ConnectionState
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.TrueNASRpcException
 import com.imnotndesh.truehub.data.helpers.SessionProvider
+import com.imnotndesh.truehub.data.helpers.SessionHolder
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.models.Auth
@@ -30,6 +31,15 @@ internal fun isAuthenticationError(result: ApiResult<*>): Boolean {
     return msg.contains("enotauthenticated") || msg.contains("invalid session")
 }
 
+internal fun shouldAttemptRecovery(
+    result: ApiResult<*>,
+    connectionState: ConnectionState
+): Boolean {
+    if (isAuthenticationError(result)) return true
+    if (result !is ApiResult.Error || result.throwable is TrueNASRpcException) return false
+    return connectionState !is ConnectionState.Connected
+}
+
 internal fun allowsRequestRetry(result: SessionProvider.RecoveryResult): Boolean {
     return when (result) {
         SessionProvider.RecoveryResult.Recovered,
@@ -47,6 +57,12 @@ class TrueNASApiManager(
 ) {
     private val connectivityObserver = NetworkConnectivityObserver(applicationContext)
     private val recoveryMutex = Mutex()
+    private data class BoundSessionProfile(
+        val serverId: String,
+        val accountId: String
+    )
+
+    private var boundSessionProfile: BoundSessionProfile? = null
 
     val auth: AuthService by lazy { AuthService(this) }
     val system: SystemService by lazy { SystemService(this) }
@@ -112,11 +128,30 @@ class TrueNASApiManager(
 
     val connectionState: StateFlow<ConnectionState> get() = client.connectionState
 
-    suspend fun ensureConnected(): Boolean = client.connect()
+    suspend fun ensureConnected(): Boolean {
+        return if (isStaleBoundSession()) false else client.connect()
+    }
+
+    fun bindSessionProfile(serverId: String, accountId: String) {
+        boundSessionProfile = BoundSessionProfile(serverId, accountId)
+    }
+
+    private fun isStaleBoundSession(): Boolean {
+        return boundSessionProfile != null && SessionHolder.current !== this
+    }
 
     suspend fun recoverAfterDisconnect(): SessionProvider.RecoveryResult = recoveryMutex.withLock {
+        val boundProfile = boundSessionProfile
+        if (isStaleBoundSession()) {
+            return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        }
         val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext)
             ?: return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        if (boundProfile != null &&
+            (boundProfile.serverId != snapshot.serverId || boundProfile.accountId != snapshot.accountId)
+        ) {
+            return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        }
         SessionProvider.recoverAfterDisconnect(
             applicationContext,
             this,
@@ -131,9 +166,14 @@ class TrueNASApiManager(
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
+        if (isStaleBoundSession()) {
+            return ApiResult.Error("Session is no longer active")
+        }
         ensureFreshSession()
         var result = client.callWithResult<T>(method, params, resultType)
-        if (isAuthenticationError(result) && allowsRequestRetry(recoverSession())) {
+        if (shouldAttemptRecovery(result, client.getCurrentConnectionState()) &&
+            allowsRequestRetry(recoverAfterDisconnect())
+        ) {
             result = client.callWithResult<T>(method, params, resultType)
         }
         return result
@@ -143,7 +183,12 @@ class TrueNASApiManager(
         method: String,
         params: List<Any?>,
         resultType: Type
-    ): ApiResult<T> = client.callWithResult(method, params, resultType)
+    ): ApiResult<T> {
+        if (isStaleBoundSession()) {
+            return ApiResult.Error("Session is no longer active")
+        }
+        return client.callWithResult(method, params, resultType)
+    }
 
     /** Proactively refreshes a near-expiry token so most calls never hit a 401. */
     private suspend fun ensureFreshSession() {
@@ -156,23 +201,6 @@ class TrueNASApiManager(
         }
     }
 
-    /**
-     * Single recovery owner. Concurrent callers serialize on [recoveryMutex]; any caller that
-     * arrives after a successful refresh simply reuses the newly stored token instead of
-     * re-authenticating (the dedupe fix).
-     */
-    private suspend fun recoverSession(): SessionProvider.RecoveryResult {
-        recoveryMutex.withLock {
-            val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext)
-                ?: return SessionProvider.RecoveryResult.Unauthenticated
-            // Another caller already refreshed a still-valid token while we waited for the lock.
-            if (!snapshot.isExpiringSoon(safetyFraction = 1f)) {
-                return SessionProvider.RecoveryResult.Recovered
-            }
-            return recoverSessionLocked(snapshot)
-        }
-    }
-
     private suspend fun recoverSessionLocked(
         snapshot: MultiAccountPrefs.SessionSnapshot
     ): SessionProvider.RecoveryResult =
@@ -182,8 +210,10 @@ class TrueNASApiManager(
         return client.downloadFile(urlPath, outputStream)
     }
 
-    suspend fun connect(): Boolean = client.connect()
-    suspend fun disconnect() = client.disconnect()
+    suspend fun connect(): Boolean {
+        return if (isStaleBoundSession()) false else client.connect()
+    }
+    fun disconnect() = client.disconnect()
     fun isConnected(): Boolean = client.getCurrentConnectionState() == ConnectionState.Connected
 
     /** HTTP(S) base of the server this manager is connected to, e.g. "http://192.168.1.100:80". */

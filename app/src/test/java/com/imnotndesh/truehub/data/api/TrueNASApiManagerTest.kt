@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.data.api
 
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.data.ConnectionState
 import com.imnotndesh.truehub.data.TrueNASRpcException
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import org.junit.Assert.assertFalse
@@ -45,6 +46,25 @@ class TrueNASApiManagerTest {
     @Test
     fun successIsNotAuthenticationError() {
         assertFalse(isAuthenticationError(ApiResult.Success(true)))
+    }
+
+    @Test
+    fun disconnectedTransportTriggersRecovery() {
+        val result = ApiResult.Error("Connection closed")
+
+        assertTrue(shouldAttemptRecovery(result, ConnectionState.Disconnected))
+        assertTrue(shouldAttemptRecovery(result, ConnectionState.Error("failed")))
+    }
+
+    @Test
+    fun serverRpcErrorDoesNotTriggerTransportRecovery() {
+        val result = ApiResult.Error(
+            "Method error",
+            TrueNASRpcException(-32001, "Method error")
+        )
+
+        assertFalse(shouldAttemptRecovery(result, ConnectionState.Connected))
+        assertFalse(shouldAttemptRecovery(result, ConnectionState.Disconnected))
     }
 
     @Test

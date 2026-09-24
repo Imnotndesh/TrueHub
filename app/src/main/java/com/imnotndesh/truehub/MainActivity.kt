@@ -278,7 +278,7 @@ private fun AppNavigation(
                 },
                 onLoginSuccess = {
                     (context as? ComponentActivity)?.lifecycleScope?.launch {
-                        viewModel.activateSession(context)
+                        if (!viewModel.activateSession(context)) return@launch
                         navController.navigate(Screen.Main.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                             launchSingleTop = true

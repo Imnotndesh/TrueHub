@@ -15,6 +15,7 @@ import com.imnotndesh.truehub.data.helpers.SessionCoordinator
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
+import com.imnotndesh.truehub.data.helpers.RecoveryTrigger
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.Auth
 import com.imnotndesh.truehub.data.models.LoginExResult
@@ -66,6 +67,7 @@ class MainViewModel @Inject constructor(
     private var initializationJob: Job? = null
     private var connectivityRecoveryJob: Job? = null
     private var periodicPingJob: Job? = null
+    private var pendingSessionGeneration: Long? = null
     private val _pendingNavigation = MutableStateFlow<String?>(null)
     val pendingNavigation: StateFlow<String?> = _pendingNavigation.asStateFlow()
 
@@ -147,7 +149,7 @@ class MainViewModel @Inject constructor(
                             when (totpManager.second) {
                                 TotpResult.OTP_REQUIRED -> {
                                     _manager.value = totpManager.first
-                                    sessionCoordinator.publishPending(totpManager.first)
+                                    pendingSessionGeneration = sessionCoordinator.publishPending(totpManager.first)
                                     _appState.value = AppState.TotpRequired(account.username)
                                     return@launch
                                 }
@@ -191,7 +193,7 @@ class MainViewModel @Inject constructor(
                 observer.observe().collect { state ->
                     when (state) {
                         ConnectionState.Connected,
-                        ConnectionState.Connecting -> recoverActiveSession(context)
+                        ConnectionState.Connecting -> recoverActiveSession()
                         else -> Unit
                     }
                 }
@@ -202,44 +204,42 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private suspend fun recoverActiveSession(context: Context) {
-        val currentManager = sessionCoordinator.currentAuthenticatedManager ?: return
-        try {
-            if (!currentManager.isConnected() && !currentManager.ensureConnected()) return
-            if (_manager.value !== currentManager) return
-
-            val snapshot = MultiAccountPrefs.getSessionSnapshot(context) ?: return
-            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return
-            if (snapshot.serverId != serverId || snapshot.accountId != accountId) return
-
-            currentManager.recoverAfterDisconnect()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-        }
+    private fun recoverActiveSession() {
+        sessionCoordinator.requestRecovery(RecoveryTrigger.NetworkEvent)
     }
 
     fun updateManager(newManager: TrueNASApiManager) {
+        val previousManager = _manager.value
+        pendingSessionGeneration = sessionCoordinator.publishPending(newManager)
+        if (previousManager != null && previousManager !== newManager) {
+            previousManager.disconnect()
+        }
         _manager.value = newManager
-        sessionCoordinator.publishPending(newManager)
     }
 
-    suspend fun activateSession(context: Context) {
-        val currentManager = _manager.value ?: return
-        val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return
+    suspend fun activateSession(context: Context): Boolean {
+        val currentManager = _manager.value ?: return false
+        val generation = pendingSessionGeneration ?: return false
+        val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return false
         val snapshot = MultiAccountPrefs.getSessionSnapshot(context)
         val tokenPersisted = EncryptedPrefs.getAuthToken(context) != null ||
             snapshot?.let { it.serverId == serverId && it.accountId == accountId } == true
-        sessionCoordinator.publishAuthenticated(
+        val published = sessionCoordinator.publishAuthenticated(
             currentManager,
             serverId,
             accountId,
-            tokenPersisted
+            tokenPersisted,
+            expectedGeneration = generation
         )
+        if (published) pendingSessionGeneration = null
+        return published
     }
 
     fun clearSession() {
+        val previousManager = _manager.value
         sessionCoordinator.clear()
+        previousManager?.disconnect()
+        pendingSessionGeneration = null
         _manager.value = null
         _currentUserKey.value = null
         periodicPingJob?.cancel()
@@ -253,17 +253,17 @@ class MainViewModel @Inject constructor(
         accountId: String,
         tokenPersisted: Boolean
     ) {
-        val previousManager = _manager.value
-        if (previousManager != null && previousManager !== newManager) {
-            previousManager.disconnect()
-        }
-        _manager.value = newManager
-        sessionCoordinator.publishAuthenticated(
+        val previousManager = sessionCoordinator.replaceAuthenticated(
             newManager,
             serverId,
             accountId,
             tokenPersisted
         )
+        if (previousManager != null && previousManager !== newManager) {
+            previousManager.disconnect()
+        }
+        pendingSessionGeneration = null
+        _manager.value = newManager
     }
 
     fun startPeriodicAppSync(context: Context) {
