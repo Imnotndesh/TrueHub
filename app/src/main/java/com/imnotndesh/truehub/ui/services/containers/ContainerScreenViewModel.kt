@@ -45,10 +45,8 @@ class ContainerScreenViewModel @Inject constructor(
         viewModelScope.launch {
             while (true) {
                 kotlinx.coroutines.delay(30000)
-                if (_uiState.value.containers.isNotEmpty()) {
-                    _uiState.update { it.copy(isRefreshing = true) }
-                    loadContainers()
-                }
+                _uiState.update { it.copy(isRefreshing = true) }
+                loadContainers()
             }
         }
     }

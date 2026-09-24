@@ -1,28 +1,30 @@
 package com.imnotndesh.truehub.ui.services.containers.create
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -46,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Virt
+import com.imnotndesh.truehub.ui.components.ExpressiveActionFab
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,7 +63,7 @@ fun ContainerCreateScreen(
     val viewModel: ContainerCreateViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var name by rememberSaveable { mutableStateOf("") }
-    var selectedImage by remember { mutableStateOf<Virt.ImageChoice?>(null) }
+    var selectedImage by remember { mutableStateOf<Pair<String, Virt.ImageChoice>?>(null) }
     var selectedPool by rememberSaveable { mutableStateOf("") }
     var cpu by rememberSaveable { mutableStateOf("") }
     var memory by rememberSaveable { mutableStateOf("") }
@@ -71,8 +75,8 @@ fun ContainerCreateScreen(
     var showPoolPicker by remember { mutableStateOf(false) }
     var showIoBusPicker by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.createdJobId) {
-        if (state.createdJobId != null) onCreated()
+    LaunchedEffect(state.creationCompleted) {
+        if (state.creationCompleted) onCreated()
     }
 
     Scaffold(
@@ -80,115 +84,150 @@ fun ContainerCreateScreen(
             UnifiedScreenHeader(
                 title = "Create container",
                 subtitle = "New virtualized container",
-                isLoading = state.isLoadingChoices || state.isSaving,
-                isRefreshing = false,
-                error = state.error,
-                onRefresh = viewModel::loadChoices,
-                onDismissError = viewModel::dismissError,
+                 isLoading = state.isLoadingChoices || state.isSaving,
+                 isRefreshing = state.isRefreshing,
+                 error = state.error,
+                 onDismissError = { viewModel.loadChoices() },
                 manager = manager,
                 onBackPressed = onNavigateBack
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (state.isLoadingChoices && state.imageChoices.isEmpty() && state.poolChoices.isEmpty()) {
-            LoadingScreen("Loading container options")
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshContent(
+                isRefreshing = state.isRefreshing,
+                onRefresh = viewModel::refreshChoices,
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
             ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Container name") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
-                )
+                if (state.isLoadingChoices && state.imageChoices.isEmpty() && state.poolChoices.isEmpty()) {
+                    LoadingScreen("Loading container options")
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Container name") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp)
+                        )
 
-                OutlinedTextField(
-                    value = selectedImage?.label.orEmpty(),
-                    onValueChange = {},
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Image") },
-                    placeholder = { Text("Select from server choices") },
-                    readOnly = true,
-                    singleLine = true,
-                    trailingIcon = {
-                        TextButton(onClick = { showImagePicker = true }) { Text("Choose") }
-                    },
-                    shape = RoundedCornerShape(14.dp)
-                )
+                        OutlinedTextField(
+                            value = selectedImage?.second?.label.orEmpty(),
+                            onValueChange = {},
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Image") },
+                            placeholder = { Text("Select from server choices") },
+                            readOnly = true,
+                            singleLine = true,
+                            trailingIcon = {
+                                TextButton(onClick = { showImagePicker = true }) { Text("Choose") }
+                            },
+                            shape = RoundedCornerShape(14.dp)
+                        )
 
-                ChoiceField(
-                    label = "Storage pool",
-                    value = state.poolChoices[selectedPool] ?: selectedPool,
-                    placeholder = "Select a pool",
-                    onClick = { showPoolPicker = true }
-                )
+                        ChoiceField(
+                            label = "Storage pool",
+                            value = state.poolChoices[selectedPool] ?: selectedPool,
+                            placeholder = "Select a pool",
+                            onClick = { showPoolPicker = true }
+                        )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = cpu,
-                        onValueChange = { cpu = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("CPU") },
-                        placeholder = { Text("Optional") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    OutlinedTextField(
-                        value = memory,
-                        onValueChange = { memory = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("Memory MB") },
-                        placeholder = { Text("Optional") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = cpu,
+                                onValueChange = { cpu = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("CPU") },
+                                placeholder = { Text("Optional") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            OutlinedTextField(
+                                value = memory,
+                                onValueChange = { memory = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Memory MB") },
+                                placeholder = { Text("Optional") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = rootDiskSize,
+                                onValueChange = { rootDiskSize = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Root disk GB") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            ChoiceField(
+                                label = "I/O bus",
+                                value = rootDiskIoBus?.name.orEmpty(),
+                                placeholder = "Select",
+                                onClick = { showIoBusPicker = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        ToggleSetting(
+                            title = "Autostart",
+                            description = "Start the container when TrueNAS starts",
+                            checked = autostart,
+                            onCheckedChange = { autostart = it }
+                        )
+                        ToggleSetting(
+                            title = "Privileged",
+                            description = "Allow elevated host access for this container",
+                            checked = privileged,
+                            onCheckedChange = { privileged = it }
+                        )
+
+                        if (state.isSaving) {
+                            val progress = state.creationJob?.progress?.percent ?: 0
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("Creating container", style = MaterialTheme.typography.titleMedium)
+                                    LinearProgressIndicator(
+                                        progress = { progress / 100f },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Text(
+                                        state.creationJob?.progress?.description ?: "Waiting for TrueNAS to finish the creation job",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = rootDiskSize,
-                        onValueChange = { rootDiskSize = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("Root disk GB") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    ChoiceField(
-                        label = "I/O bus",
-                        value = rootDiskIoBus?.name.orEmpty(),
-                        placeholder = "Select",
-                        onClick = { showIoBusPicker = true },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                ToggleSetting(
-                    title = "Autostart",
-                    description = "Start the container when TrueNAS starts",
-                    checked = autostart,
-                    onCheckedChange = { autostart = it }
-                )
-                ToggleSetting(
-                    title = "Privileged",
-                    description = "Allow elevated host access for this container",
-                    checked = privileged,
-                    onCheckedChange = { privileged = it }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Button(
-                    onClick = {
+            }
+            ExpressiveActionFab(
+                icon = Icons.Default.Add,
+                label = "Create container",
+                isBusy = state.isSaving,
+                onClick = {
+                    if (!state.isSaving) {
                         viewModel.create(
                             name = name,
-                            image = selectedImage,
+                            imageKey = selectedImage?.first,
                             pool = selectedPool,
                             cpu = cpu,
                             memory = memory,
@@ -197,23 +236,23 @@ fun ContainerCreateScreen(
                             autostart = autostart,
                             privileged = privileged
                         )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isSaving
-                ) {
-                    Text(if (state.isSaving) "Starting creation..." else "Create container")
-                }
-            }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            )
         }
     }
 
     if (showImagePicker) {
         ImageChoiceSheet(
             choices = state.imageChoices,
-            selected = selectedImage,
+            selectedKey = selectedImage?.first,
             onDismiss = { showImagePicker = false },
-            onSelect = {
-                selectedImage = it
+            onSelect = { key, choice ->
+                selectedImage = key to choice
                 showImagePicker = false
             }
         )
@@ -296,15 +335,15 @@ private fun ToggleSetting(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ImageChoiceSheet(
-    choices: List<Virt.ImageChoice>,
-    selected: Virt.ImageChoice?,
+    choices: Map<String, Virt.ImageChoice>,
+    selectedKey: String?,
     onDismiss: () -> Unit,
-    onSelect: (Virt.ImageChoice) -> Unit
+    onSelect: (String, Virt.ImageChoice) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by rememberSaveable { mutableStateOf("") }
-    val filtered = choices.filter { choice ->
-        query.isBlank() || listOf(choice.label, choice.os, choice.release, choice.variant)
+    val filtered = choices.entries.filter { (key, choice) ->
+        query.isBlank() || key.contains(query, true) || listOf(choice.label, choice.os, choice.release, choice.variant)
             .any { value -> value?.contains(query, ignoreCase = true) == true }
     }
     ModalBottomSheet(
@@ -327,11 +366,12 @@ private fun ImageChoiceSheet(
                 modifier = Modifier.fillMaxWidth().height(420.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(filtered, key = { it.label }) { choice ->
+                items(filtered, key = { it.key }) { entry ->
+                    val choice = entry.value
                     Surface(
-                        onClick = { onSelect(choice) },
+                        onClick = { onSelect(entry.key, choice) },
                         shape = RoundedCornerShape(14.dp),
-                        color = if (choice == selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                        color = if (entry.key == selectedKey) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -339,14 +379,14 @@ private fun ImageChoiceSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(choice.label, style = MaterialTheme.typography.titleMedium)
+                                Text(choice.label.orEmpty().ifBlank { "Unnamed image" }, style = MaterialTheme.typography.titleMedium)
                                 Text(
                                     listOfNotNull(choice.os, choice.release, choice.variant).joinToString(" · "),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (choice == selected) Icon(Icons.Default.Check, contentDescription = null)
+                            if (entry.key == selectedKey) Icon(Icons.Default.Check, contentDescription = null)
                         }
                     }
                 }

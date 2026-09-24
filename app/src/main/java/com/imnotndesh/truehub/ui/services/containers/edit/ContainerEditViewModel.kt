@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 data class ContainerEditUiState(
     val container: Virt.ContainerResponse? = null,
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val isSaving: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null
@@ -35,18 +36,33 @@ class ContainerEditViewModel @Inject constructor(
     }
 
     fun load() {
+        loadInternal(isRefresh = false)
+    }
+
+    fun refresh() {
+        loadInternal(isRefresh = true)
+    }
+
+    private fun loadInternal(isRefresh: Boolean) {
         if (containerId.isBlank()) {
             _uiState.value = ContainerEditUiState(isLoading = false, error = "Container ID is missing")
             return
         }
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isLoading = !isRefresh,
+                isRefreshing = isRefresh,
+                error = null
+            )
             when (val result = manager.virtService.getInstanceWithResult(containerId)) {
-                is ApiResult.Success -> _uiState.value = ContainerEditUiState(
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(
                     container = result.data,
-                    isLoading = false
-                )
-                is ApiResult.Error -> _uiState.value = ContainerEditUiState(
                     isLoading = false,
+                    isRefreshing = false
+                )
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isRefreshing = false,
                     error = result.message
                 )
                 ApiResult.Loading -> Unit

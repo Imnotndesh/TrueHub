@@ -1,5 +1,7 @@
 package com.imnotndesh.truehub.ui
 
+import android.net.Uri
+
 sealed class Screen(val route:String, val title:String) {
     object Home : Screen("home", "Home")
     object Apps : Screen("apps","Apps")
@@ -26,6 +28,21 @@ sealed class Screen(val route:String, val title:String) {
     object CreateContainer : Screen("create_container", "Create Container")
     object ContainerEdit : Screen("container_edit/{containerId}", "Edit Container") {
         fun createRoute(containerId: String): String = "container_edit/$containerId"
+    }
+    object ContainerDevices : Screen("container_devices/{containerId}", "Container Devices") {
+        fun createRoute(containerId: String): String = "container_devices/$containerId"
+    }
+    object ContainerDeviceAdd : Screen("container_devices/{containerId}/add?deviceName={deviceName}", "Add Container Device") {
+        fun createRoute(containerId: String, deviceName: String? = null): String {
+            return if (deviceName.isNullOrBlank()) {
+                "container_devices/$containerId/add"
+            } else {
+                "container_devices/$containerId/add?deviceName=${Uri.encode(deviceName)}"
+            }
+        }
+    }
+    object ContainerVolumes : Screen("container_volumes/{containerId}", "Container Volumes") {
+        fun createRoute(containerId: String): String = "container_volumes/$containerId"
     }
     object ContainerInfo : Screen("container_info/{containerId}", "Container Info") {
         fun createRoute(containerId: String): String = "container_info/$containerId"

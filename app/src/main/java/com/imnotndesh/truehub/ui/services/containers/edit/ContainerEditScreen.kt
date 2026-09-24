@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.ui.services.containers.edit
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Virt
+import com.imnotndesh.truehub.ui.components.ExpressiveActionFab
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,114 +88,126 @@ fun ContainerEditScreen(
             UnifiedScreenHeader(
                 title = state.container?.name ?: "Edit container",
                 subtitle = "Container configuration",
-                isLoading = state.isLoading,
-                isRefreshing = false,
-                error = state.error,
-                onRefresh = viewModel::load,
-                onDismissError = viewModel::load,
+                 isLoading = state.isLoading,
+                 isRefreshing = state.isRefreshing,
+                 error = state.error,
+                 onDismissError = viewModel::load,
                 manager = manager,
                 onBackPressed = onNavigateBack
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        if (state.isLoading && state.container == null) {
-            LoadingScreen("Loading Container")
-        } else if (state.container == null) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshContent(
+                isRefreshing = state.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
             ) {
-                Text(state.error ?: "Container is unavailable", color = MaterialTheme.colorScheme.error)
-                Button(onClick = viewModel::load, modifier = Modifier.padding(top = 16.dp)) {
-                    Text("Retry")
-                }
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                SettingSwitch(
-                    title = "Autostart",
-                    description = "Start the container when TrueNAS starts",
-                    checked = autostart,
-                    onCheckedChange = { autostart = it }
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = cpu,
-                        onValueChange = { cpu = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("CPU") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    OutlinedTextField(
-                        value = memory,
-                        onValueChange = { memory = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("Memory MB") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = rootDiskSize,
-                        onValueChange = { rootDiskSize = it },
-                        modifier = Modifier.weight(1f),
-                        label = { Text("Root disk GB") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    ChoiceField(
-                        label = "I/O bus",
-                        value = rootDiskIoBus?.name.orEmpty(),
-                        placeholder = "Select",
-                        onClick = { showIoBusPicker = true },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                SettingSwitch(
-                    title = "VNC",
-                    description = "Enable remote graphical access",
-                    checked = vncEnabled,
-                    onCheckedChange = { vncEnabled = it }
-                )
-                if (vncEnabled) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = vncPort,
-                            onValueChange = { vncPort = it },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("VNC port") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp)
+                if (state.isLoading && state.container == null) {
+                    LoadingScreen("Loading Container")
+                } else if (state.container == null) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(state.error ?: "Container is unavailable", color = MaterialTheme.colorScheme.error)
+                        Button(onClick = viewModel::load, modifier = Modifier.padding(top = 16.dp)) {
+                            Text("Retry")
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        SettingSwitch(
+                            title = "Autostart",
+                            description = "Start the container when TrueNAS starts",
+                            checked = autostart,
+                            onCheckedChange = { autostart = it }
                         )
-                        OutlinedTextField(
-                            value = vncPassword,
-                            onValueChange = { vncPassword = it },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("VNC password") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(14.dp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = cpu,
+                                onValueChange = { cpu = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("CPU") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            OutlinedTextField(
+                                value = memory,
+                                onValueChange = { memory = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Memory MB") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(
+                                value = rootDiskSize,
+                                onValueChange = { rootDiskSize = it },
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Root disk GB") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            ChoiceField(
+                                label = "I/O bus",
+                                value = rootDiskIoBus?.name.orEmpty(),
+                                placeholder = "Select",
+                                onClick = { showIoBusPicker = true },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        SettingSwitch(
+                            title = "VNC",
+                            description = "Enable remote graphical access",
+                            checked = vncEnabled,
+                            onCheckedChange = { vncEnabled = it }
                         )
+                        if (vncEnabled) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OutlinedTextField(
+                                    value = vncPort,
+                                    onValueChange = { vncPort = it },
+                                    modifier = Modifier.weight(1f),
+                                    label = { Text("VNC port") },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                OutlinedTextField(
+                                    value = vncPassword,
+                                    onValueChange = { vncPassword = it },
+                                    modifier = Modifier.weight(1f),
+                                    label = { Text("VNC password") },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                            }
+                        }
+                        SettingSwitch(
+                            title = "Secure boot",
+                            description = "Enable secure boot when supported",
+                            checked = secureBoot,
+                            onCheckedChange = { secureBoot = it }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                     }
                 }
-                SettingSwitch(
-                    title = "Secure boot",
-                    description = "Enable secure boot when supported",
-                    checked = secureBoot,
-                    onCheckedChange = { secureBoot = it }
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Button(
-                    onClick = {
+            }
+            ExpressiveActionFab(
+                icon = Icons.Default.Save,
+                label = "Save changes",
+                isBusy = state.isSaving,
+                onClick = {
+                    if (state.container != null && !state.isSaving) {
                         viewModel.save(
                             autostart = autostart,
                             cpu = cpu,
@@ -202,13 +219,13 @@ fun ContainerEditScreen(
                             rootDiskSize = rootDiskSize,
                             rootDiskIoBus = rootDiskIoBus
                         )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.isSaving
-                ) {
-                    Text(if (state.isSaving) "Saving..." else "Save changes")
-                }
-            }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            )
         }
     }
 

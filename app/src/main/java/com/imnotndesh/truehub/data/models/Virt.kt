@@ -153,7 +153,7 @@ object Virt {
         val description: String? = null,
         val readonly : Boolean? = false,
         val dev_type: String,
-        val gpu_type: String,
+        val gpu_type: String? = null,
         val id : String? = null,
         val gid : Int? = null,
         val uid: Int? = null,
@@ -164,6 +164,23 @@ object Virt {
         val productid: String? = null,
         val vendorid: String? = null,
     ): Device
+    @JsonClass(generateAdapter = true)
+    data class GpuChoice(
+        val bus: String? = null,
+        val slot: String? = null,
+        val description: String? = null,
+        val vendor: String? = null,
+        val pci: String? = null
+    )
+    @JsonClass(generateAdapter = true)
+    data class UsbChoice(
+        @field:Json("vendor_id") val vendorId: String? = null,
+        @field:Json("product_id") val productId: String? = null,
+        val bus: Int? = null,
+        val dev: Int? = null,
+        val product: String? = null,
+        val manufacturer: String? = null
+    )
     @Suppress("PropertyName")
     data class ProxyDevice(
         val name: String? = null,
@@ -229,12 +246,12 @@ object Virt {
      * @see com.imnotndesh.truehub.data.api.ApiMethods.Virt.GET_IMAGE_CHOICES
      */
     data class ImageChoice(
-        val label: String,
-        val os :String,
-        val release: String,
-        val archs : List<String>,
-        val variant: String,
-        val instance_types: List<String>,
+        val label: String? = null,
+        val os: String? = null,
+        val release: String? = null,
+        val archs: List<String> = emptyList(),
+        val variant: String? = null,
+        val instance_types: List<String> = emptyList(),
         val secureboot: Boolean? = null
     )
 

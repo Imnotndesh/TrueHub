@@ -52,7 +52,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
@@ -64,8 +63,6 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshState
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -77,9 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -89,7 +84,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
-import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
+import com.imnotndesh.truehub.ui.components.ExpressiveActionFab
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -141,17 +136,9 @@ fun ContainersScreen(
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
             error = uiState.error,
-            onRefresh = { viewModel.loadContainers() },
             onDismissError = { viewModel.clearError() },
             manager = manager,
-            onSearchClick = onSearchClick,
-            trailingActions = {
-                ExpressiveIconButton(
-                    onClick = onCreateContainer,
-                    icon = Icons.Default.Add,
-                    contentDescription = "Create container"
-                )
-            }
+            onSearchClick = onSearchClick
         )
 
         ContainerFilterBar(
@@ -160,68 +147,78 @@ fun ContainersScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        PullToRefreshContent(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = { viewModel.loadContainers() },
-            modifier = Modifier.weight(1f)
-        ) {
-            when {
-                uiState.isLoading -> {
-                    LoadingScreen("Loading Containers")
-                }
-                uiState.containers.isEmpty() && !uiState.isLoading -> {
-                    EmptyContainerContent()
-                }
-                filteredContainers.isEmpty() && !uiState.isLoading && uiState.containers.isNotEmpty() -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No containers in this category",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+        Box(modifier = Modifier.weight(1f)) {
+            PullToRefreshContent(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = { viewModel.loadContainers() },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when {
+                    uiState.isLoading -> {
+                        LoadingScreen("Loading Containers")
                     }
-                }
-                else -> {
-                    if (isCompact) {
-                        ContainersContent(
-                            containers = filteredContainers,
-                            isRefreshing = uiState.isRefreshing,
-                            onStartContainer = { id -> viewModel.startContainer(id) },
-                            onStopContainer = { id -> viewModel.stopContainer(id) },
-                            onRestartContainer = { id -> viewModel.restartContainer(id) },
-                            onDeleteContainer = { id -> viewModel.deleteContainer(id) },
-                            operationJobs = uiState.operationJobs,
-                            onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
-                            selectedContainer = null
-                        )
-                    } else {
-                        ContainersSplitPaneContent(
-                            containers = filteredContainers,
-                            selectedContainer = selectedContainerForPane,
-                            isRefreshing = uiState.isRefreshing,
-                            onStartContainer = { id -> viewModel.startContainer(id) },
-                            onStopContainer = { id -> viewModel.stopContainer(id) },
-                            onRestartContainer = { id -> viewModel.restartContainer(id) },
-                            onDeleteContainer = { id -> viewModel.deleteContainer(id) },
-                            operationJobs = uiState.operationJobs,
-                            onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
-                            onContainerPaneSelected = { container -> selectedContainerForPane = container },
-                            onClosePane = { selectedContainerForPane = null }
-                        )
+                    uiState.containers.isEmpty() && !uiState.isLoading -> {
+                        EmptyContainerContent()
+                    }
+                    filteredContainers.isEmpty() && !uiState.isLoading && uiState.containers.isNotEmpty() -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No containers in this category",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    else -> {
+                        if (isCompact) {
+                            ContainersContent(
+                                containers = filteredContainers,
+                                isRefreshing = uiState.isRefreshing,
+                                onStartContainer = { id -> viewModel.startContainer(id) },
+                                onStopContainer = { id -> viewModel.stopContainer(id) },
+                                onRestartContainer = { id -> viewModel.restartContainer(id) },
+                                onDeleteContainer = { id -> viewModel.deleteContainer(id) },
+                                operationJobs = uiState.operationJobs,
+                                onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
+                                selectedContainer = null
+                            )
+                        } else {
+                            ContainersSplitPaneContent(
+                                containers = filteredContainers,
+                                selectedContainer = selectedContainerForPane,
+                                isRefreshing = uiState.isRefreshing,
+                                onStartContainer = { id -> viewModel.startContainer(id) },
+                                onStopContainer = { id -> viewModel.stopContainer(id) },
+                                onRestartContainer = { id -> viewModel.restartContainer(id) },
+                                onDeleteContainer = { id -> viewModel.deleteContainer(id) },
+                                operationJobs = uiState.operationJobs,
+                                onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
+                                onContainerPaneSelected = { container -> selectedContainerForPane = container },
+                                onClosePane = { selectedContainerForPane = null }
+                            )
+                        }
                     }
                 }
             }
+            ExpressiveActionFab(
+                icon = Icons.Default.Add,
+                label = "Create container",
+                onClick = onCreateContainer,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            )
         }
     }
 }
@@ -975,49 +972,6 @@ private fun getStatusIcon(status: Virt.Status): ImageVector {
         Virt.Status.ERROR -> Icons.Default.Error
         Virt.Status.FROZEN -> Icons.Default.Pause
         else -> Icons.Default.Refresh
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MorphingRefreshIndicator(
-    state: PullToRefreshState,
-    isRefreshing: Boolean
-) {
-    val scale = if (isRefreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
-    val cornerSize = (16 + (34 * scale)).dp
-    val rotation = state.distanceFraction * 180f
-
-    if (state.distanceFraction > 0.1f || isRefreshing) {
-        Surface(
-            modifier = Modifier
-                .padding(top = 16.dp)
-                .size(48.dp)
-                .scale(scale)
-                .graphicsLayer {
-                    rotationZ = if (isRefreshing) 0f else rotation
-                },
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(cornerSize),
-            shadowElevation = 4.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        strokeWidth = 3.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        }
     }
 }
 

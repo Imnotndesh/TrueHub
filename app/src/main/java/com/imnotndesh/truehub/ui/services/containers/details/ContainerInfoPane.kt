@@ -45,7 +45,8 @@ import com.imnotndesh.truehub.data.models.Virt.ContainerResponse
 fun ContainerInfoPane(
     container: ContainerResponse,
     onClose: () -> Unit,
-    showInlineHeader: Boolean = true
+    showInlineHeader: Boolean = true,
+    bottomActions: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -204,6 +205,11 @@ fun ContainerInfoPane(
                         }
                     }
                 }
+            }
+
+            if (bottomActions != null) {
+                bottomActions()
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             Spacer(modifier = Modifier.height(32.dp))

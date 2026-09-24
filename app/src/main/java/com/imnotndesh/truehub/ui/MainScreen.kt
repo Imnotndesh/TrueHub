@@ -132,6 +132,9 @@ import com.imnotndesh.truehub.ui.services.apps.details.rollback.RollbackVersionS
 import com.imnotndesh.truehub.ui.services.apps.details.upgrade.UpgradeSummaryScreen
 import com.imnotndesh.truehub.ui.services.containers.ContainersScreen
 import com.imnotndesh.truehub.ui.services.containers.create.ContainerCreateScreen
+import com.imnotndesh.truehub.ui.services.containers.devices.ContainerDeviceAddScreen
+import com.imnotndesh.truehub.ui.services.containers.devices.ContainerDevicesScreen
+import com.imnotndesh.truehub.ui.services.containers.volumes.ContainerVolumesScreen
 import com.imnotndesh.truehub.ui.services.containers.edit.ContainerEditScreen
 import com.imnotndesh.truehub.ui.services.containers.details.ContainerInfoScreen
 import com.imnotndesh.truehub.ui.services.system.services.ServiceDetailScreen
@@ -1047,6 +1050,60 @@ private fun TrueHubNavGraph(
         }
 
         composable(
+            route = Screen.ContainerDevices.route,
+            arguments = listOf(navArgument("containerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val containerId = backStackEntry.arguments?.getString("containerId").orEmpty()
+            if (containerId.isNotBlank()) {
+                ContainerDevicesScreen(
+                    containerId = containerId,
+                    manager = manager,
+                     onNavigateBack = { navController.popBackStack() },
+                     onAddDevice = { navController.navigate(Screen.ContainerDeviceAdd.createRoute(containerId)) },
+                     onEditDevice = { deviceName ->
+                         navController.navigate(Screen.ContainerDeviceAdd.createRoute(containerId, deviceName))
+                     }
+
+                )
+            }
+        }
+
+        composable(
+             route = Screen.ContainerDeviceAdd.route,
+             arguments = listOf(
+                 navArgument("containerId") { type = NavType.StringType },
+                 navArgument("deviceName") {
+                     type = NavType.StringType
+                     nullable = true
+                     defaultValue = null
+                 }
+             )
+        ) { backStackEntry ->
+            val containerId = backStackEntry.arguments?.getString("containerId").orEmpty()
+            if (containerId.isNotBlank()) {
+                ContainerDeviceAddScreen(
+                    containerId = containerId,
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onAdded = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
+            route = Screen.ContainerVolumes.route,
+            arguments = listOf(navArgument("containerId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val containerId = backStackEntry.arguments?.getString("containerId").orEmpty()
+            if (containerId.isNotBlank()) {
+                ContainerVolumesScreen(
+                    manager = manager,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
+
+        composable(
             route = Screen.ContainerInfo.route,
             arguments = listOf(navArgument("containerId") { type = NavType.StringType })
         ) { backStackEntry ->
@@ -1056,7 +1113,9 @@ private fun TrueHubNavGraph(
                     containerId = containerId,
                     manager = manager,
                     onNavigateBack = { navController.popBackStack() },
-                    onEdit = { navController.navigate(Screen.ContainerEdit.createRoute(containerId)) }
+                    onEdit = { navController.navigate(Screen.ContainerEdit.createRoute(containerId)) },
+                    onManageDevices = { navController.navigate(Screen.ContainerDevices.createRoute(containerId)) },
+                    onManageVolumes = { navController.navigate(Screen.ContainerVolumes.createRoute(containerId)) }
                 )
             }
         }

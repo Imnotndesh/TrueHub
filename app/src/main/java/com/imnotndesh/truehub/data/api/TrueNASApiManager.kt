@@ -165,13 +165,19 @@ class TrueNASApiManager(
     suspend fun unsubscribe(subscriptionId: String) = client.unsubscribe(subscriptionId)
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
+    suspend fun <T> callWithResult(
+        method: String,
+        params: List<Any?>,
+        resultType: Type,
+        retryOnRecovery: Boolean = true
+    ): ApiResult<T> {
         if (isStaleBoundSession()) {
             return ApiResult.Error("Session is no longer active")
         }
         ensureFreshSession()
         var result = client.callWithResult<T>(method, params, resultType)
-        if (shouldAttemptRecovery(result, client.getCurrentConnectionState()) &&
+        if (retryOnRecovery &&
+            shouldAttemptRecovery(result, client.getCurrentConnectionState()) &&
             allowsRequestRetry(recoverAfterDisconnect())
         ) {
             result = client.callWithResult<T>(method, params, resultType)

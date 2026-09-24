@@ -77,8 +77,12 @@ class VirtService(val manager: TrueNASApiManager) {
     }
 
     // Get Virt image choices
-    suspend fun getVirtImageChoicesWithResult(): ApiResult<List<Virt.ImageChoice>>{
-        val type = Types.newParameterizedType(List::class.java, Virt.ImageChoice::class.java)
+    suspend fun getVirtImageChoicesWithResult(): ApiResult<Map<String, Virt.ImageChoice>> {
+        val type = Types.newParameterizedType(
+            Map::class.java,
+            String::class.java,
+            Virt.ImageChoice::class.java
+        )
         return manager.callWithResult(
             method = ApiMethods.Virt.GET_IMAGE_CHOICES,
             params = listOf(),
@@ -86,23 +90,24 @@ class VirtService(val manager: TrueNASApiManager) {
         )
     }
 
-    private fun choiceType() = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+    private fun choiceType(valueType: Class<*>) =
+        Types.newParameterizedType(Map::class.java, String::class.java, valueType)
 
     // ── virt.device ──
     suspend fun getDeviceDiskChoicesWithResult(): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_DISK_CHOICES, listOf(), choiceType())
+        manager.callWithResult(ApiMethods.Virt.DEVICE_DISK_CHOICES, listOf(), choiceType(String::class.java))
 
-    suspend fun getDeviceGpuChoicesWithResult(gpuType: String? = null): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_GPU_CHOICES, listOfNotNull(gpuType), choiceType())
+    suspend fun getDeviceGpuChoicesWithResult(gpuType: String? = null): ApiResult<Map<String, Virt.GpuChoice>> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_GPU_CHOICES, listOfNotNull(gpuType), choiceType(Virt.GpuChoice::class.java))
 
     suspend fun getDeviceNicChoicesWithResult(nicType: String? = null): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_NIC_CHOICES, listOfNotNull(nicType), choiceType())
+        manager.callWithResult(ApiMethods.Virt.DEVICE_NIC_CHOICES, listOfNotNull(nicType), choiceType(String::class.java))
 
     suspend fun getDevicePciChoicesWithResult(): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_PCI_CHOICES, listOf(), choiceType())
+        manager.callWithResult(ApiMethods.Virt.DEVICE_PCI_CHOICES, listOf(), choiceType(String::class.java))
 
-    suspend fun getDeviceUsbChoicesWithResult(): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_USB_CHOICES, listOf(), choiceType())
+    suspend fun getDeviceUsbChoicesWithResult(): ApiResult<Map<String, Virt.UsbChoice>> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_USB_CHOICES, listOf(), choiceType(Virt.UsbChoice::class.java))
 
     suspend fun exportDiskImageWithResult(payload: Map<String, Any?>): ApiResult<Int> =
         manager.callWithResult(ApiMethods.Virt.DEVICE_EXPORT_DISK_IMAGE, listOf(payload), Int::class.java)
@@ -121,28 +126,46 @@ class VirtService(val manager: TrueNASApiManager) {
         manager.callWithResult(ApiMethods.Virt.GLOBAL_GET_NETWORK, listOf(name), Virt.GlobalNetwork::class.java)
 
     suspend fun getGlobalBridgeChoicesWithResult(): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.GLOBAL_BRIDGE_CHOICES, listOf(), choiceType())
+        manager.callWithResult(ApiMethods.Virt.GLOBAL_BRIDGE_CHOICES, listOf(), choiceType(String::class.java))
 
     suspend fun getGlobalPoolChoicesWithResult(): ApiResult<Map<String, String>> =
-        manager.callWithResult(ApiMethods.Virt.GLOBAL_POOL_CHOICES, listOf(), choiceType())
+        manager.callWithResult(ApiMethods.Virt.GLOBAL_POOL_CHOICES, listOf(), choiceType(String::class.java))
 
     // ── virt.instance ──
     suspend fun createInstanceWithResult(payload: Map<String, Any?>): ApiResult<Int> =
-        manager.callWithResult(ApiMethods.Virt.CREATE_INSTANCE, listOf(payload), Int::class.java)
+        manager.callWithResult(
+            method = ApiMethods.Virt.CREATE_INSTANCE,
+            params = listOf(payload),
+            resultType = Int::class.java,
+            retryOnRecovery = false
+        )
 
     suspend fun getInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse> =
         manager.callWithResult(ApiMethods.Virt.GET_INSTANCE, listOf(id), Virt.ContainerResponse::class.java)
 
     private fun deviceListType() = Types.newParameterizedType(List::class.java, Virt.Device::class.java)
+    private fun rawDeviceListType() = Types.newParameterizedType(
+        List::class.java,
+        Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+    )
 
-    suspend fun addInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<List<Virt.Device>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_ADD, listOf(id, device), deviceListType())
+    suspend fun getInstanceDeviceListRawWithResult(id: String): ApiResult<List<Map<String, Any?>>> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_LIST, listOf(id), rawDeviceListType())
+
+    suspend fun addInstanceDeviceRawWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_ADD, listOf(id, device), Boolean::class.java)
+
+    suspend fun updateInstanceDeviceRawWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_UPDATE, listOf(id, device), Boolean::class.java)
+
+    suspend fun addInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_ADD, listOf(id, device), Boolean::class.java)
 
     suspend fun getInstanceDeviceListWithResult(id: String): ApiResult<List<Virt.Device>> =
         manager.callWithResult(ApiMethods.Virt.DEVICE_LIST, listOf(id), deviceListType())
 
-    suspend fun updateInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<List<Virt.Device>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_UPDATE, listOf(id, device), deviceListType())
+    suspend fun updateInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
+        manager.callWithResult(ApiMethods.Virt.DEVICE_UPDATE, listOf(id, device), Boolean::class.java)
 
     suspend fun setBootableDiskWithResult(id: String, disk: String): ApiResult<Unit> =
         manager.callWithResult(ApiMethods.Virt.SET_BOOTABLE_DISK, listOf(id, disk), Unit::class.java)
