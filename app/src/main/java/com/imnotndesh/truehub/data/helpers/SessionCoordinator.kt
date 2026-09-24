@@ -5,6 +5,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,19 @@ enum class SessionAuthenticationState {
     Pending,
     Authenticated,
     AuthenticatedTemporary
+}
+
+enum class RecoveryTrigger {
+    TransportEvent,
+    NetworkEvent,
+    Foreground,
+    ExplicitRetry,
+    Worker
+}
+
+internal fun recoveryBackoffMillis(failureCount: Int): Long {
+    val exponent = failureCount.coerceIn(0, 5)
+    return (1_000L shl exponent).coerceAtMost(30_000L)
 }
 
 data class SessionRuntimeState(
@@ -70,6 +84,8 @@ class SessionCoordinator @Inject constructor() {
 
     private var generationCounter = 0L
     private var transportObservationJob: Job? = null
+    private var deferredRecoveryJob: Job? = null
+    private var recoveryFailureCount = 0
 
     val currentGeneration: Long
         get() = generationCounter
@@ -80,6 +96,8 @@ class SessionCoordinator @Inject constructor() {
     fun publishPending(manager: TrueNASApiManager): Long {
         val generation = nextGeneration()
         cancelTransportObservation()
+        cancelDeferredRecovery()
+        recoveryFailureCount = 0
         SessionHolder.current = null
         _state.value = SessionState.Pending(manager, generation)
         _transportState.value = manager.connectionState.value
@@ -116,6 +134,8 @@ class SessionCoordinator @Inject constructor() {
             else -> nextGeneration()
         }
         cancelTransportObservation()
+        cancelDeferredRecovery()
+        recoveryFailureCount = 0
         manager.bindSessionProfile(serverId, accountId)
         _state.value = SessionState.Authenticated(
             manager = manager,
@@ -152,6 +172,8 @@ class SessionCoordinator @Inject constructor() {
         val previousManager = SessionHolder.current
         val generation = nextGeneration()
         cancelTransportObservation()
+        cancelDeferredRecovery()
+        recoveryFailureCount = 0
         manager.bindSessionProfile(serverId, accountId)
         _state.value = SessionState.Authenticated(
             manager = manager,
@@ -182,6 +204,8 @@ class SessionCoordinator @Inject constructor() {
     fun clear() {
         nextGeneration()
         cancelTransportObservation()
+        cancelDeferredRecovery()
+        recoveryFailureCount = 0
         _state.value = SessionState.Unauthenticated
         _transportState.value = ConnectionState.Disconnected
         _authenticationState.value = SessionAuthenticationState.Unauthenticated
@@ -193,6 +217,18 @@ class SessionCoordinator @Inject constructor() {
             authenticationState = SessionAuthenticationState.Unauthenticated
         )
         SessionHolder.current = null
+    }
+
+    fun requestRecovery(trigger: RecoveryTrigger): Boolean {
+        val state = _state.value as? SessionState.Authenticated ?: return false
+        val immediate = trigger == RecoveryTrigger.ExplicitRetry || trigger == RecoveryTrigger.Foreground
+        val skipIfConnected = trigger == RecoveryTrigger.TransportEvent
+        return scheduleDeferredRecovery(
+            manager = state.manager,
+            generation = state.generation,
+            immediate = immediate,
+            skipIfConnected = skipIfConnected
+        )
     }
 
     fun isCurrent(manager: TrueNASApiManager, generation: Long): Boolean {
@@ -210,8 +246,44 @@ class SessionCoordinator @Inject constructor() {
         transportObservationJob = null
     }
 
+    private fun cancelDeferredRecovery() {
+        deferredRecoveryJob?.cancel()
+        deferredRecoveryJob = null
+    }
+
+    private fun scheduleDeferredRecovery(
+        manager: TrueNASApiManager,
+        generation: Long,
+        immediate: Boolean,
+        skipIfConnected: Boolean
+    ): Boolean {
+        if (!isCurrent(manager, generation) || deferredRecoveryJob?.isActive == true) return false
+        val delayMillis = if (immediate) 0L else recoveryBackoffMillis(recoveryFailureCount)
+        deferredRecoveryJob = scope.launch {
+            if (delayMillis > 0) delay(delayMillis)
+            if (!isCurrent(manager, generation)) return@launch
+            if (skipIfConnected && manager.isConnected()) {
+                recoveryFailureCount = 0
+                return@launch
+            }
+            when (manager.recoverAfterDisconnect()) {
+                SessionProvider.RecoveryResult.Recovered,
+                SessionProvider.RecoveryResult.AuthenticatedTemporary -> recoveryFailureCount = 0
+                SessionProvider.RecoveryResult.Retryable -> {
+                    recoveryFailureCount = (recoveryFailureCount + 1).coerceAtMost(5)
+                    scheduleDeferredRecovery(manager, generation, immediate, skipIfConnected)
+                }
+                is SessionProvider.RecoveryResult.OtpRequired,
+                SessionProvider.RecoveryResult.CredentialsRejected,
+                SessionProvider.RecoveryResult.Unauthenticated -> Unit
+            }
+        }
+        return true
+    }
+
     private fun observeTransport(manager: TrueNASApiManager, generation: Long) {
         transportObservationJob = scope.launch {
+            var previousTransportState: ConnectionState? = null
             manager.connectionState.collectLatest { transportState ->
                 val currentState = _state.value
                 val belongsToCurrentSession = when (currentState) {
@@ -220,10 +292,22 @@ class SessionCoordinator @Inject constructor() {
                     SessionState.Unauthenticated -> false
                 }
                 if (generation != generationCounter || !belongsToCurrentSession) return@collectLatest
+                val wasConnected = previousTransportState is ConnectionState.Connected
+                previousTransportState = transportState
                 _transportState.value = transportState
                 _runtimeState.value = _runtimeState.value.copy(
                     transportState = transportState
                 )
+                if (wasConnected && transportState !is ConnectionState.Connected &&
+                    currentState is SessionState.Authenticated
+                ) {
+                    scheduleDeferredRecovery(
+                        manager = manager,
+                        generation = generation,
+                        immediate = false,
+                        skipIfConnected = true
+                    )
+                }
             }
         }
     }

@@ -23,6 +23,13 @@ class SessionCoordinatorTest {
     }
 
     @Test
+    fun recoveryBackoffIsBounded() {
+        assertEquals(1_000L, recoveryBackoffMillis(0))
+        assertEquals(2_000L, recoveryBackoffMillis(1))
+        assertEquals(30_000L, recoveryBackoffMillis(20))
+    }
+
+    @Test
     fun runtimeStateStartsUnauthenticatedAndDisconnected() {
         val coordinator = SessionCoordinator()
 

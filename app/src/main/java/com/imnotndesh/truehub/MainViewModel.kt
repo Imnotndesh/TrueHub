@@ -15,6 +15,7 @@ import com.imnotndesh.truehub.data.helpers.SessionCoordinator
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
+import com.imnotndesh.truehub.data.helpers.RecoveryTrigger
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.Auth
 import com.imnotndesh.truehub.data.models.LoginExResult
@@ -192,7 +193,7 @@ class MainViewModel @Inject constructor(
                 observer.observe().collect { state ->
                     when (state) {
                         ConnectionState.Connected,
-                        ConnectionState.Connecting -> recoverActiveSession(context)
+                        ConnectionState.Connecting -> recoverActiveSession()
                         else -> Unit
                     }
                 }
@@ -203,23 +204,8 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private suspend fun recoverActiveSession(context: Context) {
-        val currentManager = sessionCoordinator.currentAuthenticatedManager ?: return
-        val generation = sessionCoordinator.currentGeneration
-        try {
-            if (!currentManager.isConnected() && !currentManager.ensureConnected()) return
-            if (!sessionCoordinator.isCurrent(currentManager, generation)) return
-
-            val snapshot = MultiAccountPrefs.getSessionSnapshot(context) ?: return
-            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context) ?: return
-            if (snapshot.serverId != serverId || snapshot.accountId != accountId) return
-
-            currentManager.recoverAfterDisconnect()
-            if (!sessionCoordinator.isCurrent(currentManager, generation)) return
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-        }
+    private fun recoverActiveSession() {
+        sessionCoordinator.requestRecovery(RecoveryTrigger.NetworkEvent)
     }
 
     fun updateManager(newManager: TrueNASApiManager) {
