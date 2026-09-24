@@ -76,6 +76,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
@@ -115,7 +116,6 @@ fun ShareInfoScreen(
             isLoading = state.isLoading,
             isRefreshing = state.isLoading,
             error = state.error,
-            onRefresh = { viewModel.refresh() },
             onDismissError = { viewModel.dismissError() },
             manager = manager,
             onBackPressed = onNavigateBack,
@@ -130,11 +130,16 @@ fun ShareInfoScreen(
             }
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        PullToRefreshContent(
+            isRefreshing = state.isLoading,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize()
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             item {
                 when {
                     smb != null -> ShareHeroCard(
@@ -170,6 +175,7 @@ fun ShareInfoScreen(
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
+            }
         }
     }
 

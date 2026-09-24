@@ -47,7 +47,23 @@ sealed class Screen(val route:String, val title:String) {
     object ContainerInfo : Screen("container_info/{containerId}", "Container Info") {
         fun createRoute(containerId: String): String = "container_info/$containerId"
     }
-    object VmDetails : Screen("vm_details", "VM Details")
+    object VmDetails : Screen("vm_details/{vmId}", "VM Details") {
+        fun createRoute(vmId: Int) = "vm_details/$vmId"
+    }
+    object VmCreate : Screen("vm_create", "Create VM")
+    object VmEdit : Screen("vm_edit/{vmId}", "Edit VM") {
+        fun createRoute(vmId: Int) = "vm_edit/$vmId"
+    }
+    object VmDevices : Screen("vm_devices/{vmId}", "VM Devices") {
+        fun createRoute(vmId: Int) = "vm_devices/$vmId"
+    }
+    object VmConsole : Screen("vm_console/{vmId}", "VM Console") {
+        fun createRoute(vmId: Int) = "vm_console/$vmId"
+    }
+    object VmDeviceAdd : Screen("vm_devices/{vmId}/add?deviceId={deviceId}", "Add VM Device") {
+        fun createRoute(vmId: Int, deviceId: Int? = null) =
+            if (deviceId == null) "vm_devices/$vmId/add" else "vm_devices/$vmId/add?deviceId=$deviceId"
+    }
     object ChangePassword : Screen("change_password", "Change Password")
     object DiskInfo : Screen("disk_info", "Disk information")
     object AppConfigScreen : Screen("app_config", "Application config")
@@ -137,6 +153,7 @@ sealed class Screen(val route:String, val title:String) {
     object TrueNasConnectScreen : Screen("truenas_connect", "TrueNAS Connect")
     object TrueCommandScreen : Screen("truecommand", "TrueCommand")
     object AppImageManagementScreen : Screen("app_image_management", "App Image Management")
+    object GlobalVirtSettings : Screen("global_virt_settings", "Global Virt Settings")
     object IxVolumeListScreen : Screen("ix_volume_list", "iX Volumes")
     object DockerImageListScreen : Screen("docker_image_list", "Docker Images")
 

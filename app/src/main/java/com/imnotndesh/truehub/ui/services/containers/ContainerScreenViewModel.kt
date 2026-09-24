@@ -7,8 +7,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.VirtualizationJobTracker
 import com.imnotndesh.truehub.ui.utils.AppCache
-import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
 import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +21,7 @@ data class ContainerScreenUiState(
     val containers: List<Virt.ContainerResponse> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val error: String? = null,
-    val operationJobs: Map<String, System.Job> = emptyMap()
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -41,6 +40,7 @@ class ContainerScreenViewModel @Inject constructor(
         loadContainers()
         startPeriodicRefresh()
     }
+
     private fun startPeriodicRefresh() {
         viewModelScope.launch {
             while (true) {
@@ -50,7 +50,6 @@ class ContainerScreenViewModel @Inject constructor(
             }
         }
     }
-
 
     fun loadContainers() {
         viewModelScope.launch {
@@ -82,7 +81,7 @@ class ContainerScreenViewModel @Inject constructor(
                     }
                 }
 
-                ApiResult.Loading ->{
+                ApiResult.Loading -> {
                     _uiState.update {
                         it.copy(
                             isLoading = true,
@@ -133,8 +132,7 @@ class ContainerScreenViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = manager.virtService.startVirtInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data // Assuming this returns job ID
-                    trackContainerOperation(id, jobId.toInt(), "STARTING")
+                    VirtualizationJobTracker.track(manager, id, result.data.toInt(), "STARTING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -152,8 +150,7 @@ class ContainerScreenViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = manager.virtService.stopVirtInstanceWithResult(id, 2)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data // Assuming this returns job ID
-                    trackContainerOperation(id, jobId.toInt(), "STOPPING")
+                    VirtualizationJobTracker.track(manager, id, result.data.toInt(), "STOPPING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -167,12 +164,12 @@ class ContainerScreenViewModel @Inject constructor(
             }
         }
     }
+
     fun restartContainer(id: String) {
         viewModelScope.launch {
-            when (val result = manager.virtService.restartVirtInstanceWithResult(id,2)) {
+            when (val result = manager.virtService.restartVirtInstanceWithResult(id, 2)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data // Assuming this returns job ID
-                    trackContainerOperation(id, jobId.toInt(), "RESTARTING")
+                    VirtualizationJobTracker.track(manager, id, result.data.toInt(), "RESTARTING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -185,66 +182,12 @@ class ContainerScreenViewModel @Inject constructor(
             }
         }
     }
-    private fun trackContainerOperation(containerId: String, jobId: Int, operation: String) {
-        viewModelScope.launch {
-            var pollAttempts = 0
-            val maxPollAttempts = 150 // 5 minutes max
-
-            while (pollAttempts < maxPollAttempts) {
-                try {
-                    val jobResult = manager.system.getJobInfoJobWithResult(jobId)
-                    when (jobResult) {
-                        is ApiResult.Success -> {
-                            val job = jobResult.data
-
-                            // Update job state
-                            _uiState.update { state ->
-                                state.copy(
-                                    operationJobs = state.operationJobs + (containerId to job)
-                                )
-                            }
-
-                            // Check for terminal states
-                            if (job.state in listOf("SUCCESS", "FAILED", "ABORTED")) {
-                                kotlinx.coroutines.delay(2000)
-                                _uiState.update { state ->
-                                    state.copy(
-                                        operationJobs = state.operationJobs - containerId
-                                    )
-                                }
-                                refresh()
-                                break
-                            }
-                        }
-                        is ApiResult.Error -> {
-                            break
-                        }
-                        else -> {}
-                    }
-                } catch (e: Exception) {
-                    break
-                }
-
-                pollAttempts++
-                kotlinx.coroutines.delay(2000)
-            }
-
-            // Timeout cleanup
-            if (pollAttempts >= maxPollAttempts) {
-                _uiState.update { state ->
-                    state.copy(operationJobs = state.operationJobs - containerId)
-                }
-            }
-        }
-    }
 
     fun deleteContainer(id: String) {
         viewModelScope.launch {
             when (val result = manager.virtService.deleteVirtInstanceWithResult(id)) {
                 is ApiResult.Success -> {
-                    val jobId = result.data
-                    trackContainerOperation(id,jobId,"DELETING")
-                    refresh()
+                    VirtualizationJobTracker.track(manager, id, result.data, "DELETING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -264,5 +207,4 @@ class ContainerScreenViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
-
 }

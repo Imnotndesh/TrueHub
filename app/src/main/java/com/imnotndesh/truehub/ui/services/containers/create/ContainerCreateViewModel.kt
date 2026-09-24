@@ -6,6 +6,9 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
+import com.imnotndesh.truehub.ui.services.containers.BYTES_PER_MB
+import com.imnotndesh.truehub.ui.services.containers.MIN_CONTAINER_MEMORY_MB
+import com.imnotndesh.truehub.ui.services.containers.MIN_ROOT_DISK_GB
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import java.util.concurrent.ConcurrentHashMap
@@ -94,14 +97,19 @@ class ContainerCreateViewModel @Inject constructor(
         privileged: Boolean
     ) {
         val normalizedName = name.trim()
+        val memoryMb = memory.trim().takeIf { it.isNotBlank() }?.toIntOrNull()
+        val rootDiskGb = rootDiskSize.trim().takeIf { it.isNotBlank() }?.toIntOrNull()
         val validationError = when {
             normalizedName.isBlank() -> "Enter a container name"
             imageKey.isNullOrBlank() -> "Select an image"
             pool.isBlank() -> "Select a storage pool"
-            memory.trim().isNotBlank() && memory.trim().toIntOrNull() == null ->
-                "Memory must be a number of MB"
-            rootDiskSize.trim().isNotBlank() && rootDiskSize.trim().toIntOrNull() == null ->
+            memory.trim().isNotBlank() && memoryMb == null -> "Memory must be a number of MB"
+            memoryMb != null && memoryMb < MIN_CONTAINER_MEMORY_MB ->
+                "Memory must be at least $MIN_CONTAINER_MEMORY_MB MB"
+            rootDiskSize.trim().isNotBlank() && rootDiskGb == null ->
                 "Root disk size must be a number of GB"
+            rootDiskGb != null && rootDiskGb < MIN_ROOT_DISK_GB ->
+                "Root disk size must be at least $MIN_ROOT_DISK_GB GB"
             else -> null
         }
         if (validationError != null) {
@@ -231,7 +239,7 @@ internal fun buildCreatePayload(
         put("autostart", autostart)
         put("privileged_mode", privileged)
         cpu.trim().takeIf { it.isNotBlank() }?.let { put("cpu", it) }
-        memory.trim().toIntOrNull()?.let { put("memory", it) }
+        memory.trim().toIntOrNull()?.let { put("memory", it.toLong() * BYTES_PER_MB) }
         rootDiskSize.trim().toIntOrNull()?.let { put("root_disk_size", it) }
         rootDiskIoBus?.let { put("root_disk_io_bus", it.wireValue()) }
     }

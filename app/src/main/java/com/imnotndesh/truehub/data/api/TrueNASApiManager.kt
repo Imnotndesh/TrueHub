@@ -216,6 +216,32 @@ class TrueNASApiManager(
         return client.downloadFile(urlPath, outputStream)
     }
 
+    suspend fun uploadFile(
+        serverPath: String,
+        fileName: String,
+        contentType: String?,
+        contentLength: Long,
+        openStream: () -> java.io.InputStream,
+        onProgress: (Long, Long) -> Unit
+    ): ApiResult<Int> {
+        val authHeader = runCatching {
+            MultiAccountPrefs.getCurrentHttpAuthHeader(applicationContext)
+        }.getOrNull() ?: return ApiResult.Error("No stored credentials available for upload")
+        val safePath = serverPath.replace("\\", "\\\\").replace("\"", "\\\"")
+        val dataJson = """{"method":"filesystem.put","params":["$safePath",{"append":false,"mode":null}]}"""
+        val (jobId, error) = client.uploadMultipart(
+            urlPath = "/_upload/",
+            dataJson = dataJson,
+            fileName = fileName,
+            contentType = contentType,
+            contentLength = contentLength,
+            openStream = openStream,
+            authHeader = authHeader,
+            onProgress = onProgress
+        )
+        return if (jobId != null) ApiResult.Success(jobId) else ApiResult.Error(error ?: "Upload failed")
+    }
+
     suspend fun connect(): Boolean {
         return if (isStaleBoundSession()) false else client.connect()
     }

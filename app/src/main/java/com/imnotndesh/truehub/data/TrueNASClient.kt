@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.io.OutputStream
@@ -166,6 +169,59 @@ class TrueNASClient(private val config: ClientConfig) {
             false
         }
     }
+    suspend fun uploadMultipart(
+        urlPath: String,
+        dataJson: String,
+        fileName: String,
+        contentType: String?,
+        contentLength: Long,
+        openStream: () -> java.io.InputStream,
+        authHeader: String?,
+        onProgress: (Long, Long) -> Unit
+    ): Pair<Int?, String?> = withContext(Dispatchers.IO) {
+        val url = baseHttpUrl + urlPath
+        val fileBody = object : okhttp3.RequestBody() {
+            override fun contentType(): okhttp3.MediaType =
+                (contentType ?: "application/octet-stream").toMediaType()
+
+            override fun contentLength(): Long = contentLength
+
+            override fun writeTo(sink: okio.BufferedSink) {
+                openStream().use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var sent = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        sink.write(buffer, 0, read)
+                        sent += read
+                        onProgress(sent, contentLength)
+                    }
+                }
+            }
+        }
+        val body = okhttp3.MultipartBody.Builder()
+            .setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("data", dataJson)
+            .addFormDataPart("file", fileName, fileBody)
+            .build()
+        val builder = okhttp3.Request.Builder().url(url).post(body)
+        if (!authHeader.isNullOrBlank()) builder.header("Authorization", authHeader)
+        try {
+            downloadClient.newCall(builder.build()).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    null to "Upload failed (${response.code}): ${text.take(200)}"
+                } else {
+                    val jobId = Regex("\"job_id\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                    if (jobId != null) jobId to null else null to "Unexpected upload response: ${text.take(200)}"
+                }
+            }
+        } catch (e: Exception) {
+            null to (e.message ?: "Upload failed")
+        }
+    }
+
     private fun handleMessage(text: String) {
         try {
             val resp = responseAdapter.fromJson(text)

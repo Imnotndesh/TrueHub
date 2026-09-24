@@ -69,7 +69,6 @@ fun CreateShareScreen(
             isLoading = state.isSaving,
             isRefreshing = false,
             error = state.error,
-            onRefresh = null,
             onDismissError = viewModel::dismissError,
             manager = manager,
             onBackPressed = onNavigateBack

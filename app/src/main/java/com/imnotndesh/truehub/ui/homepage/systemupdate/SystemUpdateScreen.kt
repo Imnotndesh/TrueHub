@@ -53,6 +53,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,8 +75,10 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.utils.AppCache
 import kotlinx.coroutines.launch
 
 /**
@@ -93,6 +96,8 @@ fun SystemUpdateScreen(
 ) {
     val context = LocalContext.current
     val activeJobs by JobRepository.activeJobs.collectAsState()
+    val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
     var selectedVersionForNotes by remember { mutableStateOf<System.UpdateAvailableVersionsResponse?>(null) }
 
     val activeUpdateJob = remember(activeJobs) {
@@ -106,20 +111,33 @@ fun SystemUpdateScreen(
             isLoading = false,
             isRefreshing = false,
             error = null,
-            onRefresh = {},
             onDismissError = {},
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
-        if (versions.isEmpty()) {
-            EmptyUpdatesState()
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+        PullToRefreshContent(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isRefreshing = true
+                    val result = manager.system.getSystemUpdateVersions()
+                    if (result is ApiResult.Success) {
+                        AppCache.updateSystemUpdateVersions(result.data)
+                    }
+                    isRefreshing = false
+                }
+            },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (versions.isEmpty()) {
+                EmptyUpdatesState()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                 item {
                     UpdateHeaderCard(currentVersion = currentVersion)
                 }
@@ -142,6 +160,7 @@ fun SystemUpdateScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(24.dp)) }
+                }
             }
         }
     }

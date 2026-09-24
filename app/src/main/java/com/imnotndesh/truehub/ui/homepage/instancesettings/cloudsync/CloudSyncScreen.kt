@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Cloudsync
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @Composable
@@ -74,7 +75,6 @@ fun CloudSyncScreen(
                 isLoading = state.isLoading,
                 isRefreshing = false,
                 error = state.error,
-                onRefresh = { viewModel.loadTasks() },
                 onDismissError = { viewModel.dismissError() },
                 manager = manager,
                 onBackPressed = onNavigateBack
@@ -88,43 +88,47 @@ fun CloudSyncScreen(
             )
         }
     ) { innerPadding ->
-        if (state.tasks.isEmpty() && !state.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Cloud,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = "No cloud sync tasks",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+        PullToRefreshContent(
+            isRefreshing = state.isLoading,
+            onRefresh = { viewModel.loadTasks() },
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+        ) {
+            if (state.tasks.isEmpty() && !state.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.Cloud,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "No cloud sync tasks",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(state.tasks, key = { it.id ?: it.hashCode() }) { task ->
-                    CloudSyncTaskRow(
-                        task = task,
-                        onClick = { task.id?.let(onNavigateToDetail) },
-                        onDelete = { pendingDelete = task }
-                    )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.tasks, key = { it.id ?: it.hashCode() }) { task ->
+                        CloudSyncTaskRow(
+                            task = task,
+                            onClick = { task.id?.let(onNavigateToDetail) },
+                            onDelete = { pendingDelete = task }
+                        )
+                    }
                 }
             }
         }

@@ -17,4 +17,14 @@ object Filesystem {
     data class ZfsFileAttrs(
         val properties: Map<String, Any?>? = null
     )
+
+    @JsonClass(generateAdapter = true)
+    data class FileEntry(
+        val name: String? = null,
+        val path: String? = null,
+        val realpath: String? = null,
+        val type: String? = null,
+        val size: Long? = null,
+        val mode: Int? = null
+    )
 }

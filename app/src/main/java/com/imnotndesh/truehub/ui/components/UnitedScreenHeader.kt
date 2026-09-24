@@ -34,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -75,7 +74,6 @@ fun UnifiedScreenHeader(
     isLoading: Boolean,
     isRefreshing: Boolean,
     error: String? = null,
-    onRefresh: (() -> Unit)? = null,
     onDismissError: () -> Unit,
     manager: TrueNASApiManager ? = null,
     onBackPressed: (() -> Unit)? = null,
@@ -175,16 +173,6 @@ fun UnifiedScreenHeader(
                     }
                     manager?.let{
                         AlertsBellButton(manager = manager)
-                    }
-
-                    onRefresh?.let{ onRefresh ->
-                        ExpressiveIconButton(
-                            onClick = onRefresh,
-                            icon = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            enabled = !isLoading && !isRefreshing,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                     }
 
                     onNavigateToSettings?.let { settingsCallback ->

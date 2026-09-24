@@ -106,6 +106,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 enum class DatasetViewMode { TREE, LIST, GRID }
@@ -203,7 +204,6 @@ fun DatasetExplorerScreen(
                     isLoading = uiState is DatasetExplorerViewModel.UiState.Loading,
                     isRefreshing = false,
                     error = (uiState as? DatasetExplorerViewModel.UiState.Error)?.message,
-                    onRefresh = { viewModel.loadDatasets(poolName) },
                     onDismissError = { },
                     manager = manager,
                     onBackPressed = onNavigateBack
@@ -219,6 +219,11 @@ fun DatasetExplorerScreen(
                     onQueryChange = { searchQuery = it },
                     onViewModeChange = { viewMode = it }
                 )
+                PullToRefreshContent(
+                    isRefreshing = uiState is DatasetExplorerViewModel.UiState.LoadingWithCache,
+                    onRefresh = { viewModel.loadDatasets(poolName) },
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 when (val state = uiState) {
                     is DatasetExplorerViewModel.UiState.Loading -> LoadingScreen("Loading Datasets…")
                     is DatasetExplorerViewModel.UiState.Error -> {}
@@ -263,6 +268,7 @@ fun DatasetExplorerScreen(
                             }
                         }
                     }
+                }
                 }
             }
         }

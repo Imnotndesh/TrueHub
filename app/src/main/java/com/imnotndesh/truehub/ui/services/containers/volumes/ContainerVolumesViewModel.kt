@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Virt
+import com.imnotndesh.truehub.ui.services.containers.MIN_VOLUME_SIZE_MB
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +21,8 @@ data class ContainerVolumesUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val isSaving: Boolean = false,
+    val editingVolume: Virt.VolumeEntry? = null,
+    val importJob: System.Job? = null,
     val error: String? = null,
     val saved: Boolean = false
 )
@@ -71,9 +76,13 @@ class ContainerVolumesViewModel @Inject constructor(
         }
     }
 
-    fun create(name: String, storagePool: String, contentType: String, type: String) {
-        if (name.isBlank() || storagePool.isBlank() || contentType.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Name, pool, and content type are required")
+    fun create(name: String, storagePool: String, sizeMb: Int) {
+        if (name.isBlank() || storagePool.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Name and pool are required")
+            return
+        }
+        if (sizeMb < MIN_VOLUME_SIZE_MB) {
+            _uiState.value = _uiState.value.copy(error = "Volume size must be at least $MIN_VOLUME_SIZE_MB MB")
             return
         }
         viewModelScope.launch {
@@ -81,8 +90,7 @@ class ContainerVolumesViewModel @Inject constructor(
             val payload = Virt.VolumeCreate(
                 name = name.trim(),
                 storagePool = storagePool,
-                contentType = contentType,
-                type = type.trim().ifBlank { null }
+                size = sizeMb
             )
             when (val result = manager.virtService.createVolumeWithResult(payload)) {
                 is ApiResult.Success -> {
@@ -95,6 +103,99 @@ class ContainerVolumesViewModel @Inject constructor(
                 is ApiResult.Error -> _uiState.value = _uiState.value.copy(isSaving = false, error = result.message)
                 ApiResult.Loading -> Unit
             }
+        }
+    }
+
+    fun beginEdit(volume: Virt.VolumeEntry) {
+        viewModelScope.launch {
+            when (val result = manager.virtService.getVolumeWithResult(volume.id)) {
+                is ApiResult.Success -> _uiState.value = _uiState.value.copy(editingVolume = result.data, error = null)
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(editingVolume = volume, error = result.message)
+                ApiResult.Loading -> _uiState.value = _uiState.value.copy(editingVolume = volume)
+            }
+        }
+    }
+
+    fun cancelEdit() {
+        _uiState.value = _uiState.value.copy(editingVolume = null)
+    }
+
+    fun resize(volumeId: String, sizeMb: Int) {
+        if (sizeMb < MIN_VOLUME_SIZE_MB) {
+            _uiState.value = _uiState.value.copy(error = "Volume size must be at least $MIN_VOLUME_SIZE_MB MB")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
+            when (val result = manager.virtService.updateVolumeWithResult(volumeId, Virt.VolumeUpdate(size = sizeMb))) {
+                is ApiResult.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        volumes = _uiState.value.volumes.map { if (it.id == volumeId) result.data else it },
+                        isSaving = false,
+                        editingVolume = null,
+                        saved = true
+                    )
+                }
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isSaving = false, error = result.message)
+                ApiResult.Loading -> Unit
+            }
+        }
+    }
+
+    fun importIso(name: String, isoLocation: String, storagePool: String) {
+        if (name.isBlank() || isoLocation.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Name and ISO path are required")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, importJob = null, error = null)
+            val payload = buildMap<String, Any?> {
+                put("name", name.trim())
+                put("iso_location", isoLocation.trim())
+                put("upload_iso", false)
+                storagePool.trim().takeIf { it.isNotBlank() }?.let { put("storage_pool", it) }
+            }
+            when (val result = manager.virtService.importIsoWithResult(payload)) {
+                is ApiResult.Success -> trackImportJob(result.data)
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isSaving = false, error = result.message)
+                ApiResult.Loading -> Unit
+            }
+        }
+    }
+
+    private fun trackImportJob(jobId: Int) {
+        viewModelScope.launch {
+            repeat(150) { attempt ->
+                when (val result = manager.system.getJobInfoJobWithResult(jobId)) {
+                    is ApiResult.Success -> {
+                        val job = result.data
+                        _uiState.value = _uiState.value.copy(importJob = job)
+                        when (job.state) {
+                            "SUCCESS" -> {
+                                _uiState.value = _uiState.value.copy(isSaving = false, importJob = null, saved = true)
+                                loadInternal(isRefresh = true)
+                                return@launch
+                            }
+                            "FAILED", "ABORTED" -> {
+                                _uiState.value = _uiState.value.copy(
+                                    isSaving = false,
+                                    importJob = null,
+                                    error = job.exception?.takeIf { it.isNotBlank() }
+                                        ?: "Failed to import ISO"
+                                )
+                                return@launch
+                            }
+                        }
+                    }
+                    is ApiResult.Error -> {
+                        _uiState.value = _uiState.value.copy(isSaving = false, importJob = null, error = result.message)
+                        return@launch
+                    }
+                    ApiResult.Loading -> Unit
+                }
+                if (attempt < 149) delay(2000)
+            }
+            _uiState.value = _uiState.value.copy(isSaving = false, importJob = null, error = "Timed out waiting for the ISO import")
         }
     }
 

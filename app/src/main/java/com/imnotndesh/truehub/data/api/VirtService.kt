@@ -15,14 +15,6 @@ class VirtService(val manager: TrueNASApiManager) {
         )
     }
 
-    // Get an instance
-    suspend fun genAnInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse>{
-        return manager.callWithResult(
-            method = ApiMethods.Virt.GET_INSTANCE,
-            params = listOf(id),
-            resultType = Virt.ContainerResponse::class.java
-        )
-    }
     // Start Instance
     suspend fun startVirtInstanceWithResult(id : String): ApiResult<Double>{
         return manager.callWithResult(
@@ -64,9 +56,6 @@ class VirtService(val manager: TrueNASApiManager) {
             resultType = Int::class.java
         )
     }
-    // Get all instance devices
-    suspend fun getVirtInstanceDeviceListWithResult(id:String): ApiResult<List<Virt.Device>> =
-        getInstanceDeviceListWithResult(id)
     // Delete virt instance device
     suspend fun deleteVirtInstanceDeviceWithResult(id: String,deviceName: String): ApiResult<Boolean>{
         return manager.callWithResult(
@@ -119,8 +108,8 @@ class VirtService(val manager: TrueNASApiManager) {
     suspend fun getGlobalConfigWithResult(): ApiResult<Virt.GlobalEntry> =
         manager.callWithResult(ApiMethods.Virt.GLOBAL_CONFIG, listOf(), Virt.GlobalEntry::class.java)
 
-    suspend fun updateGlobalConfigWithResult(update: Virt.GlobalUpdate): ApiResult<Virt.GlobalEntry> =
-        manager.callWithResult(ApiMethods.Virt.GLOBAL_UPDATE, listOf(update), Virt.GlobalEntry::class.java)
+    suspend fun updateGlobalConfigWithResult(update: Virt.GlobalUpdate): ApiResult<Int> =
+        manager.callWithResult(ApiMethods.Virt.GLOBAL_UPDATE, listOf(update), Int::class.java)
 
     suspend fun getGlobalNetworkWithResult(name: String): ApiResult<Virt.GlobalNetwork> =
         manager.callWithResult(ApiMethods.Virt.GLOBAL_GET_NETWORK, listOf(name), Virt.GlobalNetwork::class.java)
@@ -143,7 +132,6 @@ class VirtService(val manager: TrueNASApiManager) {
     suspend fun getInstanceWithResult(id: String): ApiResult<Virt.ContainerResponse> =
         manager.callWithResult(ApiMethods.Virt.GET_INSTANCE, listOf(id), Virt.ContainerResponse::class.java)
 
-    private fun deviceListType() = Types.newParameterizedType(List::class.java, Virt.Device::class.java)
     private fun rawDeviceListType() = Types.newParameterizedType(
         List::class.java,
         Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
@@ -156,15 +144,6 @@ class VirtService(val manager: TrueNASApiManager) {
         manager.callWithResult(ApiMethods.Virt.DEVICE_ADD, listOf(id, device), Boolean::class.java)
 
     suspend fun updateInstanceDeviceRawWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_UPDATE, listOf(id, device), Boolean::class.java)
-
-    suspend fun addInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_ADD, listOf(id, device), Boolean::class.java)
-
-    suspend fun getInstanceDeviceListWithResult(id: String): ApiResult<List<Virt.Device>> =
-        manager.callWithResult(ApiMethods.Virt.DEVICE_LIST, listOf(id), deviceListType())
-
-    suspend fun updateInstanceDeviceWithResult(id: String, device: Map<String, Any?>): ApiResult<Boolean> =
         manager.callWithResult(ApiMethods.Virt.DEVICE_UPDATE, listOf(id, device), Boolean::class.java)
 
     suspend fun setBootableDiskWithResult(id: String, disk: String): ApiResult<Unit> =
@@ -188,8 +167,8 @@ class VirtService(val manager: TrueNASApiManager) {
     suspend fun deleteVolumeWithResult(id: String): ApiResult<Unit> =
         manager.callWithResult(ApiMethods.Virt.VOLUME_DELETE, listOf(id), Unit::class.java)
 
-    suspend fun importIsoWithResult(payload: Map<String, Any?>): ApiResult<Virt.VolumeEntry> =
-        manager.callWithResult(ApiMethods.Virt.VOLUME_IMPORT_ISO, listOf(payload), Virt.VolumeEntry::class.java)
+    suspend fun importIsoWithResult(payload: Map<String, Any?>): ApiResult<Int> =
+        manager.callWithResult(ApiMethods.Virt.VOLUME_IMPORT_ISO, listOf(payload), Int::class.java)
 
     suspend fun importZvolWithResult(payload: Map<String, Any?>): ApiResult<Virt.VolumeEntry> =
         manager.callWithResult(ApiMethods.Virt.VOLUME_IMPORT_ZVOL, listOf(payload), Virt.VolumeEntry::class.java)

@@ -84,7 +84,7 @@ object Virt {
         val type: Type,
         val status : Status,
         val cpu: String? = null,
-        val memory: Int? = null,
+        val memory: Long? = null,
         val autostart : Boolean,
         val environment: Map<String,String>,
         val aliases : List<Aliases>,
@@ -105,7 +105,7 @@ object Virt {
         val environment: Map<String,String>? = null,
         val autostart : Boolean? = null,
         val cpu: String? = null,
-        val memory: Int? = null,
+        val memory: Long? = null,
         val vnc_port : Int? = null, // remember to set UI to limit this to between  greater or equal to 5900 and lesser or equal to 65535
         val vnc_enabled : Boolean,
         val vnc_password : String? = null,
@@ -270,7 +270,6 @@ object Virt {
     @JsonClass(generateAdapter = true)
     data class GlobalUpdate(
         val pool: String? = null,
-        val dataset: String? = null,
         @field:Json("storage_pools") val storagePools: List<String>? = null,
         val bridge: String? = null,
         @field:Json("v4_network") val v4Network: String? = null,
@@ -302,18 +301,16 @@ object Virt {
     @JsonClass(generateAdapter = true)
     data class VolumeCreate(
         val name: String,
-        @field:Json("storage_pool") val storagePool: String,
-        @field:Json("content_type") val contentType: String,
-        val type: String? = null,
-        val config: Map<String, Any?>? = null
+        @field:Json("storage_pool") val storagePool: String ?= "Not Configured",
+        @field:Json("content_type") val contentType: String = "BLOCK",
+        val size: Int = 1024
     )
 
     @JsonClass(generateAdapter = true)
     data class VolumeUpdate(
-        val name: String? = null,
-        @field:Json("storage_pool") val storagePool: String? = null,
-        @field:Json("content_type") val contentType: String? = null,
-        val type: String? = null,
-        val config: Map<String, Any?>? = null
+        val size: Int? = null
     )
 }
+
+fun Virt.VolumeEntry.sizeInMb(): Int? =
+    (config["size"] as? Number)?.toInt()

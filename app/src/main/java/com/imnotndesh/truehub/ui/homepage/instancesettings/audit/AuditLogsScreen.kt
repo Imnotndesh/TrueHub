@@ -124,7 +124,6 @@ fun AuditLogsScreen(
                 isLoading = uiState.isLoading && uiState.logs.isEmpty(),
                 isRefreshing = uiState.isRefreshing,
                 error = uiState.error,
-                onRefresh = { viewModel.refresh() },
                 onDismissError = { viewModel.clearError() },
                 manager = manager,
                 onBackPressed = onNavigateBack

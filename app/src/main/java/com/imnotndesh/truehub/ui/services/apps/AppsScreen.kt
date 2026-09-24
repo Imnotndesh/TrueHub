@@ -86,8 +86,6 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleFloatingActionButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshState
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -101,9 +99,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
@@ -122,6 +118,12 @@ import com.imnotndesh.truehub.data.models.isAsleep
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveActionButton
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveFilterBar
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveIconActionButton
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusChip
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusDot
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoPane
 import com.imnotndesh.truehub.ui.utils.AdaptiveLayoutHelper
 import com.imnotndesh.truehub.ui.utils.displayName
@@ -372,9 +374,11 @@ fun AppsScreen(
             }
         )
 
-        AppFilterBar(
-            currentCategory = uiState.selectedCategory,
-            onCategorySelected = { appsScreenViewModel.updateCategory(it) },
+        ExpressiveFilterBar(
+            items = AppCategory.entries,
+            selected = uiState.selectedCategory,
+            label = { it.label },
+            onSelect = { appsScreenViewModel.updateCategory(it) },
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -605,53 +609,6 @@ fun AppsScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppFilterBar(
-    currentCategory: AppCategory,
-    onCategorySelected: (AppCategory) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(AppCategory.entries.toTypedArray()) { category ->
-            val isSelected = currentCategory == category
-            val animColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                label = "color"
-            )
-
-            FilterChip(
-                selected = isSelected,
-                onClick = { onCategorySelected(category) },
-                label = { Text(category.label) },
-                leadingIcon = if (isSelected) {
-                    {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
-                } else null,
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = animColor,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = isSelected,
-                    borderColor = if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outline
-                ),
-                shape = RoundedCornerShape(12.dp)
-            )
         }
     }
 }
@@ -960,7 +917,11 @@ private fun ServiceCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    StatusChip(state = app.state, icon = getStatusIcon(app.state))
+                    ExpressiveStatusChip(
+                        label = app.state.lowercase().replaceFirstChar { it.uppercase() },
+                        tone = serviceStatusTone(app.state),
+                        icon = serviceStatusIcon(app.state)
+                    )
                 }
             } else {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -999,12 +960,7 @@ private fun ServiceCard(
                                 )
                             }
                         }
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .clip(CircleShape)
-                                .background(getStatusColor(app.state))
-                        )
+                        ExpressiveStatusDot(tone = serviceStatusTone(app.state))
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
@@ -1113,7 +1069,7 @@ private fun ServiceCard(
                 val primaryActionIcon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow
 
                 if (isCompact) {
-                    ActionButton(
+                    ExpressiveActionButton(
                         text = primaryActionLabel,
                         icon = primaryActionIcon,
                         isPrimary = true,
@@ -1121,7 +1077,7 @@ private fun ServiceCard(
                         modifier = Modifier.weight(1f),
                         enabled = true
                     )
-                    ActionButton(
+                    ExpressiveActionButton(
                         text = "Details",
                         icon = Icons.Default.Info,
                         isPrimary = false,
@@ -1130,21 +1086,21 @@ private fun ServiceCard(
                         enabled = true
                     )
                 } else {
-                    CompactActionButton(
+                    ExpressiveIconActionButton(
                         icon = primaryActionIcon,
                         contentDescription = primaryActionLabel,
                         isPrimary = true,
                         onClick = { if (isRunning) onStopApp(app.name) else onStartApp(app.name) },
                         modifier = Modifier.weight(1f)
                     )
-                    CompactActionButton(
+                    ExpressiveIconActionButton(
                         icon = Icons.Default.Info,
                         contentDescription = "View Info",
                         isPrimary = false,
                         onClick = { onAppInfoClick(app) },
                         modifier = Modifier.weight(1f)
                     )
-                    CompactActionButton(
+                    ExpressiveIconActionButton(
                         icon = Icons.Default.Settings,
                         contentDescription = "More",
                         isPrimary = false,
@@ -1187,7 +1143,7 @@ private fun ServiceCard(
             ) {
                 val canRollback = app.canRollbackNow()
                 Column(modifier = Modifier.padding(top = 8.dp)) {
-                    ActionButton(
+                    ExpressiveActionButton(
                         text = "Rollback Version",
                         icon = Icons.Default.Refresh,
                         isPrimary = false,
@@ -1205,46 +1161,6 @@ private fun ServiceCard(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CompactActionButton(
-    icon: ImageVector,
-    contentDescription: String,
-    isPrimary: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-
-    val containerColor by animateColorAsState(
-        if (isPrimary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-        label = "container"
-    )
-    val contentColor by animateColorAsState(
-        if (isPrimary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-        label = "content"
-    )
-
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(24.dp),
-                tint = contentColor
-            )
         }
     }
 }
@@ -1297,142 +1213,6 @@ private fun UpgradeButton(
                 color = content,
                 fontWeight = FontWeight.Bold
             )
-        }
-    }
-}
-
-@Composable
-private fun StatusChip(state: String, icon: ImageVector) {
-    Surface(
-        color = getStatusColor(state).copy(alpha = 0.12f),
-        shape = RoundedCornerShape(100.dp),
-        modifier = Modifier.padding(0.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = getStatusColor(state)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = state.lowercase().replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelMedium,
-                color = getStatusColor(state),
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionButton(
-    text: String,
-    icon: ImageVector,
-    enabled: Boolean,
-    isPrimary: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val containerColor by animateColorAsState(
-        targetValue = when {
-            !enabled -> MaterialTheme.colorScheme.surfaceContainerHigh
-            isPrimary -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.surfaceContainer
-        }, label = "btnColor"
-    )
-
-    val contentColor by animateColorAsState(
-        targetValue = when {
-            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-            isPrimary -> MaterialTheme.colorScheme.onPrimary
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }, label = "contentColor"
-    )
-
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = contentColor
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            )
-        }
-    }
-}
-
-@Composable
-private fun getStatusColor(state: String): Color {
-    return when (state.lowercase()) {
-        "running", "active" -> Color(0xFF2E7D32)
-        "stopped", "inactive" -> Color(0xFF757575)
-        "error", "failed" -> MaterialTheme.colorScheme.error
-        "paused" -> Color(0xFFF57C00)
-        else -> MaterialTheme.colorScheme.outline
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MorphingRefreshIndicator(
-    state: PullToRefreshState,
-    isRefreshing: Boolean
-) {
-    val scale = if (isRefreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
-    val cornerSize = (16 + (34 * scale)).dp
-    val rotation = state.distanceFraction * 180f
-
-    if (state.distanceFraction > 0.1f || isRefreshing) {
-        Surface(
-            modifier = Modifier
-                .padding(top = 16.dp)
-                .size(48.dp)
-                .scale(scale)
-                .graphicsLayer {
-                    rotationZ = if (isRefreshing) 0f else rotation
-                },
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = RoundedCornerShape(cornerSize),
-            shadowElevation = 4.dp
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        strokeWidth = 3.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
         }
     }
 }
@@ -1574,12 +1354,22 @@ private fun DeleteOptionToggle(
     }
 }
 
-private fun getStatusIcon(state: String): ImageVector {
+private fun serviceStatusIcon(state: String): ImageVector {
     return when (state.lowercase()) {
         "running", "active" -> Icons.Default.PlayArrow
         "stopped", "inactive" -> Icons.Default.Stop
         "error", "failed" -> Icons.Default.Error
         "paused" -> Icons.Default.Pause
         else -> Icons.Default.Stop
+    }
+}
+
+private fun serviceStatusTone(state: String): StatusTone {
+    return when (state.lowercase()) {
+        "running", "active" -> StatusTone.POSITIVE
+        "stopped", "inactive" -> StatusTone.NEUTRAL
+        "error", "failed" -> StatusTone.NEGATIVE
+        "paused" -> StatusTone.WARNING
+        else -> StatusTone.OUTLINE
     }
 }

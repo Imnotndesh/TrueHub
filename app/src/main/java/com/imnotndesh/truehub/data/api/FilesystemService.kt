@@ -42,6 +42,13 @@ class FilesystemService(private val manager: TrueNASApiManager) {
     suspend fun listdirWithResult(path: Any?, queryFilters: Any?, queryOptions: Any?): ApiResult<Any?> =
         manager.callWithResult(ApiMethods.Filesystem.FILESYSTEM_LISTDIR, listOf(path, queryFilters, queryOptions), Any::class.java)
 
+    suspend fun listdirEntriesWithResult(path: String): ApiResult<List<Filesystem.FileEntry>> =
+        manager.callWithResult(
+            ApiMethods.Filesystem.FILESYSTEM_LISTDIR,
+            listOf(path, emptyList<Any>(), emptyMap<String, Any?>()),
+            Types.newParameterizedType(List::class.java, Filesystem.FileEntry::class.java)
+        )
+
     suspend fun putWithResult(path: Any?, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
         manager.callWithResult(ApiMethods.Filesystem.FILESYSTEM_PUT, listOf(path, options), Any::class.java)
 

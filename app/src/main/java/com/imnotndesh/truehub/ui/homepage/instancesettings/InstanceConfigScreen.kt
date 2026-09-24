@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Image
@@ -82,6 +83,7 @@ fun InstanceConfigScreen(
     onNavigateToTrueNasConnect: () -> Unit = {},
     onNavigateToTrueCommand: () -> Unit = {},
     onNavigateToAppImageManagement: () -> Unit = {},
+    onNavigateToGlobalVirtSettings: () -> Unit = {},
 
 ) {
     Column(
@@ -168,6 +170,20 @@ fun InstanceConfigScreen(
                         name = "App Image Management",
                         description = "View, pull, and delete Docker images",
                         onClick = onNavigateToAppImageManagement
+                    )
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            InstanceConfigSection(
+                title = "Virtualization",
+                items = listOf(
+                    InstanceConfigItem(
+                        icon = Icons.Default.DeveloperBoard,
+                        name = "Global Virt settings",
+                        description = "Default pool, storage pools and network bridge",
+                        onClick = onNavigateToGlobalVirtSettings
                     )
                 )
             )

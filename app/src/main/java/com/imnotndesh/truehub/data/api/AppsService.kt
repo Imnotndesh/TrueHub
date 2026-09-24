@@ -392,7 +392,7 @@ class AppsService(val manager: TrueNASApiManager) {
      * @return List of ports used by the applications installed
      */
     suspend fun getAppPorts(): ApiResult<List<Int>>{
-        val result = Types.newParameterizedType(List::class.java, Int::class.java)
+        val result = Types.newParameterizedType(List::class.java, Int::class.javaObjectType)
         return manager.callWithResult(
             method = ApiMethods.Apps.USED_APP_PORTS,
             params = listOf(),

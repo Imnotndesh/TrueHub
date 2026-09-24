@@ -16,17 +16,17 @@ object Vm {
 
     @JsonClass(generateAdapter = true)
     data class VmDevice(
-        val id: Int,
-        val attributes: Map<String, Any?>,
-        val vm: Int,
-        val order: Int
+        val id: Int? = null,
+        val attributes: Map<String, Any?>? = null,
+        val vm: Int? = null,
+        val order: Int? = null
     )
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class VmStatus(
-        val state : String,
+        val state : String = "UNKNOWN",
         val pid : Int? = null,
-        val domain_state : String,
+        val domain_state : String? = null,
     )
 
     /**
@@ -35,38 +35,38 @@ object Vm {
     @Suppress("PropertyName")
     @JsonClass(generateAdapter = true)
     data class VmQueryResponse(
-        val command_line_args: String,
-        val cpu_mode: CpuMode,
+        val command_line_args: String? = null,
+        val cpu_mode: CpuMode? = null,
         val cpu_model: String? = null,
-        val name :String,
-        val description: String,
-        val vcpus : Int,
-        val cores : Int,
-        val threads :Int,
-        val cpuset :String? = null,
+        val name : String = "",
+        val description: String = "",
+        val vcpus : Int = 0,
+        val cores : Int = 0,
+        val threads : Int = 0,
+        val cpuset : String? = null,
         val nodeset : String? = null,
-        val enable_cpu_topology_extension : Boolean,
-        val pin_vcpus: Boolean,
-        val suspend_on_snapshot: Boolean,
-        val trusted_platform_module :Boolean,
-        val memory: Int,
+        val enable_cpu_topology_extension : Boolean = false,
+        val pin_vcpus: Boolean = false,
+        val suspend_on_snapshot: Boolean = false,
+        val trusted_platform_module : Boolean = false,
+        val memory: Int = 0,
         val min_memory: Int? = null,
-        val hyperv_enlightenments : Boolean,
-        val bootloader : String,
-        val bootloader_ovmf : String,
-        val autostart : Boolean,
-        val hide_from_msr : Boolean,
-        val ensure_display_device : Boolean,
-        val time : String,
-        val shutdown_timeout :Int,
-        val arch_type : String?= null,
-        val machine_type : String ?= null,
+        val hyperv_enlightenments : Boolean = false,
+        val bootloader : String = "UEFI",
+        val bootloader_ovmf : String? = null,
+        val autostart : Boolean = false,
+        val hide_from_msr : Boolean = false,
+        val ensure_display_device : Boolean = false,
+        val time : String = "LOCAL",
+        val shutdown_timeout : Int = 90,
+        val arch_type : String? = null,
+        val machine_type : String? = null,
         val uuid : String? = null,
         val devices: List<VmDevice>? = null,
-        val display_available : Boolean,
-        val id : Int,
-        val status : VmStatus,
-        val enable_secure_boot : Boolean,
+        val display_available : Boolean = false,
+        val id : Int = -1,
+        val status : VmStatus = VmStatus(),
+        val enable_secure_boot : Boolean = false,
     )
 
     @JsonClass(generateAdapter = true)

@@ -14,14 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-enum class ContainerDeviceType {
-    Disk,
-    Nic,
-    Gpu,
-    Usb,
-    Pci,
-    Tpm,
-    Proxy
+enum class ContainerDeviceType(val wireName: String, val label: String) {
+    Disk("DISK", "Disk"),
+    Cdrom("CDROM", "CD-ROM"),
+    Nic("NIC", "NIC"),
+    Gpu("GPU", "GPU"),
+    Usb("USB", "USB"),
+    Pci("PCI", "PCI"),
+    Tpm("TPM", "TPM"),
+    Proxy("PROXY", "Proxy")
 }
 
 data class ContainerDeviceAddUiState(
@@ -219,18 +220,25 @@ class ContainerDeviceAddViewModel @Inject constructor(
         sourceProtocol: String,
         sourcePort: String,
         destinationProtocol: String,
-        destinationPort: String
+        destinationPort: String,
+        cdromSource: String,
+        bootPriority: String
     ) {
         val current = _uiState.value
         val usbChoice = current.usbChoices[usb]
         val payload = buildMap {
             putAll(current.editingDevice.orEmpty())
-            put("dev_type", type.name)
+            put("dev_type", type.wireName)
             when (type) {
                 ContainerDeviceType.Disk -> {
                     put("source", diskSource)
                     put("destination", destination.trim())
                     put("readonly", readOnly)
+                }
+                ContainerDeviceType.Cdrom -> {
+                    put("source", cdromSource.trim())
+                    put("readonly", readOnly)
+                    bootPriority.trim().toIntOrNull()?.let { put("boot_priority", it) }
                 }
                 ContainerDeviceType.Nic -> {
                     put("nic_type", nicType)

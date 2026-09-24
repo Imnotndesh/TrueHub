@@ -70,6 +70,7 @@ import com.github.mikephil.charting.formatter.ValueFormatter
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.AppStats
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
 import com.imnotndesh.truehub.ui.haptics.VibratorMode
@@ -113,13 +114,18 @@ fun AppResourceUsageScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        PullToRefreshContent(
+            isRefreshing = state.isLoading,
+            onRefresh = { viewModel.retry() },
+            modifier = Modifier.fillMaxSize()
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             when {
                 state.isLoading && state.current == null ->
                     LoadingUsage(Modifier.fillMaxWidth().padding(top = 120.dp))
@@ -137,6 +143,7 @@ fun AppResourceUsageScreen(
                     }
                 )
             }
+            }
         }
 
         AnimatedVisibility(
@@ -153,7 +160,6 @@ fun AppResourceUsageScreen(
                 isLoading = false,
                 isRefreshing = false,
                 error = state.error,
-                onRefresh = { viewModel.retry() },
                 onDismissError = { viewModel.dismissError() },
                 onBackPressed = onNavigateBack
             )

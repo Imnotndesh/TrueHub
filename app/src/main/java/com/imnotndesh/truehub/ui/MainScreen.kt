@@ -96,6 +96,7 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootPoolScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.boot.BootScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsEditScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.AppImageManagementScreen
+import com.imnotndesh.truehub.ui.homepage.instancesettings.globalvirt.GlobalVirtSettingsScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.DockerImageListScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.appimages.IxVolumeListScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.general.GeneralSystemSettingsScreen
@@ -139,8 +140,11 @@ import com.imnotndesh.truehub.ui.services.containers.edit.ContainerEditScreen
 import com.imnotndesh.truehub.ui.services.containers.details.ContainerInfoScreen
 import com.imnotndesh.truehub.ui.services.system.services.ServiceDetailScreen
 import com.imnotndesh.truehub.ui.services.vm.VmsScreen
-import com.imnotndesh.truehub.ui.services.vm.details.VmDataHolder
+import com.imnotndesh.truehub.ui.services.vm.details.VmConsoleScreen
 import com.imnotndesh.truehub.ui.services.vm.details.VmInfoScreen
+import com.imnotndesh.truehub.ui.services.vm.devices.VmDeviceAddScreen
+import com.imnotndesh.truehub.ui.services.vm.devices.VmDevicesScreen
+import com.imnotndesh.truehub.ui.services.vm.form.VmFormScreen
 import com.imnotndesh.truehub.ui.topbar.ExpressiveSearchAppBar
 import com.imnotndesh.truehub.ui.topbar.SearchResultNavigation
 import com.imnotndesh.truehub.ui.utils.AppCache
@@ -440,7 +444,16 @@ private fun TrueHubNavGraph(
                 },
                 onNavigateToAppImageManagement = {
                     navController.navigate(Screen.AppImageManagementScreen.route)
+                },
+                onNavigateToGlobalVirtSettings = {
+                    navController.navigate(Screen.GlobalVirtSettings.route)
                 }
+            )
+        }
+        composable(Screen.GlobalVirtSettings.route) {
+            GlobalVirtSettingsScreen(
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.AppImageManagementScreen.route) {
@@ -1123,14 +1136,102 @@ private fun TrueHubNavGraph(
         composable(Screen.Vms.route) {
             VmsScreen(
                 manager = manager,
-                onNavigateToVmInfo = { vmInfo -> VmDataHolder.selectedVm = vmInfo; navController.navigate("vm_details") },
+                onNavigateToVmInfo = { vmInfo -> navController.navigate(Screen.VmDetails.createRoute(vmInfo.id)) },
+                onCreateVm = { navController.navigate(Screen.VmCreate.route) },
                 onSearchClick = onSearchClick
             )
         }
 
-        composable(Screen.VmDetails.route) {
-            val vm = VmDataHolder.selectedVm
-            VmInfoScreen(vm = vm!!, manager = manager, onNavigateBack = { navController.popBackStack() })
+        composable(
+            Screen.VmDetails.route,
+            arguments = listOf(navArgument("vmId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val vmId = backStackEntry.arguments?.getInt("vmId") ?: -1
+            VmInfoScreen(
+                vmId = vmId,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onManageDevices = { navController.navigate(Screen.VmDevices.createRoute(vmId)) },
+                onEdit = { navController.navigate(Screen.VmEdit.createRoute(vmId)) },
+                onOpenConsole = { navController.navigate(Screen.VmConsole.createRoute(vmId)) }
+            )
+        }
+
+        composable(
+            Screen.VmConsole.route,
+            arguments = listOf(navArgument("vmId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val vmId = backStackEntry.arguments?.getInt("vmId") ?: -1
+            VmConsoleScreen(
+                vmId = vmId,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Screen.VmDevices.route,
+            arguments = listOf(navArgument("vmId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val vmId = backStackEntry.arguments?.getInt("vmId") ?: -1
+            VmDevicesScreen(
+                vmId = vmId,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onAddDevice = { navController.navigate(Screen.VmDeviceAdd.createRoute(vmId)) },
+                onEditDevice = { deviceId ->
+                    navController.navigate(Screen.VmDeviceAdd.createRoute(vmId, deviceId))
+                }
+            )
+        }
+
+        composable(
+            Screen.VmDeviceAdd.route,
+            arguments = listOf(
+                navArgument("vmId") { type = NavType.IntType },
+                navArgument("deviceId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val vmId = backStackEntry.arguments?.getInt("vmId") ?: -1
+            val deviceId = backStackEntry.arguments?.getString("deviceId")?.toIntOrNull()
+            VmDeviceAddScreen(
+                vmId = vmId,
+                deviceId = deviceId,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.VmCreate.route) {
+            VmFormScreen(
+                vmId = null,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = {
+                    navController.navigate(Screen.Vms.route) {
+                        popUpTo(Screen.Vms.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(
+            Screen.VmEdit.route,
+            arguments = listOf(navArgument("vmId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val vmId = backStackEntry.arguments?.getInt("vmId") ?: -1
+            VmFormScreen(
+                vmId = vmId,
+                manager = manager,
+                onNavigateBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() }
+            )
         }
 
         composable(route = Screen.DatasetExplorer.route, arguments = listOf(navArgument("poolName") { type = NavType.StringType })) { backStackEntry ->

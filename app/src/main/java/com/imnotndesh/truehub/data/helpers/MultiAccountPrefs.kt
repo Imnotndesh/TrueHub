@@ -14,6 +14,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.first
+import okhttp3.Credentials
 
 private const val MULTI_ACCOUNT_DATASTORE = "multi_account_preferences"
 
@@ -180,6 +181,17 @@ object MultiAccountPrefs {
                 val password = prefs[getCredentialKey(accountId, "password")]
                 username to password
             }
+        }
+    }
+
+    suspend fun getCurrentHttpAuthHeader(context: Context): String? {
+        val current = getCurrentSession(context) ?: return null
+        val account = getAccount(context, current.second) ?: return null
+        val (first, second) = getAccountCredentials(context, account.id, account.loginMethod)
+        return when (account.loginMethod) {
+            LoginMethod.API_KEY -> first?.let { "Bearer $it" }
+            LoginMethod.PASSWORD, LoginMethod.TOTP ->
+                if (first != null && second != null) Credentials.basic(first, second) else null
         }
     }
 

@@ -9,7 +9,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -102,6 +101,11 @@ import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveBadge
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveEntryCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveSection
+import com.imnotndesh.truehub.ui.components.expressive.InfoRow
 import com.imnotndesh.truehub.ui.utils.appStateContainerColor
 import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
@@ -212,7 +216,7 @@ fun AppInfoScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        AppBadge(
+                        ExpressiveBadge(
                             label = displayState,
                             containerColor = appStateContainerColor(displayState),
                             contentColor = MaterialTheme.colorScheme.onSurface
@@ -220,21 +224,21 @@ fun AppInfoScreen(
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (app.customApp) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "Custom",
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                             if (app.migrated) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "Migrated",
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                             }
                             if (app.migratedFromKubernetes) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "From K8s",
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -273,13 +277,13 @@ fun AppInfoScreen(
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppDetailEntryCard(
+                ExpressiveEntryCard(
                     icon = Icons.Default.Build,
                     title = "Advanced Information",
                     subtitle = "Workloads, ports, storage, notes and screenshots",
                     onClick = { onOpenAdvanced(app.id) }
                 )
-                AppDetailEntryCard(
+                ExpressiveEntryCard(
                     icon = Icons.Default.MonitorHeart,
                     title = "App Resource Usage",
                     subtitle = "Live CPU, memory, network and disk I/O",
@@ -526,26 +530,6 @@ private fun AppIcon(app: Apps.AppQueryResponse, size: Dp, modifier: Modifier = M
 }
 
 @Composable
-private fun AppBadge(
-    label: String,
-    containerColor: Color,
-    contentColor: Color
-) {
-    Surface(
-        color = containerColor,
-        shape = RoundedCornerShape(100.dp)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
 fun ServiceNetworkCard(network: Apps.Network) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -699,84 +683,6 @@ fun ServiceImagesCard(images: List<String>) {
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ExpressiveSection(
-    title: String,
-    icon: ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Column(content = content)
-    }
-}
-
-@Composable
-fun ExpressiveInfoCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(0.6f)
-        )
     }
 }
 
@@ -1503,62 +1409,5 @@ private fun DeleteOptionToggle(
                 checkedTrackColor = MaterialTheme.colorScheme.error
             )
         )
-    }
-}
-
-@Composable
-private fun AppDetailEntryCard(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Open $title",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }

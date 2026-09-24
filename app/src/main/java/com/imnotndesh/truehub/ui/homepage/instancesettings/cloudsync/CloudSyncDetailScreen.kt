@@ -26,6 +26,7 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Cloudsync
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveInfoCard
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveSection
@@ -68,7 +69,6 @@ fun CloudSyncDetailScreen(
                 isLoading = isLoading,
                 isRefreshing = false,
                 error = error,
-                onRefresh = { reload() },
                 onDismissError = { error = null },
                 manager = manager,
                 onBackPressed = onNavigateBack,
@@ -84,14 +84,20 @@ fun CloudSyncDetailScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        PullToRefreshContent(
+            isRefreshing = isLoading,
+            onRefresh = { reload() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             ExpressiveSection(title = "Task", icon = Icons.Default.Cloud) {
                 ExpressiveInfoCard {
                     InfoRow(label = "Description", value = task?.description?.ifBlank { null } ?: "—")
@@ -104,6 +110,7 @@ fun CloudSyncDetailScreen(
                     TaskDivider()
                     InfoRow(label = "Enabled", value = if (task?.enabled == true) "Yes" else "No")
                 }
+            }
             }
         }
     }
