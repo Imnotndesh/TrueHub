@@ -3,6 +3,7 @@ package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -181,7 +183,14 @@ fun BootEnvironmentDetailScreen(
                                     InfoRow("Can Activate", booleanLabel(environment.canActivate))
                                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .toggleable(
+                                                value = environment.keep == true,
+                                                enabled = !uiState.isActing,
+                                                role = Role.Switch,
+                                                onValueChange = { value -> vm.keep(environmentId, value) }
+                                            ),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
@@ -193,7 +202,7 @@ fun BootEnvironmentDetailScreen(
                                         Switch(
                                             checked = environment.keep == true,
                                             enabled = !uiState.isActing,
-                                            onCheckedChange = { value -> vm.keep(environmentId, value) }
+                                            onCheckedChange = null
                                         )
                                     }
                                 }

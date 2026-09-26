@@ -48,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Cloudsync
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
@@ -210,7 +212,7 @@ private fun CloudSyncTaskRow(
                 )
                 Spacer(Modifier.height(6.dp))
                 Surface(
-                    color = if (enabled) Color(0xFF2E7D32).copy(alpha = 0.15f)
+                    color = if (enabled) StatusTone.POSITIVE.color().copy(alpha = 0.15f)
                     else MaterialTheme.colorScheme.surfaceContainerHighest,
                     shape = RoundedCornerShape(100.dp)
                 ) {
@@ -218,7 +220,7 @@ private fun CloudSyncTaskRow(
                         text = if (enabled) "Enabled" else "Disabled",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (enabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (enabled) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                     )
                 }

@@ -70,6 +70,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -193,7 +195,7 @@ fun ApiKeyListScreen(
 
 @Composable
 private fun KeyCard(key: System.ApiKeyEntry, onClick: () -> Unit) {
-    val sc = animateColorAsState(if (key.revoked) Color(0xFFC62828) else Color(0xFF2E7D32), label = "")
+    val sc = animateColorAsState(if (key.revoked) StatusTone.NEGATIVE.color() else StatusTone.POSITIVE.color(), label = "")
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),

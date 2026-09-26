@@ -39,6 +39,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -169,7 +174,7 @@ private fun ServiceCard(
             ) {
                 Icon(
                     imageVector = getServiceStatusIcon(service.state),
-                    contentDescription = service.state,
+                    contentDescription = null,
                     tint = statusColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -207,6 +212,10 @@ private fun ServiceCard(
                 Switch(
                     checked = isRunning,
                     onCheckedChange = onToggleRunning,
+                    modifier = Modifier.semantics {
+                        contentDescription = service.service
+                        stateDescription = if (isRunning) "Running" else "Stopped"
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                         checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -227,11 +236,12 @@ private fun getServiceStatusIcon(state: String): ImageVector {
     }
 }
 
+@Composable
 private fun getServiceStatusColor(state: String): Color {
     return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32)
-        "failed", "error" -> Color(0xFFD32F2F)
-        "paused" -> Color(0xFFF57C00)
-        else -> Color(0xFF757575)
+        "running" -> StatusTone.POSITIVE.color()
+        "failed", "error" -> StatusTone.NEGATIVE.color()
+        "paused" -> StatusTone.WARNING.color()
+        else -> StatusTone.NEUTRAL.color()
     }
 }

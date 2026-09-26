@@ -45,12 +45,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -143,7 +148,7 @@ fun ServiceDetailScreen(
                     ) {
                         Icon(
                             imageVector = getServiceStatusIcon(current.state),
-                            contentDescription = current.state,
+                            contentDescription = null,
                             tint = statusColor,
                             modifier = Modifier.size(28.dp)
                         )
@@ -204,6 +209,10 @@ fun ServiceDetailScreen(
                         Switch(
                             checked = current.enable,
                             onCheckedChange = { viewModel.setStartOnBoot(it) },
+                            modifier = Modifier.semantics {
+                                contentDescription = "Start on boot"
+                                stateDescription = if (current.enable) "On" else "Off"
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -306,11 +315,12 @@ private fun getServiceStatusIcon(state: String): ImageVector {
     }
 }
 
+@Composable
 private fun getServiceStatusColor(state: String): Color {
     return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32)
-        "failed", "error" -> Color(0xFFD32F2F)
-        "paused" -> Color(0xFFF57C00)
-        else -> Color(0xFF757575)
+        "running" -> StatusTone.POSITIVE.color()
+        "failed", "error" -> StatusTone.NEGATIVE.color()
+        "paused" -> StatusTone.WARNING.color()
+        else -> StatusTone.NEUTRAL.color()
     }
 }

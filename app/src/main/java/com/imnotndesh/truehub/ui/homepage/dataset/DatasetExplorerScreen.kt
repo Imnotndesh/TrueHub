@@ -276,8 +276,8 @@ fun DatasetExplorerScreen(
         // Overlay Slide-Over Panel for Mobile viewports
         AnimatedVisibility(
             visible = isMobileSheetExpanded && selectedDataset != null,
-            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeOut()
         ) {
             if (selectedDataset != null) {
                 MobileSlideOverPanel(
@@ -359,7 +359,7 @@ private fun DatasetToolbar(
                                             DatasetViewMode.LIST -> Icons.Default.List
                                             DatasetViewMode.GRID -> Icons.Default.GridView
                                         },
-                                        contentDescription = mode.name,
+                                        contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -706,11 +706,11 @@ private fun DatasetFabGroup(
         AnimatedVisibility(
             visible = isMenuExpanded,
             enter = expandVertically(
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                 expandFrom = Alignment.Bottom
             ) + fadeIn(),
             exit = shrinkVertically(
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                 shrinkTowards = Alignment.Bottom
             ) + fadeOut()
         ) {
@@ -766,7 +766,7 @@ private fun DatasetFabGroup(
                     ) {
                         Icon(
                             imageVector = if (isDetailsPanelExpanded) Icons.Default.FolderOpen else Icons.Default.Info,
-                            contentDescription = "Toggle Details",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -788,7 +788,7 @@ private fun DatasetFabGroup(
 
                 val arrowRotation by animateFloatAsState(
                     targetValue = if (isMenuExpanded) 180f else 0f,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     label = "arrowRotation"
                 )
 
@@ -855,7 +855,7 @@ fun DatasetTreeItem(
 
     val chevronRotation by animateFloatAsState(
         targetValue = if (isExpanded) 90f else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "treeChevron"
     )
 
@@ -958,8 +958,8 @@ fun DatasetTreeItem(
         // Child node tree animation frame
         AnimatedVisibility(
             visible = isExpanded,
-            enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-            exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+            enter = expandVertically(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+            exit = shrinkVertically(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeOut()
         ) {
             Column {
                 dataset.children.forEach { child ->

@@ -83,6 +83,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -431,10 +433,10 @@ private fun UserCard(
     val isLocked = user.locked
     val statusColor by animateColorAsState(
         targetValue = when {
-            isLocked -> Color(0xFFC62828)
-            user.builtin -> Color(0xFF1565C0)
-            user.roles.contains("FULL_ADMIN") -> Color(0xFF6A1B9A)
-            else -> Color(0xFF2E7D32)
+            isLocked -> StatusTone.NEGATIVE.color()
+            user.builtin -> StatusTone.INFO.color()
+            user.roles.contains("FULL_ADMIN") -> MaterialTheme.colorScheme.tertiary
+            else -> StatusTone.POSITIVE.color()
         },
         label = "statusColor"
     )

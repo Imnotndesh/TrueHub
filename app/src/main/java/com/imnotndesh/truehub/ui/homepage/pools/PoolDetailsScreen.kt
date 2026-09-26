@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,6 +61,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -70,6 +74,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobState
 import com.imnotndesh.truehub.data.models.Storage
@@ -359,7 +365,7 @@ private fun PoolStorageUsageCard(pool: Pool) {
     val usedPercentage = pool.size?.let { if (it > 0) (pool.allocated!!.toFloat() / pool.size.toFloat()) else 0f }
     val progressColor = when {
         usedPercentage!! > 0.9f -> MaterialTheme.colorScheme.error
-        usedPercentage > 0.75f -> Color(0xFFF57C00) // Orange
+        usedPercentage > 0.75f -> StatusTone.WARNING.color()
         else -> MaterialTheme.colorScheme.primary
     }
 
@@ -455,7 +461,9 @@ private fun PoolInfoSection(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() }
             )
             action?.invoke()
         }
@@ -494,8 +502,8 @@ private fun PoolStatusSection(pool: Pool) {
     PoolInfoSection(title = "Status & Health", icon = Icons.Default.Info) {
         val statusColor = when {
             !pool.healthy -> MaterialTheme.colorScheme.error
-            pool.warning -> Color(0xFFF57C00)
-            else -> Color(0xFF2E7D32)
+            pool.warning -> StatusTone.WARNING.color()
+            else -> StatusTone.POSITIVE.color()
         }
         val statusIcon = when {
             !pool.healthy -> Icons.Default.Error
@@ -766,8 +774,15 @@ private fun CreateScrubTaskDialog(
                     OutlinedTextField(value = month, onValueChange = { month = it }, label = { Text("Month") }, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = dayOfWeek, onValueChange = { dayOfWeek = it }, label = { Text("Day (W)") }, modifier = Modifier.weight(1f))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+                Row(
+                    modifier = Modifier.toggleable(
+                        value = enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { enabled = it }
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = enabled, onCheckedChange = null)
                     Text("Enabled")
                 }
             }

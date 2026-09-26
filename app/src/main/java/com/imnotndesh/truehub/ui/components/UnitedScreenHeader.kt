@@ -59,6 +59,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -115,7 +119,7 @@ fun UnifiedScreenHeader(
                             onClick = onBackPressed,
                             icon = Icons.Default.ArrowBackIosNew,
                             contentDescription = "Back",
-                            enabled = !isLoading && !isRefreshing,
+                            enabled = true,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -133,6 +137,7 @@ fun UnifiedScreenHeader(
                         ) { targetTitle ->
                             Text(
                                 text = targetTitle,
+                                modifier = Modifier.semantics { heading() },
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -222,7 +227,9 @@ fun UnifiedScreenHeader(
                 if (error != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { liveRegion = LiveRegionMode.Polite },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer
                         ),
@@ -327,6 +334,7 @@ fun MinimalBackHeader(
             Column {
                 Spacer(modifier = Modifier.height(12.dp))
                 Card(
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
                     ),

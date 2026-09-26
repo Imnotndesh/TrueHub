@@ -76,6 +76,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
@@ -397,9 +399,9 @@ private fun SystemOverviewCard(
     onSystemInfoClick: () -> Unit = {}
 ) {
     val statusColor = if (isConnectedStatus) {
-        Color(0xFF2E7D32)
+        StatusTone.POSITIVE.color()
     } else {
-        Color(0xFFF57C00)
+        StatusTone.WARNING.color()
     }
 
     val glassContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)
@@ -511,7 +513,7 @@ private fun SystemOverviewCard(
                                 onClick = onUpdateClick,
                                 icon = Icons.Filled.SystemUpdateAlt,
                                 label = "Update (${systemUpdateVersions.size})",
-                                tint = Color(0xFFF57C00)
+                                tint = StatusTone.WARNING.color()
                             )
                         }
                     }
@@ -688,8 +690,8 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
                 val hasWarning = pool.warning
                 val statusColor = when {
                     !isHealthy -> MaterialTheme.colorScheme.error
-                    hasWarning -> Color(0xFFF57C00)
-                    else -> Color(0xFF2E7D32)
+                    hasWarning -> StatusTone.WARNING.color()
+                    else -> StatusTone.POSITIVE.color()
                 }
                 Surface(color = statusColor.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                     val statusText = when {
@@ -713,7 +715,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
                 val progressColor by animateColorAsState(
                     targetValue = when {
                         usedPercentage > 0.8f -> MaterialTheme.colorScheme.error
-                        usedPercentage > 0.6f -> Color(0xFFF57C00)
+                        usedPercentage > 0.6f -> StatusTone.WARNING.color()
                         else -> MaterialTheme.colorScheme.primary
                     },
                     label = "progressColor"
@@ -743,7 +745,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
 
             if ((pool.warning == true) && !pool.status_detail.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(pool.status_detail, style = MaterialTheme.typography.bodySmall, color = Color(0xFFF57C00), modifier = Modifier.padding(horizontal = 4.dp))
+                Text(pool.status_detail, style = MaterialTheme.typography.bodySmall, color = StatusTone.WARNING.color(), modifier = Modifier.padding(horizontal = 4.dp))
             }
         }
     }

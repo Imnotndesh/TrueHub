@@ -62,6 +62,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -294,7 +296,7 @@ private fun ServiceFilterBar(
 @Composable
 private fun AuditLogCard(item: System.AuditQueryResultItem) {
     val succeeded = item.success != false
-    val statusColor = if (succeeded) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+    val statusColor = if (succeeded) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.error
     val statusIcon = if (succeeded) Icons.Default.CheckCircle else Icons.Default.Warning
 
     Card(
@@ -320,7 +322,7 @@ private fun AuditLogCard(item: System.AuditQueryResultItem) {
             ) {
                 Icon(
                     imageVector = statusIcon,
-                    contentDescription = item.username ?: "event",
+                    contentDescription = null,
                     tint = statusColor,
                     modifier = Modifier.size(22.dp)
                 )

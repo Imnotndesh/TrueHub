@@ -568,17 +568,17 @@ private fun MetricHealthBanner(
 
     val bannerColor by animateColorAsState(
         targetValue = if (thresholdOk) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerColor"
     )
     val contentColor by animateColorAsState(
         targetValue = if (thresholdOk) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerContent"
     )
     val animatedProgress by animateFloatAsState(
         targetValue = progressValue,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
         label = "metricProgress"
     )
 

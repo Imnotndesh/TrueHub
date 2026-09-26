@@ -65,6 +65,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -72,6 +74,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
@@ -247,8 +251,8 @@ private fun ShareHeroCard(
     badgeLabel: String
 ) {
     val enabledColor by animateColorAsState(
-        targetValue = if (enabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (enabled) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.error,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "heroEnabled"
     )
 
@@ -340,12 +344,12 @@ private fun ShareBadge(label: String, containerColor: Color, contentColor: Color
 private fun ShareStatusBanner(enabled: Boolean) {
     val bannerColor by animateColorAsState(
         targetValue = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerColor"
     )
     val contentColor by animateColorAsState(
         targetValue = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerContent"
     )
 
@@ -583,6 +587,7 @@ private fun ShareInfoSection(
             }
             Text(
                 text = title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -638,7 +643,7 @@ private fun AccessDetailRow(label: String, value: String, isEnabled: Boolean) {
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
-                    tint = Color(0xFF2E7D32)
+                    tint = StatusTone.POSITIVE.color()
                 )
             }
             Text(
@@ -779,7 +784,7 @@ private fun ShareNetworkCard(share: Shares.SmbShare) {
             if (!share.hostsallow.isNullOrEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp), tint = Color(0xFF2E7D32))
+                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp), tint = StatusTone.POSITIVE.color())
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Allowed Hosts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -835,7 +840,7 @@ private fun ShareAuditCard(share: Shares.SmbShare) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.CheckCircle, null, tint = StatusTone.POSITIVE.color(), modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Auditing Enabled", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

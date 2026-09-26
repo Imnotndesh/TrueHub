@@ -36,7 +36,7 @@ enum class StatusTone {
 fun StatusTone.color(): Color = when (this) {
     StatusTone.POSITIVE -> if (isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32)
     StatusTone.NEGATIVE -> MaterialTheme.colorScheme.error
-    StatusTone.WARNING -> if (isSystemInDarkTheme()) Color(0xFFFFB74D) else Color(0xFFF57C00)
+    StatusTone.WARNING -> if (isSystemInDarkTheme()) Color(0xFFFFB74D) else Color(0xFF9A5B00)
     StatusTone.INFO -> if (isSystemInDarkTheme()) Color(0xFF64B5F6) else Color(0xFF1976D2)
     StatusTone.NEUTRAL -> if (isSystemInDarkTheme()) Color(0xFFBDBDBD) else Color(0xFF757575)
     StatusTone.OUTLINE -> MaterialTheme.colorScheme.outline

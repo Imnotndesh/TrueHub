@@ -57,6 +57,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -629,6 +631,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("### "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -639,6 +642,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(14.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("## "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -649,6 +653,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("# "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

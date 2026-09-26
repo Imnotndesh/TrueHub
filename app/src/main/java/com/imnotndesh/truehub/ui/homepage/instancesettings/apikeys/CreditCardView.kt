@@ -148,10 +148,7 @@ fun CreditCardKeyDialog(
     // sliding up and scaling, instead of a flat fade/scale ---
     val entranceProgress by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "entrance"
     )
     val slideOffset by animateFloatAsState(
@@ -185,12 +182,12 @@ fun CreditCardKeyDialog(
 
     val animatedRotationX by animateFloatAsState(
         targetValue = liveRotationX,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "rotX"
     )
     val animatedRotationY by animateFloatAsState(
         targetValue = liveRotationY,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "rotY"
     )
 

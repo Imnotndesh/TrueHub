@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -50,12 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -112,7 +116,7 @@ fun AlertServiceDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val statusColor by animateColorAsState(
-        targetValue = if (current?.enabled == true) Color(0xFF2E7D32)
+        targetValue = if (current?.enabled == true) StatusTone.POSITIVE.color()
         else MaterialTheme.colorScheme.outline,
         label = "statusColor"
     )
@@ -373,9 +377,18 @@ private fun EditServiceForm(
                 else -> Text("No editable fields for type: ${attrs.type}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = enabled,
+                        role = Role.Switch,
+                        onValueChange = onEnabledChange
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Enabled", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+                Switch(checked = enabled, onCheckedChange = null)
             }
         }
     }

@@ -3,8 +3,6 @@ package com.imnotndesh.truehub.ui.components
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -41,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,16 +67,15 @@ fun ExpressiveFAB(
 
     AnimatedVisibility(
         visible = visible,
-        enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-        exit = scaleOut() + fadeOut()
+        enter = scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec<Float>()) +
+            fadeIn(MaterialTheme.motionScheme.fastEffectsSpec<Float>()),
+        exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec<Float>()) +
+            fadeOut(MaterialTheme.motionScheme.fastEffectsSpec<Float>())
     ) {
         Surface(
             onClick = onClick,
             modifier = modifier.animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
             ),
             shape = RoundedCornerShape(24.dp),
             color = containerColor,
@@ -93,13 +91,15 @@ fun ExpressiveFAB(
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = text,
+                    contentDescription = if (isExpanded) null else text,
                     modifier = Modifier.size(24.dp)
                 )
                 AnimatedVisibility(
                     visible = isExpanded,
-                    enter = fadeIn() + scaleIn(spring()),
-                    exit = fadeOut() + scaleOut(spring())
+                    enter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec<Float>()) +
+                        scaleIn(MaterialTheme.motionScheme.fastSpatialSpec<Float>()),
+                    exit = fadeOut(MaterialTheme.motionScheme.fastEffectsSpec<Float>()) +
+                        scaleOut(MaterialTheme.motionScheme.fastSpatialSpec<Float>())
                 ) {
                     Row {
                         Spacer(modifier = Modifier.width(8.dp))

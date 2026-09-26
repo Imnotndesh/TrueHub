@@ -117,7 +117,7 @@ private fun InfoEntryCard(
             ) {
                 Icon(
                     imageVector = icon,
-                    contentDescription = title,
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)
                 )

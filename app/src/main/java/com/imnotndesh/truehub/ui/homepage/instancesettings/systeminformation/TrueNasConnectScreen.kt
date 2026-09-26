@@ -3,6 +3,7 @@ package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -199,7 +201,14 @@ private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnable
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+                .toggleable(
+                    value = enabled,
+                    role = Role.Switch,
+                    onValueChange = onToggleEnabled
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -217,7 +226,7 @@ private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnable
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Switch(checked = enabled, onCheckedChange = onToggleEnabled)
+            Switch(checked = enabled, onCheckedChange = null)
         }
     }
 }

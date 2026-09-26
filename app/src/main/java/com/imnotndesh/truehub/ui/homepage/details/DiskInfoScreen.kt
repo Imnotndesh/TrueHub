@@ -48,6 +48,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -306,17 +308,17 @@ private fun DiskHealthBanner(disk: System.DiskDetails) {
     val isHealthy = disk.togglesmart != false
     val bannerColor by animateColorAsState(
         targetValue = if (isHealthy) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerColor"
     )
     val contentColor by animateColorAsState(
         targetValue = if (isHealthy) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerContent"
     )
     val healthProgress by animateFloatAsState(
         targetValue = if (isHealthy) 1f else 0.3f,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
         label = "healthProgress"
     )
 
@@ -625,6 +627,7 @@ private fun DiskInfoSection(
             }
             Text(
                 text = title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface

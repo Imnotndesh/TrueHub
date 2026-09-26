@@ -1,9 +1,6 @@
 package com.imnotndesh.truehub.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -40,10 +37,16 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 
 import kotlinx.coroutines.launch
 
@@ -73,14 +76,11 @@ fun ModernToastHost() {
         visible = currentToast != null,
         enter = slideInVertically(
             initialOffsetY = { -it },
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
+            animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         ),
         exit = slideOutVertically(
             targetOffsetY = { -it },
-            animationSpec = tween(300)
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
         )
     ) {
         currentToast?.let { toast ->
@@ -105,7 +105,8 @@ private fun ModernToast(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite },
             shape = RoundedCornerShape(16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(
@@ -176,10 +177,7 @@ private fun ModernToast(
                 }
 
                 // Dismiss button
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(32.dp)
-                ) {
+                IconButton(onClick = onDismiss) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Dismiss",
@@ -194,10 +192,10 @@ private fun ModernToast(
 @Composable
 private fun getToastColor(type: ToastType): Color {
     return when (type) {
-        ToastType.SUCCESS -> Color(0xFF2E7D32)
-        ToastType.ERROR -> Color(0xFFD32F2F)
-        ToastType.WARNING -> Color(0xFFF57C00)
-        ToastType.INFO -> Color(0xFF1976D2)
+        ToastType.SUCCESS -> StatusTone.POSITIVE.color()
+        ToastType.ERROR -> StatusTone.NEGATIVE.color()
+        ToastType.WARNING -> StatusTone.WARNING.color()
+        ToastType.INFO -> StatusTone.INFO.color()
     }
 }
 

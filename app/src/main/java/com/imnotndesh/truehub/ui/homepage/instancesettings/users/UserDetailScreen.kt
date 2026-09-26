@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -62,6 +66,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -113,10 +119,10 @@ fun UserDetailScreen(
 
     val statusColor by animateColorAsState(
         targetValue = when {
-            current?.locked == true -> Color(0xFFC62828)
-            current?.builtin == true -> Color(0xFF1565C0)
-            current?.roles?.contains("FULL_ADMIN") == true -> Color(0xFF6A1B9A)
-            else -> Color(0xFF2E7D32)
+            current?.locked == true -> StatusTone.NEGATIVE.color()
+            current?.builtin == true -> StatusTone.INFO.color()
+            current?.roles?.contains("FULL_ADMIN") == true -> MaterialTheme.colorScheme.tertiary
+            else -> StatusTone.POSITIVE.color()
         },
         label = "statusColor"
     )
@@ -599,6 +605,7 @@ private fun SectionCard(
                 )
                 Text(
                     title,
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -683,22 +690,34 @@ private fun EditUserForm(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = locked,
+                        role = Role.Switch,
+                        onValueChange = onLockedChange
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Locked", style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f))
-                Switch(checked = locked, onCheckedChange = onLockedChange)
+                Switch(checked = locked, onCheckedChange = null)
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = passwordDisabled,
+                        role = Role.Switch,
+                        onValueChange = onPasswordDisabledChange
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Password Disabled", style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f))
                 Switch(
                     checked = passwordDisabled,
-                    onCheckedChange = onPasswordDisabledChange
+                    onCheckedChange = null
                 )
             }
         }

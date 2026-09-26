@@ -205,7 +205,7 @@ internal fun PoolHealthCard(state: System.BootGetState) {
                 ) {
                     Icon(
                         imageVector = if (state.healthy) Icons.Default.CheckCircle else Icons.Default.Warning,
-                        contentDescription = state.status,
+                        contentDescription = null,
                         tint = healthColor,
                         modifier = Modifier.size(24.dp)
                     )

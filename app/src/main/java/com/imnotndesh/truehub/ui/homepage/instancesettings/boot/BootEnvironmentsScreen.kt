@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -295,7 +297,14 @@ private fun BootEnvironmentCard(
                 ) { Text("Activate") }
 
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .toggleable(
+                            value = keep,
+                            enabled = !isActing,
+                            role = Role.Switch,
+                            onValueChange = onKeepChange
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -307,7 +316,7 @@ private fun BootEnvironmentCard(
                     Switch(
                         checked = keep,
                         enabled = !isActing,
-                        onCheckedChange = onKeepChange
+                        onCheckedChange = null
                     )
                 }
 

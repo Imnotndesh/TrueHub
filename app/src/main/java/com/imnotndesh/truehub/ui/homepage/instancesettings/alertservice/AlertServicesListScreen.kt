@@ -78,6 +78,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -284,7 +286,7 @@ private fun AlertServiceCard(
     onClick: () -> Unit
 ) {
     val statusColor by animateColorAsState(
-        targetValue = if (service.enabled) Color(0xFF2E7D32) else colorScheme.outline,
+        targetValue = if (service.enabled) StatusTone.POSITIVE.color() else colorScheme.outline,
         label = "statusColor"
     )
 

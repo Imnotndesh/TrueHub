@@ -3,6 +3,7 @@ package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -386,13 +388,20 @@ private fun AttachDiskDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.toggleable(
+                        value = expand,
+                        role = Role.Switch,
+                        onValueChange = { expand = it }
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         "Expand pool after attach",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    Switch(checked = expand, onCheckedChange = { expand = it })
+                    Switch(checked = expand, onCheckedChange = null)
                 }
             }
         },
