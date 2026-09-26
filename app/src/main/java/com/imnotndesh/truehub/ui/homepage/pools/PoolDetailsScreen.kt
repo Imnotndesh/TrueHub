@@ -84,6 +84,7 @@ import com.imnotndesh.truehub.data.models.System.PoolDevice
 import com.imnotndesh.truehub.data.models.System.PoolScan
 import com.imnotndesh.truehub.data.models.System.PoolTopology
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import java.text.DecimalFormat
@@ -134,7 +135,8 @@ fun PoolDetailsScreen(
             ) {
                 when (val state = uiState) {
                     is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
-                    is PoolDetailsUiState.Error -> {}
+                    is PoolDetailsUiState.Error ->
+                        ErrorState(state.message, onRetry = { viewModel.refresh() })
                     is PoolDetailsUiState.Success -> PoolDetailsContent(
                         pool = state.pool,
                         scrubTasks = state.scrubTasks,

@@ -73,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
 /**
@@ -137,14 +138,18 @@ fun DatasetPickerSheet(
 
     var flatList by remember { mutableStateOf(datasets ?: emptyList()) }
     var isLoading by remember { mutableStateOf(datasets == null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
     val expandedIds = remember { mutableStateListOf<String>() }
     val selectedIds = remember { mutableStateListOf<String>() }
 
     // Load datasets if not provided
-    LaunchedEffect(Unit) {
+    LaunchedEffect(reloadKey) {
         if (datasets == null) {
             try {
+                isLoading = true
+                loadError = null
                 val result = manager.storage.getAllDatasets()
                 if (result is com.imnotndesh.truehub.data.ApiResult.Success) {
                     flatList = result.data
@@ -154,6 +159,8 @@ fun DatasetPickerSheet(
                             expandedIds.add(root.id)
                         }
                     }
+                } else if (result is com.imnotndesh.truehub.data.ApiResult.Error) {
+                    loadError = result.message
                 }
             } finally {
                 isLoading = false
@@ -217,6 +224,9 @@ fun DatasetPickerSheet(
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
+                    }
+                    loadError != null -> {
+                        ErrorState(loadError!!, onRetry = { reloadKey++ })
                     }
                     isSearching -> {
                         PickerSearchResults(

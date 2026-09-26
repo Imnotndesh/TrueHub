@@ -121,6 +121,7 @@ private fun rememberDeviceTilt(): Pair<Float, Float> {
 
 @Composable
 fun CreditCardKeyDialog(
+    title: String = "API Key Created",
     keyName: String,
     keyValue: String,
     onDismiss: () -> Unit
@@ -211,7 +212,7 @@ fun CreditCardKeyDialog(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "API Key Created",
+                text = title,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 18.sp

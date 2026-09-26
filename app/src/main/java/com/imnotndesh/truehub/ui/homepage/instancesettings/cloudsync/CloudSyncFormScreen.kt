@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerConfig
@@ -64,9 +65,12 @@ fun CloudSyncFormScreen(
     var transferMode by remember { mutableStateOf("COPY") }
     var enabled by remember { mutableStateOf(true) }
     var showDatasetPicker by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(taskId) {
+    LaunchedEffect(taskId, reloadKey) {
         if (!isEdit) return@LaunchedEffect
+        loadError = null
         when (val result = manager.cloudsync.getTask(taskId)) {
             is ApiResult.Success -> result.data.let { task ->
                 description = task.description ?: ""
@@ -75,11 +79,17 @@ fun CloudSyncFormScreen(
                 transferMode = task.transferMode ?: "COPY"
                 enabled = task.enabled ?: true
             }
-            else -> Unit
+            is ApiResult.Error -> loadError = result.message
+            is ApiResult.Loading -> {}
         }
     }
 
-    LaunchedEffect(state.saved) { if (state.saved) onSaved() }
+    LaunchedEffect(state.saved) {
+        if (state.saved) {
+            ToastManager.showSuccess(if (isEdit) "Task updated" else "Task created")
+            onSaved()
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -89,8 +99,8 @@ fun CloudSyncFormScreen(
                 subtitle = "Cloud Sync",
                 isLoading = false,
                 isRefreshing = false,
-                error = state.error,
-                onDismissError = { viewModel.dismissError() },
+                error = loadError ?: state.error,
+                onDismissError = { loadError = null; viewModel.dismissError() },
                 manager = manager,
                 onBackPressed = onNavigateBack
             )
@@ -172,7 +182,7 @@ fun CloudSyncFormScreen(
                     )
                     if (isEdit) viewModel.updateTask(taskId, payload) else viewModel.createTask(payload)
                 },
-                enabled = !state.isSaving && path.isNotBlank(),
+                enabled = !state.isSaving && path.isNotBlank() && loadError == null,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (isEdit) "Save Changes" else "Create Task")

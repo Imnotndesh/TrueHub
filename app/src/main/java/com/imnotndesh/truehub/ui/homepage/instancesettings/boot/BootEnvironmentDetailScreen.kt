@@ -258,7 +258,8 @@ fun BootEnvironmentDetailScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        "Environment \"$environmentId\" not found.",
+                        if (uiState.error != null) "Couldn't load this boot environment. ${uiState.error}"
+                        else "Environment \"$environmentId\" not found.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

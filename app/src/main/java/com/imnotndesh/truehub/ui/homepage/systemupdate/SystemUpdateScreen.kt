@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
@@ -100,7 +101,21 @@ fun SystemUpdateScreen(
     val activeJobs by JobRepository.activeJobs.collectAsState()
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var selectedVersionForNotes by remember { mutableStateOf<System.UpdateAvailableVersionsResponse?>(null) }
+
+    suspend fun refreshVersions() {
+        isRefreshing = true
+        when (val result = manager.system.getSystemUpdateVersions()) {
+            is ApiResult.Success -> {
+                AppCache.updateSystemUpdateVersions(result.data)
+                loadError = null
+            }
+            is ApiResult.Error -> loadError = result.message
+            is ApiResult.Loading -> {}
+        }
+        isRefreshing = false
+    }
 
     val activeUpdateJob = remember(activeJobs) {
         activeJobs.values.find { it.type == "SYSTEM_UPDATE" && it.state !in listOf("SUCCESS", "FAILED", "ABORTED") }
@@ -109,30 +124,27 @@ fun SystemUpdateScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "System Updates",
-            subtitle = if (versions.isEmpty()) "No updates available" else "${versions.size} available",
+            subtitle = when {
+                loadError != null && versions.isEmpty() -> "Couldn't check for updates"
+                versions.isEmpty() -> "No updates available"
+                else -> "${versions.size} available"
+            },
             isLoading = false,
             isRefreshing = false,
-            error = null,
-            onDismissError = {},
+            error = loadError,
+            onDismissError = { loadError = null },
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
         PullToRefreshContent(
             isRefreshing = isRefreshing,
-            onRefresh = {
-                scope.launch {
-                    isRefreshing = true
-                    val result = manager.system.getSystemUpdateVersions()
-                    if (result is ApiResult.Success) {
-                        AppCache.updateSystemUpdateVersions(result.data)
-                    }
-                    isRefreshing = false
-                }
-            },
+            onRefresh = { scope.launch { refreshVersions() } },
             modifier = Modifier.fillMaxSize()
         ) {
-            if (versions.isEmpty()) {
+            if (versions.isEmpty() && loadError != null) {
+                ErrorState(loadError!!, onRetry = { scope.launch { refreshVersions() } })
+            } else if (versions.isEmpty()) {
                 EmptyUpdatesState()
             } else {
                 LazyColumn(

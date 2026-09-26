@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -77,7 +78,10 @@ fun UserCreateScreen(
 
     LaunchedEffect(Unit) { viewModel.loadCreateFormData() }
     LaunchedEffect(uiState.createResult) {
-        if (uiState.createResult != null) onNavigateBack()
+        if (uiState.createResult != null) {
+            ToastManager.showSuccess("User created")
+            onNavigateBack()
+        }
     }
 
     Column(

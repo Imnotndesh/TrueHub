@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerConfig
@@ -61,7 +62,10 @@ fun CreateShareScreen(
     var showDatasetPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.created) {
-        if (state.created) onCreated()
+        if (state.created) {
+            ToastManager.showSuccess("Share created")
+            onCreated()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

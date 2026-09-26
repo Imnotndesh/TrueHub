@@ -55,6 +55,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -66,6 +68,7 @@ import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -136,6 +139,9 @@ fun AuditLogsScreen(
             if (showContent && !uiState.isRefreshing) {
                 val downloadState = uiState.downloadState
                 FloatingActionButton(
+                    modifier = if (downloadState == DownloadState.Downloading || downloadState == DownloadState.Generating) {
+                        Modifier.semantics { contentDescription = "Exporting logs" }
+                    } else Modifier,
                     onClick = {
                         when {
                             downloadState == DownloadState.Idle || downloadState == DownloadState.Error -> {
@@ -152,7 +158,7 @@ fun AuditLogsScreen(
                 ) {
                     when (downloadState) {
                         DownloadState.Downloading, DownloadState.Generating -> {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.onPrimary)
                         }
                         DownloadState.Success -> {
                             Icon(Icons.Default.CheckCircle, contentDescription = "Export complete")
@@ -177,26 +183,8 @@ fun AuditLogsScreen(
                 uiState.logs.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading audit logs…")
                 }
-                uiState.logs.isEmpty() && !uiState.isLoading && uiState.error != null -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = uiState.error ?: "Couldn't load audit logs",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                uiState.logs.isEmpty() && !uiState.isLoading && uiState.error != null ->
+                    ErrorState(uiState.error ?: "Couldn't load audit logs", onRetry = { viewModel.refresh() })
                 uiState.logs.isEmpty() -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),

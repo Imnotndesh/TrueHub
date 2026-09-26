@@ -53,6 +53,7 @@ import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
@@ -97,26 +98,8 @@ fun ServicesScreen(
                 uiState.services.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading Services")
                 }
-                uiState.services.isEmpty() && !uiState.isLoading && uiState.error != null -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Couldn't load services",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                uiState.services.isEmpty() && !uiState.isLoading && uiState.error != null ->
+                    ErrorState(uiState.error ?: "Couldn't load services", onRetry = { viewModel.refresh() })
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

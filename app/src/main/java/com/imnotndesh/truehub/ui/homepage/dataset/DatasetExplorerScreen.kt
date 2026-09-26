@@ -105,6 +105,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -226,7 +227,8 @@ fun DatasetExplorerScreen(
                 ) {
                 when (val state = uiState) {
                     is DatasetExplorerViewModel.UiState.Loading -> LoadingScreen("Loading Datasets…")
-                    is DatasetExplorerViewModel.UiState.Error -> {}
+                    is DatasetExplorerViewModel.UiState.Error ->
+                        ErrorState(state.message, onRetry = { viewModel.loadDatasets(poolName) })
                     is DatasetExplorerViewModel.UiState.Success,
                     is DatasetExplorerViewModel.UiState.LoadingWithCache -> {
                         val rootNode = when (val s = uiState) {

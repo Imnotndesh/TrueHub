@@ -58,6 +58,7 @@ import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System.formatDate
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @Composable
@@ -73,7 +74,12 @@ fun ApiKeyDetailScreen(
     var showResetDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { vm.loadDetail(keyId) }
-    LaunchedEffect(uiState.deleteResult) { if (uiState.deleteResult == true) onNavigateBack() }
+    LaunchedEffect(uiState.deleteResult) {
+        if (uiState.deleteResult == true) {
+            ToastManager.showSuccess("API key deleted")
+            onNavigateBack()
+        }
+    }
 
     val current = uiState.key
     val sc = animateColorAsState(
@@ -176,6 +182,18 @@ fun ApiKeyDetailScreen(
         confirmButton = { TextButton(onClick = { showResetDialog = false; vm.resetKey(keyId) }) { Text("Reset") } },
         dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
     )
+
+    uiState.resetResult?.let { result ->
+        CreditCardKeyDialog(
+            title = "API Key Reset",
+            keyName = result.name,
+            keyValue = result.key,
+            onDismiss = {
+                vm.clearResetResult()
+                vm.loadDetail(keyId)
+            }
+        )
+    }
 }
 
 @Composable

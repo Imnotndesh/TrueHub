@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,7 +46,6 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Stream
-import androidx.compose.material.icons.filled.ToggleOn
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -76,6 +77,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.components.expressive.color
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
@@ -101,7 +103,12 @@ fun ShareInfoScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(shareType) { viewModel.load(shareType) }
-    LaunchedEffect(state.deleted) { if (state.deleted) onNavigateBack() }
+    LaunchedEffect(state.deleted) {
+        if (state.deleted) {
+            ToastManager.showSuccess("Share deleted")
+            onNavigateBack()
+        }
+    }
 
     val smb = state.smbShare ?: (shareType as? ShareType.Smb)?.share
     val nfs = state.nfsShare ?: (shareType as? ShareType.Nfs)?.share
@@ -153,19 +160,19 @@ fun ShareInfoScreen(
                         icon = if (smb.timemachine == true) Icons.Default.Backup
                         else if (smb.home == true) Icons.Default.Home
                         else Icons.Default.Folder,
-                        badgeLabel = "SMB"
+                        badgeLabel = "SMB",
+                        featureChips = { ShareFeatureChips(share = smb) }
                     )
                     nfs != null -> ShareHeroCard(
                         name = nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" },
                         path = nfs.path,
                         enabled = nfs.enabled,
                         icon = Icons.Default.Storage,
-                        badgeLabel = "NFS"
+                        badgeLabel = "NFS",
+                        featureChips = { NfsFeatureChips(share = nfs) }
                     )
                 }
             }
-
-            item { ShareStatusBanner(enabled = smb?.enabled ?: nfs?.enabled ?: false) }
 
             item {
                 when {
@@ -242,13 +249,15 @@ private fun SmbAclSection(acl: Shares.SmbAcl) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShareHeroCard(
     name: String,
     path: String,
     enabled: Boolean,
     icon: ImageVector,
-    badgeLabel: String
+    badgeLabel: String,
+    featureChips: @Composable () -> Unit = {}
 ) {
     val enabledColor by animateColorAsState(
         targetValue = if (enabled) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.error,
@@ -306,7 +315,10 @@ private fun ShareHeroCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         ShareBadge(
                             label = badgeLabel,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -317,6 +329,7 @@ private fun ShareHeroCard(
                             containerColor = enabledColor.copy(alpha = 0.15f),
                             contentColor = enabledColor
                         )
+                        featureChips()
                     }
                 }
             }
@@ -341,58 +354,6 @@ private fun ShareBadge(label: String, containerColor: Color, contentColor: Color
 }
 
 @Composable
-private fun ShareStatusBanner(enabled: Boolean) {
-    val bannerColor by animateColorAsState(
-        targetValue = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "bannerColor"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "bannerContent"
-    )
-
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = bannerColor),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = if (enabled) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Share Status",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-            }
-            Text(
-                text = if (enabled) "Enabled & Active" else "Disabled",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            )
-        }
-    }
-}
-
-@Composable
 private fun SmbShareSections(share: Shares.SmbShare) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ShareInfoSection(title = "Basic Information", icon = Icons.Default.Info) {
@@ -405,10 +366,6 @@ private fun SmbShareSections(share: Shares.SmbShare) {
                     add("Purpose" to share.purpose.orEmpty().ifEmpty { "General" })
                 }
             )
-        }
-
-        ShareInfoSection(title = "Features", icon = Icons.Default.ToggleOn) {
-            ShareFeatureChips(share = share)
         }
 
         ShareInfoSection(title = "Access Control", icon = Icons.Default.Security) {
@@ -467,10 +424,6 @@ private fun NfsShareSections(share: Shares.NfsShare) {
                     if (share.comment.isNotEmpty()) add("Description" to share.comment)
                 }
             )
-        }
-
-        ShareInfoSection(title = "Features", icon = Icons.Default.ToggleOn) {
-            NfsFeatureChips(share = share)
         }
 
         if (share.networks.isNotEmpty() || share.hosts.isNotEmpty()) {
@@ -685,32 +638,22 @@ private fun FeatureChip(text: String, icon: ImageVector) {
 
 @Composable
 private fun ShareFeatureChips(share: Shares.SmbShare) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.browsable) FeatureChip("Browsable", Icons.Default.Visibility)
-            if (share.guestok == true) FeatureChip("Guest Access", Icons.Default.PersonOutline)
-            if (share.ro == true) FeatureChip("Read-Only", Icons.Default.Lock)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.home == true) FeatureChip("Home Share", Icons.Default.Home)
-            if (share.recyclebin == true) FeatureChip("Recycle Bin", Icons.Default.Delete)
-            if (share.shadowcopy == true) FeatureChip("Shadow Copy", Icons.Default.ContentCopy)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.acl == true) FeatureChip("ACL", Icons.Default.AdminPanelSettings)
-            if (share.streams == true) FeatureChip("Streams", Icons.Default.Stream)
-            if (share.durablehandle == true) FeatureChip("Durable Handle", Icons.Default.Link)
-        }
-    }
+    if (share.browsable) FeatureChip("Browsable", Icons.Default.Visibility)
+    if (share.guestok == true) FeatureChip("Guest Access", Icons.Default.PersonOutline)
+    if (share.ro == true) FeatureChip("Read-Only", Icons.Default.Lock)
+    if (share.home == true) FeatureChip("Home Share", Icons.Default.Home)
+    if (share.recyclebin == true) FeatureChip("Recycle Bin", Icons.Default.Delete)
+    if (share.shadowcopy == true) FeatureChip("Shadow Copy", Icons.Default.ContentCopy)
+    if (share.acl == true) FeatureChip("ACL", Icons.Default.AdminPanelSettings)
+    if (share.streams == true) FeatureChip("Streams", Icons.Default.Stream)
+    if (share.durablehandle == true) FeatureChip("Durable Handle", Icons.Default.Link)
 }
 
 @Composable
 private fun NfsFeatureChips(share: Shares.NfsShare) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (share.ro) FeatureChip("Read-Only", Icons.Default.Lock)
-        if (share.locked) FeatureChip("Locked", Icons.Default.LockPerson)
-        if (share.expose_snapshots) FeatureChip("Snapshots Exposed", Icons.Default.CameraAlt)
-    }
+    if (share.ro) FeatureChip("Read-Only", Icons.Default.Lock)
+    if (share.locked) FeatureChip("Locked", Icons.Default.LockPerson)
+    if (share.expose_snapshots) FeatureChip("Snapshots Exposed", Icons.Default.CameraAlt)
 }
 
 @Composable

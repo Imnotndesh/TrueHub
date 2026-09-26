@@ -72,7 +72,9 @@ class SystemInformationViewModel @Inject constructor(
             val eulaAcceptedDeferred = async { manager.system.isEulaAccepted() }
             val managedByDeferred = async { manager.system.isManagedByTruecommand() }
 
-            val hostId = (hostIdDeferred.await() as? ApiResult.Success)?.data
+            val hostIdResult = hostIdDeferred.await()
+            val hostId = (hostIdResult as? ApiResult.Success)?.data
+            val loadError = (hostIdResult as? ApiResult.Error)?.message
             val bootId = (bootIdDeferred.await() as? ApiResult.Success)?.data
             val state = (stateDeferred.await() as? ApiResult.Success)?.data
             val ready = (readyDeferred.await() as? ApiResult.Success)?.data
@@ -93,6 +95,7 @@ class SystemInformationViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     isRefreshing = false,
+                    error = loadError,
                     bootId = bootId ?: it.bootId,
                     hostId = hostId ?: it.hostId,
                     state = state ?: it.state,

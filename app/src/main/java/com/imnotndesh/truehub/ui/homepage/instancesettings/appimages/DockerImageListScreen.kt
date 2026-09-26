@@ -58,6 +58,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -229,10 +230,16 @@ fun DockerImageListScreen(
             onSubmit = { ref ->
                 showPullDialog = false
                 if (ref.isNotBlank()) {
+                    val reference = ref.trim()
+                    ToastManager.showInfo("Pulling $reference…")
                     appScope.launch {
-                        when (val result = manager.apps.pullImageWithResult(ref.trim())) {
-                            is ApiResult.Error -> error = result.message ?: "Pull failed"
-                            else -> {}
+                        when (val result = manager.apps.pullImageWithResult(reference)) {
+                            is ApiResult.Success -> ToastManager.showSuccess("Pulled $reference")
+                            is ApiResult.Error -> {
+                                error = result.message ?: "Pull failed"
+                                ToastManager.showError(result.message ?: "Pull failed")
+                            }
+                            is ApiResult.Loading -> {}
                         }
                         refresh()
                     }

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -91,6 +92,8 @@ fun GeneralSystemSettingsScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingScreen("Loading system settings...")
+            uiState.error != null && uiState.config == null ->
+                ErrorState(uiState.error!!, onRetry = { vm.refresh() })
             uiState.config != null -> {
                 val config = uiState.config!!
                 PullToRefreshContent(

@@ -57,7 +57,9 @@ class HardwareInformationViewModel @Inject constructor(
             val disksDeferred = async { manager.system.getDisksWithResult() }
             val poolsDeferred = async { manager.system.getPoolsWithResult() }
 
-            val systemInfo = (infoDeferred.await() as? ApiResult.Success)?.data
+            val infoResult = infoDeferred.await()
+            val systemInfo = (infoResult as? ApiResult.Success)?.data
+            val loadError = (infoResult as? ApiResult.Error)?.message
             val hostId = (hostIdDeferred.await() as? ApiResult.Success)?.data
             val bootId = (bootIdDeferred.await() as? ApiResult.Success)?.data
             val chassis = (chassisDeferred.await() as? ApiResult.Success)?.data
@@ -69,6 +71,7 @@ class HardwareInformationViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     isRefreshing = false,
+                    error = loadError,
                     systemInfo = systemInfo ?: it.systemInfo,
                     hostId = hostId ?: it.hostId,
                     bootId = bootId ?: it.bootId,

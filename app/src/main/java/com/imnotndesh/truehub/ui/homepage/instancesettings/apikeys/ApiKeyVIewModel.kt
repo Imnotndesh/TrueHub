@@ -150,11 +150,8 @@ class ApiKeyViewModel @Inject constructor(
             _detailState.value = _detailState.value.copy(isResetting = true, error = null)
             val update = System.ApiKeyUpdate(reset = true)
             when (val r = manager.system.updateApiKeyWithResult(keyId, update)) {
-                is ApiResult.Success -> {
-                    // Re-fetch to get updated key
-                    loadDetail(keyId)
-                    _detailState.value = _detailState.value.copy(isResetting = false)
-                }
+                is ApiResult.Success -> _detailState.value = _detailState.value.copy(
+                    isResetting = false, resetResult = r.data)
                 is ApiResult.Error -> _detailState.value = _detailState.value.copy(
                     isResetting = false, error = r.message)
                 is ApiResult.Loading -> {}
@@ -176,6 +173,7 @@ class ApiKeyViewModel @Inject constructor(
     }
 
     fun clearDetailError() { _detailState.value = _detailState.value.copy(error = null) }
+    fun clearResetResult() { _detailState.value = _detailState.value.copy(resetResult = null) }
     fun clearCreateError() { _createState.value = _createState.value.copy(error = null) }
     fun clearCreateResult() { _createState.value = _createState.value.copy(createResult = null) }
 }

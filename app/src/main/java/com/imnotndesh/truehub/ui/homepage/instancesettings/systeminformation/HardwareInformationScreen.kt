@@ -113,7 +113,7 @@ fun HardwareInformationScreen(
                 item {
                     ExpressiveSection(title = "Storage", icon = Icons.Default.Storage) {
                         InfoCard {
-                            InfoRow("Disks", uiState.diskCount.toString())
+                            InfoRow("Disks", if (uiState.isLoading) "—" else uiState.diskCount.toString())
                             HorizontalDivider(Modifier.padding(vertical = 12.dp))
                             InfoRow("Pools", if (uiState.poolsHealthy == null) "—" else if (uiState.poolsHealthy == true) "Healthy" else "Issues detected")
                             Spacer(Modifier.height(16.dp))

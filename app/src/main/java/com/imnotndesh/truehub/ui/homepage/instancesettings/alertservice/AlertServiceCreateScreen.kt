@@ -46,6 +46,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -149,7 +150,7 @@ fun AlertServiceCreateScreen(
             )
             when (val result = manager.alertsService.createAlertServiceWithResult(create)) {
                 is ApiResult.Success -> {
-                    snackbarHostState.showSnackbar("Alert service created!")
+                    ToastManager.showSuccess("Alert service created")
                     onNavigateBack()
                 }
                 is ApiResult.Error -> {

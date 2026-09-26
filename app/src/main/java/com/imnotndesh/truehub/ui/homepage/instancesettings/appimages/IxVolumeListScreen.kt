@@ -120,15 +120,21 @@ fun IxVolumeListScreen(
                         val items = volumes.orEmpty()
                         if (items.isEmpty()) {
                             item {
-                                Box(
+                                Column(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                                    contentAlignment = Alignment.Center
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
                                         if (error != null) "Unable to load volumes." else "No iX volumes found.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (error != null) {
+                                        Spacer(Modifier.height(12.dp))
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = { appScope.launch { load() } }
+                                        ) { Text("Retry") }
+                                    }
                                 }
                             }
                         } else {

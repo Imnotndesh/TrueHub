@@ -54,6 +54,8 @@ class CloudSyncViewModel @Inject constructor(
         }
     }
 
+    fun clearDeleted() { _uiState.update { it.copy(deleted = false) } }
+
     fun createTask(payload: Map<String, Any?>) {
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, error = null) }

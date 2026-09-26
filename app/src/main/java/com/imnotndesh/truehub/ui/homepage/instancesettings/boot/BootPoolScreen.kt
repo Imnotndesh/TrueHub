@@ -148,7 +148,15 @@ fun BootPoolScreen(
                                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                         InfoRow("Fragmentation", it.fragmentation)
                                     }
-                                } ?: Text("Boot pool state unavailable.")
+                                } ?: Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Boot pool state unavailable.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                    OutlinedButton(onClick = { vm.loadAll(forceRefresh = true) }) { Text("Retry") }
+                                }
                             }
                         }
                     }

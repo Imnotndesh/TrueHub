@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Filesystem
 
@@ -86,14 +87,21 @@ fun ServerPathPickerSheet(
     var showFiles by remember { mutableStateOf(config.showFiles) }
     var entries by remember { mutableStateOf<List<Filesystem.FileEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
     var selectedFilePath by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(currentPath) {
+    LaunchedEffect(currentPath, reloadKey) {
         isLoading = true
         selectedFilePath = null
+        errorMessage = null
         when (val result = manager.filesystem.listdirEntriesWithResult(currentPath)) {
             is ApiResult.Success -> entries = result.data
-            else -> entries = emptyList()
+            is ApiResult.Error -> {
+                entries = emptyList()
+                errorMessage = result.message
+            }
+            is ApiResult.Loading -> {}
         }
         isLoading = false
     }
@@ -178,6 +186,9 @@ fun ServerPathPickerSheet(
                 when {
                     isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
+                    }
+                    errorMessage != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        ErrorState(errorMessage!!, onRetry = { reloadKey++ })
                     }
                     visibleEntries.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Empty folder", color = MaterialTheme.colorScheme.onSurfaceVariant)

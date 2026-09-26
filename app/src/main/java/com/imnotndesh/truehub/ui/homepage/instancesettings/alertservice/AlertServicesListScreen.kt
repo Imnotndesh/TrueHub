@@ -82,6 +82,7 @@ import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
@@ -119,8 +120,8 @@ fun AlertServicesListScreen(
             subtitle = "${uiState.services.size} service(s) configured",
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
-            error = null,
-            onDismissError = {},
+            error = uiState.error,
+            onDismissError = { viewModel.clearError() },
             manager = manager,
             onBackPressed = onNavigateBack
         )
@@ -145,6 +146,8 @@ fun AlertServicesListScreen(
             ) {
                 when {
                     uiState.isLoading -> LoadingScreen("Loading alert services...")
+                    uiState.error != null && uiState.services.isEmpty() ->
+                        ErrorState(uiState.error!!, onRetry = { viewModel.refresh() })
                     uiState.services.isEmpty() -> EmptyServicesState()
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),

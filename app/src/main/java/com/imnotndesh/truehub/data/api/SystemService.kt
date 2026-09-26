@@ -891,11 +891,11 @@ class SystemService(val manager: TrueNASApiManager){
     suspend fun updateApiKeyWithResult(
         id: Int,
         update: System.ApiKeyUpdate
-    ): ApiResult<Any> {
+    ): ApiResult<System.ApiKeyEntryWithKey> {
         return manager.callWithResult(
             method = ApiMethods.System.API_KEY_UPDATE,
             params = listOf(id, update),
-            resultType = Any::class.java
+            resultType = System.ApiKeyEntryWithKey::class.java
         )
     }
 

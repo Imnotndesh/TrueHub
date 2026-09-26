@@ -40,6 +40,8 @@ class AuditConfigViewModel @Inject constructor(
 
     fun refresh() = loadConfig()
 
+    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
+
     private fun loadConfig() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }

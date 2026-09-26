@@ -49,9 +49,11 @@ class BootViewModel @Inject constructor(
                 else it.copy(isLoading = true, error = null)
             }
 
-            if (forceRefresh || cachedBootState == null) {
-                cachedBootState = (manager.system.getBootState() as? ApiResult.Success)?.data
+            val bootStateResult = if (forceRefresh || cachedBootState == null) manager.system.getBootState() else null
+            if (bootStateResult != null) {
+                cachedBootState = (bootStateResult as? ApiResult.Success)?.data
             }
+            val loadError = (bootStateResult as? ApiResult.Error)?.message
             if (forceRefresh || cachedDisks == null) {
                 cachedDisks = (manager.system.getBootDisks() as? ApiResult.Success)?.data
             }
@@ -64,6 +66,7 @@ class BootViewModel @Inject constructor(
                 it.copy(
                     isLoading = false,
                     isRefreshing = false,
+                    error = loadError,
                     bootState = cachedBootState,
                     disks = cachedDisks ?: emptyList(),
                     environments = cachedEnvironments ?: emptyList()

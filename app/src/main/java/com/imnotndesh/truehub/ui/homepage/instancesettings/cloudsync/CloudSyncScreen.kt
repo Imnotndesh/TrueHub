@@ -53,6 +53,7 @@ import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Cloudsync
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @Composable
@@ -65,6 +66,13 @@ fun CloudSyncScreen(
     val viewModel: CloudSyncViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Cloudsync.Entry?>(null) }
+
+    LaunchedEffect(state.deleted) {
+        if (state.deleted) {
+            ToastManager.showSuccess("Task deleted")
+            viewModel.clearDeleted()
+        }
+    }
 
     LaunchedEffect(Unit) { viewModel.loadTasks() }
 

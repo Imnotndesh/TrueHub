@@ -139,15 +139,15 @@ fun PerformanceScreen(
             val value = currentCpu?.data?.lastOrNull()?.let { point ->
                 if (point.size > 1) point.drop(1).average() else 0.0
             } ?: 0.0
-            "${DecimalFormat("#.#").format(value)}% current"
+            "${DecimalFormat("#.#").format(value)}% latest"
         }
         MetricType.MEMORY -> {
             val value = currentMemory?.data?.lastOrNull()?.getOrNull(1) ?: 0.0
-            "${DecimalFormat("#.#").format(value / (1024.0 * 1024.0 * 1024.0))} GB current"
+            "${DecimalFormat("#.#").format(value / (1024.0 * 1024.0 * 1024.0))} GB latest"
         }
         MetricType.TEMPERATURE -> {
             val value = currentTemp?.data?.lastOrNull()?.getOrNull(1) ?: 0.0
-            "${DecimalFormat("#.#").format(value)}°C current"
+            "${DecimalFormat("#.#").format(value)}°C latest"
         }
         MetricType.ALL -> "System metrics"
     }
@@ -443,7 +443,7 @@ private fun MetricHeroCard(
             subtitle = "All metrics",
             icon = Icons.Default.Assessment,
             badge1 = "Overview",
-            badge2 = "Live"
+            badge2 = "Snapshot"
         )
     }
 
@@ -503,7 +503,7 @@ private fun MetricHeroCard(
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     MetricBadge(
-                        label = "Live",
+                        label = "Snapshot",
                         containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -547,6 +547,13 @@ private fun MetricHealthBanner(
             val value = temperatureData?.data?.lastOrNull()?.getOrNull(1) ?: 0.0
             value < 80.0
         }
+        MetricType.ALL -> true
+    }
+
+    val hasData = when (metricType) {
+        MetricType.CPU -> cpuData != null
+        MetricType.MEMORY -> memoryData != null
+        MetricType.TEMPERATURE -> temperatureData != null
         MetricType.ALL -> true
     }
 
@@ -616,7 +623,12 @@ private fun MetricHealthBanner(
                     )
                 }
                 Text(
-                    text = if (thresholdOk) "Normal" else "High Load",
+                    text = when {
+                        !hasData -> "No data"
+                        metricType == MetricType.MEMORY -> "In use"
+                        thresholdOk -> "Normal"
+                        else -> "High Load"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor

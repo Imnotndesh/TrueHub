@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveInfoCard
@@ -102,8 +103,8 @@ fun AuditConfigScreen(
                 subtitle = "ZFS dataset, quotas & retention",
                 isLoading = uiState.isLoading && uiState.config == null,
                 isRefreshing = false,
-                error = null,
-                onDismissError = {},
+                error = uiState.error,
+                onDismissError = { viewModel.clearError() },
                 manager = manager,
                 onBackPressed = onNavigateBack
             )
@@ -166,6 +167,8 @@ fun AuditConfigScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading && uiState.config == null -> LoadingScreen("Loading audit configuration…")
+            uiState.error != null && uiState.config == null ->
+                ErrorState(uiState.error!!, onRetry = { viewModel.refresh() })
             uiState.config != null -> {
                 LazyColumn(
                     modifier = Modifier

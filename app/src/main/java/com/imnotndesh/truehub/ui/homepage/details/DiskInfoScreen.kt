@@ -305,21 +305,16 @@ private fun DiskBadge(
 
 @Composable
 private fun DiskHealthBanner(disk: System.DiskDetails) {
-    val isHealthy = disk.togglesmart != false
+    val smartEnabled = disk.togglesmart != false
     val bannerColor by animateColorAsState(
-        targetValue = if (isHealthy) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
+        targetValue = if (smartEnabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerColor"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isHealthy) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+        targetValue = if (smartEnabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerContent"
-    )
-    val healthProgress by animateFloatAsState(
-        targetValue = if (isHealthy) 1f else 0.3f,
-        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
-        label = "healthProgress"
     )
 
     Card(
@@ -343,35 +338,25 @@ private fun DiskHealthBanner(disk: System.DiskDetails) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = if (isHealthy) Icons.Default.Check else Icons.Default.Warning,
+                        imageVector = if (smartEnabled) Icons.Default.Check else Icons.Default.Warning,
                         contentDescription = null,
                         tint = contentColor,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Drive Health",
+                        text = "SMART Monitoring",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = contentColor
                     )
                 }
                 Text(
-                    text = if (isHealthy) "Healthy" else "Attention Needed",
+                    text = if (smartEnabled) "Enabled" else "Disabled",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor
                 )
             }
-            LinearProgressIndicator(
-                progress = { healthProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(CircleShape),
-                color = contentColor,
-                trackColor = contentColor.copy(alpha = 0.2f),
-                strokeCap = StrokeCap.Round
-            )
         }
     }
 }

@@ -37,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -62,6 +63,7 @@ import com.imnotndesh.truehub.ui.components.expressive.StatusTone
 import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertsservice.AlertServiceDetailViewModel
@@ -135,14 +137,16 @@ fun AlertServiceDetailScreen(
             subtitle = current?.type__title ?: "Service details",
             isLoading = uiState.isLoading,
             isRefreshing = false,
-            error = null,
-            onDismissError = {},
+            error = uiState.error,
+            onDismissError = { viewModel.clearError() },
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
         Box(modifier = Modifier.weight(1f)) {
             when {
+                uiState.error != null && current == null && !uiState.isLoading ->
+                    ErrorState(uiState.error!!, onRetry = { viewModel.loadService() })
                 uiState.isLoading -> LoadingScreen("Loading service details")
                 current != null -> Column(
                     modifier = Modifier
@@ -273,6 +277,10 @@ fun AlertServiceDetailScreen(
                     }
                 }
             }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 

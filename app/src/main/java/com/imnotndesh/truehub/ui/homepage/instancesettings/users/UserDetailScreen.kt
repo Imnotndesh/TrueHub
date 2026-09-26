@@ -71,6 +71,8 @@ import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.SecretRevealDialog
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 
@@ -434,6 +436,12 @@ fun UserDetailScreen(
                     )
                     HorizontalDivider()
 
+                    Text(
+                        "Renewing immediately invalidates the current secret. Make sure you can add the new secret to your authenticator before you continue.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     Button(
                         onClick = {
                             viewModel.renew2faSecret(current.username)
@@ -531,12 +539,14 @@ fun UserDetailScreen(
             if (uiState.passwordChangeResult == true) {
                 showPasswordSheet = false
                 changePasswordValue = ""
+                ToastManager.showSuccess("Password updated")
                 viewModel.clearPasswordChangeResult()
             }
         }
         LaunchedEffect(uiState.unset2faResult) {
             if (uiState.unset2faResult == true) {
                 showTwoFactorSheet = false
+                ToastManager.showSuccess("Two-factor authentication disabled")
                 viewModel.clearUnset2faResult()
                 viewModel.loadUserDetail(userId)
             }
@@ -544,10 +554,24 @@ fun UserDetailScreen(
         LaunchedEffect(uiState.renew2faResult) {
             if (uiState.renew2faResult != null) {
                 showTwoFactorSheet = false
-                viewModel.clearRenew2faResult()
+            }
+        }
+        LaunchedEffect(uiState.updateResult) {
+            if (uiState.updateResult == true) {
+                isEditing = false
+                ToastManager.showSuccess("User updated")
+                viewModel.clearUpdateResult()
             }
         }
 
+        uiState.renew2faResult?.twofactor_config?.provisioning_uri?.let { uri ->
+            SecretRevealDialog(
+                title = "Two-Factor Secret",
+                message = "The previous secret is now invalid. Add this account to your authenticator app now — it won't be shown again.",
+                secret = uri,
+                onDismiss = { viewModel.clearRenew2faResult() }
+            )
+        }
     }
 
     if (showDeleteDialog) {
