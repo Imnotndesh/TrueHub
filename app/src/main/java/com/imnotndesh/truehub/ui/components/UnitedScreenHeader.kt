@@ -34,7 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -84,7 +83,6 @@ fun UnifiedScreenHeader(
     onNavigateToSettings: (() -> Unit)? = null,
     onShutdownInvoke: (() -> Unit)? = null,
     trailingActions: @Composable RowScope.() -> Unit = {},
-    onSearchClick: (() -> Unit)? = null
 ) {
     var isSubtitleVisible by remember { mutableStateOf(true) }
 
@@ -168,14 +166,6 @@ fun UnifiedScreenHeader(
                 ) {
                     trailingActions()
 
-                    if (onSearchClick != null) {
-                        ExpressiveIconButton(
-                            onClick = onSearchClick,
-                            icon = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     manager?.let{
                         AlertsBellButton(manager = manager)
                     }

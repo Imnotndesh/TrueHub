@@ -80,7 +80,8 @@ import com.imnotndesh.truehub.data.helpers.VirtualizationOperation
 import com.imnotndesh.truehub.data.helpers.virtualizationOperationLabel
 import com.imnotndesh.truehub.data.models.Virt
 import com.imnotndesh.truehub.ui.components.ExpressiveActionFab
-import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ServiceListSkeleton
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveActionButton
@@ -105,7 +106,6 @@ fun ContainersScreen(
     manager: TrueNASApiManager,
     onNavigateToContainerInfo: (Virt.ContainerResponse) -> Unit = {},
     onCreateContainer: () -> Unit = {},
-    onSearchClick: (() -> Unit)? = null,
     viewModel: ContainerScreenViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -197,7 +197,6 @@ fun ContainersScreen(
             error = uiState.error,
             onDismissError = { viewModel.clearError() },
             manager = manager,
-            onSearchClick = onSearchClick
         )
 
         ExpressiveFilterBar(
@@ -216,7 +215,7 @@ fun ContainersScreen(
             ) {
                 when {
                     uiState.isLoading -> {
-                        LoadingScreen("Loading Containers")
+                        ServiceListSkeleton()
                     }
                     uiState.containers.isEmpty() && !uiState.isLoading -> {
                         EmptyContainerContent()
@@ -276,7 +275,7 @@ fun ContainersScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance())
                 ) {
                     FloatingActionButtonMenu(
                         expanded = fabMenuExpanded,
@@ -358,7 +357,7 @@ fun ContainersScreen(
                     onClick = onCreateContainer,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance())
                 )
             }
         }
@@ -505,7 +504,7 @@ private fun ContainersContent(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(items = containers, key = { it.id }) { container ->
                 Box(
@@ -537,7 +536,7 @@ private fun ContainersContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(items = containers, key = { it.id }) { container ->
                 Box(

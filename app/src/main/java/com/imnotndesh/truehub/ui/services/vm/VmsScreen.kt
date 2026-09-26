@@ -83,7 +83,8 @@ import com.imnotndesh.truehub.data.helpers.VirtualizationJobTracker
 import com.imnotndesh.truehub.data.helpers.VirtualizationOperation
 import com.imnotndesh.truehub.data.helpers.virtualizationOperationLabel
 import com.imnotndesh.truehub.data.models.Vm
-import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ServiceListSkeleton
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.components.ExpressiveActionFab
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -108,7 +109,6 @@ fun VmsScreen(
     manager: TrueNASApiManager,
     onNavigateToVmInfo: (Vm.VmQueryResponse) -> Unit = {},
     onCreateVm: () -> Unit = {},
-    onSearchClick: (() -> Unit)? = null,
     viewModel: VmsScreenViewModel = hiltViewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -186,7 +186,6 @@ fun VmsScreen(
             error = uiState.error,
             onDismissError = { viewModel.clearError() },
             manager = manager,
-            onSearchClick = onSearchClick
         )
 
         ExpressiveFilterBar(
@@ -204,7 +203,7 @@ fun VmsScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 when {
-                    uiState.vms.isEmpty() && uiState.isLoading -> LoadingScreen("Loading Virtual Machines")
+                    uiState.vms.isEmpty() && uiState.isLoading -> ServiceListSkeleton()
                     uiState.vms.isEmpty() && !uiState.isLoading -> EmptyVmContent()
                     filteredVms.isEmpty() && !uiState.isLoading && uiState.vms.isNotEmpty() -> EmptyVmFilterContent()
                     else -> {
@@ -265,7 +264,7 @@ fun VmsScreen(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance())
                 ) {
                     FloatingActionButtonMenu(
                         expanded = fabMenuExpanded,
@@ -369,7 +368,7 @@ fun VmsScreen(
                     onClick = onCreateVm,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance())
                 )
             }
         }
@@ -522,7 +521,7 @@ private fun VmsContent(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(items = vms, key = { it.id }) { vm ->
                 Box(
@@ -558,7 +557,7 @@ private fun VmsContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(items = vms, key = { it.id }) { vm ->
                 Box(

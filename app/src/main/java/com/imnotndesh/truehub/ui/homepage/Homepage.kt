@@ -84,6 +84,7 @@ import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.homepage.details.MetricType
 import com.imnotndesh.truehub.ui.homepage.details.ShareType
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
@@ -103,7 +104,6 @@ fun HomeScreen(
     onNavigateToPerformance: (MetricType) -> Unit,
     onNavigateToShareInfo: (ShareType) -> Unit = {},
     onCreateShare: () -> Unit = {},
-    onSearchClick: (() -> Unit)? = null
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
 
@@ -123,7 +123,6 @@ fun HomeScreen(
             manager = manager,
             onNavigateToSettings = onNavigateToSettings,
             onShutdownInvoke = { showShutdownDialog = true },
-            onSearchClick = onSearchClick
         )
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -265,6 +264,7 @@ private fun HomeContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(bottom = floatingNavBottomClearance())
     ) {
         SystemOverviewCard(
             isConnectedStatus = isConnectedStatus,

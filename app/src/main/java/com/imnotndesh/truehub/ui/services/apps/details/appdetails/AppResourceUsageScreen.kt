@@ -128,7 +128,7 @@ fun AppResourceUsageScreen(
             ) {
             when {
                 state.isLoading && state.current == null ->
-                    LoadingUsage(Modifier.fillMaxWidth().padding(top = 120.dp))
+                    AppResourceUsageSkeleton(Modifier.fillMaxWidth())
                 state.current == null ->
                     EmptyUsage(
                         appId = appId,
@@ -477,22 +477,6 @@ private fun StatsLineChart(
         },
         modifier = modifier
     )
-}
-
-@Composable
-private fun LoadingUsage(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        Text(
-            text = "Loading live usage…",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
 }
 
 @Composable

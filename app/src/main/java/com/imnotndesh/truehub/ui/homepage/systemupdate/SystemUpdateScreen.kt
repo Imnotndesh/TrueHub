@@ -74,6 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.ui.components.ErrorState
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
@@ -149,7 +150,7 @@ fun SystemUpdateScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + floatingNavBottomClearance()),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                 item {

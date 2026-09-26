@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.ui.components.SkeletonBox
 import com.imnotndesh.truehub.ui.components.SkeletonHost
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 
 @Composable
 fun HomeSkeleton() {
@@ -33,6 +34,7 @@ fun HomeSkeleton() {
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(bottom = floatingNavBottomClearance())
                 .semantics { contentDescription = "Loading dashboard" }
         ) {
             SystemOverviewSkeleton()

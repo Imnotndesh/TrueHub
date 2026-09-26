@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 
 /**
  * Lists TrueNAS-instance-specific settings and configuration, separate from
@@ -111,7 +112,7 @@ fun InstanceConfigScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(WindowInsets.systemBars.asPaddingValues())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 16.dp + floatingNavBottomClearance())
         ) {
             InstanceConfigSection(
                 title = "Core configuration",

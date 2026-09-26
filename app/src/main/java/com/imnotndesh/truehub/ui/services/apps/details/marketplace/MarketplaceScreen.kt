@@ -91,6 +91,7 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import kotlinx.coroutines.delay
 import coil.request.ImageRequest
@@ -265,9 +266,7 @@ fun MarketplaceScreen(
             // Main content – pulls to refresh
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.isLoading && uiState.marketplaceApps.isEmpty() && !uiState.isRefreshing) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
+                    MarketplaceSkeleton()
                 } else {
                     PullToRefreshContent(
                         isRefreshing = uiState.isRefreshing,
@@ -283,7 +282,7 @@ fun MarketplaceScreen(
                                         focusManager.clearFocus()
                                     })
                                 },
-                            contentPadding = PaddingValues(bottom = 40.dp)
+                            contentPadding = PaddingValues(bottom = 40.dp + floatingNavBottomClearance())
                         ) {
                             // Search results mode (if search query not empty)
                             if (searchQuery.isNotBlank()) {

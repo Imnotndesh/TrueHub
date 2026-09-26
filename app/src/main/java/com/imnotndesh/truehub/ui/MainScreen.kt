@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.ui
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Spring
@@ -8,18 +9,34 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Tune
@@ -32,13 +49,11 @@ import androidx.compose.material.icons.outlined.SystemUpdateAlt
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,7 +62,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +86,7 @@ import com.imnotndesh.truehub.data.helpers.NavbarDestination
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.canUpgradeNow
+import com.imnotndesh.truehub.ui.components.FloatingNavMetrics
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.homepage.HomeScreen
 import com.imnotndesh.truehub.ui.homepage.dataset.DatasetExplorerScreen
@@ -148,6 +166,7 @@ import com.imnotndesh.truehub.ui.services.vm.form.VmFormScreen
 import com.imnotndesh.truehub.ui.topbar.ExpressiveSearchAppBar
 import com.imnotndesh.truehub.ui.topbar.SearchResultNavigation
 import com.imnotndesh.truehub.ui.utils.AppCache
+import kotlinx.coroutines.delay
 
 
 private data class NavItem(
@@ -210,6 +229,17 @@ fun MainScreen(
     }
 
     var showSearch by remember { mutableStateOf(false) }
+    var navSearchExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(navSearchExpanded) {
+        if (navSearchExpanded) {
+            delay(260)
+            showSearch = true
+        }
+    }
+    LaunchedEffect(showSearch) {
+        if (!showSearch) navSearchExpanded = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLandscape) {
@@ -248,61 +278,35 @@ fun MainScreen(
                     navController = navController,
                     manager = manager,
                     rootNavController = rootNavController,
-                    onSearchClick = { showSearch = true },
                     modifier = Modifier.weight(1f)
                 )
             }
         } else {
             Scaffold(
-                bottomBar = {if (currentRoute in navRoutes){
-                    run {
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                            tonalElevation = 0.dp
-                        ) {
-                            navItems.forEach { item ->
-                                val selected = currentRoute == item.screen.route
-                                NavigationBarItem(
-                                    selected = selected,
-                                    onClick = { onNavClick(navController, item.screen.route) },
-                                    label = if (isCompactNav) null else {
-                                        {
-                                            Text(
-                                                item.title,
-                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        }
-                                    },
-                                    icon = {
-                                        Crossfade(
-                                            targetState = selected,
-                                            label = "iconFade"
-                                        ) { isSelected ->
-                                            Icon(
-                                                if (isSelected) item.selectedIcon else item.unselectedIcon,
-                                                item.title,
-                                                modifier = if (isCompactNav) Modifier.size(28.dp) else Modifier
-                                            )
-                                        }
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-                }
+                contentWindowInsets = WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+                )
             ) { innerPadding ->
                 TrueHubNavGraph(
                     navController = navController,
                     manager = manager,
                     rootNavController = rootNavController,
-                    onSearchClick = { showSearch = true },
                     modifier = Modifier.padding(innerPadding)
+                )
+            }
+            if (currentRoute in navRoutes) {
+                FloatingBottomBar(
+                    items = navItems,
+                    currentRoute = currentRoute,
+                    isCompactNav = isCompactNav,
+                    searchExpanded = navSearchExpanded,
+                    onNavClick = { route -> onNavClick(navController, route) },
+                    onSearchClick = { navSearchExpanded = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = FloatingNavMetrics.barMargin, vertical = 12.dp)
                 )
             }
         }
@@ -313,15 +317,7 @@ fun MainScreen(
                 title = "Search",
                 manager = manager,
                 startSearchActive = true,
-                onCloseSearch = {
-                    showSearch = false
-                    // Navigate to Home tab on search close
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onCloseSearch = { showSearch = false },
                 onSearchResultClick = { result ->
                     SearchResultNavigation.navigate(result, navController)
                     showSearch = false
@@ -332,11 +328,148 @@ fun MainScreen(
 }
 
 @Composable
+private fun FloatingBottomBar(
+    items: List<NavItem>,
+    currentRoute: String?,
+    isCompactNav: Boolean,
+    searchExpanded: Boolean,
+    onNavClick: (String) -> Unit,
+    onSearchClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val effectsSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    AnimatedContent(
+        modifier = modifier,
+        targetState = searchExpanded,
+        transitionSpec = {
+            (
+                fadeIn(effectsSpec) +
+                    scaleIn(spatialSpec, initialScale = 0.92f)
+                ).togetherWith(
+                fadeOut(effectsSpec) +
+                    scaleOut(spatialSpec, targetScale = 0.92f)
+            )
+        },
+        label = "bottomBarSearch"
+    ) { expanded ->
+        if (expanded) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
+                shadowElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth().height(FloatingNavMetrics.barHeight)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "Search",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(FloatingNavMetrics.barGap)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.weight(1f).height(FloatingNavMetrics.barHeight)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        items.forEach { item ->
+                            FloatingNavItem(
+                                item = item,
+                                selected = currentRoute == item.screen.route,
+                                showLabel = !isCompactNav,
+                                onClick = { onNavClick(item.screen.route) }
+                            )
+                        }
+                    }
+                }
+                Surface(
+                    onClick = onSearchClick,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = CircleShape,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.size(FloatingNavMetrics.searchButtonSize)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FloatingNavItem(
+    item: NavItem,
+    selected: Boolean,
+    showLabel: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+        else MaterialTheme.colorScheme.onSurfaceVariant,
+        shape = RoundedCornerShape(100.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = if (selected && showLabel) FloatingNavMetrics.itemPaddingHorizontalSelected
+                else FloatingNavMetrics.itemPaddingHorizontal,
+                vertical = FloatingNavMetrics.itemPaddingVertical
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                contentDescription = item.title,
+                modifier = Modifier.size(24.dp)
+            )
+            if (selected && showLabel) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun TrueHubNavGraph(
     navController: NavHostController,
     manager: TrueNASApiManager,
     rootNavController: NavController,
-    onSearchClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -387,7 +520,6 @@ private fun TrueHubNavGraph(
                 onSystemInfoClick = {
                     navController.navigate(Screen.SystemInformationScreen.route)
                 },
-                onSearchClick = onSearchClick
             )
         }
         composable(Screen.LocalAdminSetupScreen.route) {
@@ -863,7 +995,6 @@ private fun TrueHubNavGraph(
                     navController.navigate(Screen.AppUpgrade.createRoute(appName)) },
                 onNavigateToRollback = { navController.navigate(Screen.RollbackVersion.createRoute(it)) },
                 onNavigateToMarketplace = { navController.navigate(Screen.Marketplace.route) },
-                onSearchClick = onSearchClick
             )
         }
 
@@ -1030,7 +1161,6 @@ private fun TrueHubNavGraph(
                 manager = manager,
                 onNavigateToContainerInfo = { container -> navController.navigate(Screen.ContainerInfo.createRoute(container.id)) },
                 onCreateContainer = { navController.navigate(Screen.CreateContainer.route) },
-                onSearchClick = onSearchClick
             )
         }
 
@@ -1138,7 +1268,6 @@ private fun TrueHubNavGraph(
                 manager = manager,
                 onNavigateToVmInfo = { vmInfo -> navController.navigate(Screen.VmDetails.createRoute(vmInfo.id)) },
                 onCreateVm = { navController.navigate(Screen.VmCreate.route) },
-                onSearchClick = onSearchClick
             )
         }
 

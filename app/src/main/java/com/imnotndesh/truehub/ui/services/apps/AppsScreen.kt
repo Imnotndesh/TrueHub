@@ -115,7 +115,8 @@ import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.canRollbackNow
 import com.imnotndesh.truehub.data.models.canUpgradeNow
 import com.imnotndesh.truehub.data.models.isAsleep
-import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ServiceListSkeleton
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveActionButton
@@ -140,7 +141,6 @@ fun AppsScreen(
     onNavigateToUpgrade: (String) -> Unit,
     onNavigateToRollback: (String) -> Unit = {},
     onNavigateToMarketplace: () -> Unit = {},
-    onSearchClick: (() -> Unit)? = null
 ) {
     val appsScreenViewModel: AppsScreenViewModel = hiltViewModel()
     val uiState by appsScreenViewModel.uiState.collectAsState()
@@ -356,7 +356,6 @@ fun AppsScreen(
             error = uiState.error,
             onDismissError = { appsScreenViewModel.clearError() },
             manager = manager,
-            onSearchClick = onSearchClick,
             trailingActions = {
                 // Only Marketplace button in header
                 IconButton(
@@ -389,7 +388,7 @@ fun AppsScreen(
         ) {
             when {
                 uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
-                    LoadingScreen("Loading Apps")
+                    ServiceListSkeleton()
                 }
                 uiState.apps.isEmpty() && !uiState.isLoading && uiState.error != null -> {
                     EmptyContent()
@@ -486,7 +485,7 @@ fun AppsScreen(
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(16.dp)
+                                    .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance())
                             ) {
                                 FloatingActionButtonMenu(
                                     expanded = fabMenuExpanded,
@@ -570,7 +569,7 @@ fun AppsScreen(
                                     onClick = { },
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .padding(16.dp),
+                                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance()),
                                     containerColor = MaterialTheme.colorScheme.primary
                                 ) {
                                     CircularProgressIndicator(
@@ -584,7 +583,7 @@ fun AppsScreen(
                                     onClick = { showUpdateAllDialog = true },
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .padding(16.dp),
+                                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance()),
                                     containerColor = MaterialTheme.colorScheme.primary
                                 ) {
                                     Box {
@@ -734,7 +733,7 @@ private fun AppsContent(
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(
                 items = apps,
@@ -768,7 +767,7 @@ private fun AppsContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing.dp),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = contentPadding.dp, vertical = 8.dp)
+            contentPadding = PaddingValues(start = contentPadding.dp, end = contentPadding.dp, top = 8.dp, bottom = 8.dp + floatingNavBottomClearance())
         ) {
             items(
                 items = apps,
