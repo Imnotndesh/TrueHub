@@ -83,7 +83,6 @@ import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
-import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.details.MetricType
 import com.imnotndesh.truehub.ui.homepage.details.ShareType
@@ -132,7 +131,7 @@ fun HomeScreen(
         ) {
             when (val state = uiState) {
                 is HomeUiState.Loading -> {
-                    LoadingScreen("Loading Homescreen")
+                    HomeSkeleton()
                 }
                 is HomeUiState.Error -> ErrorScreen(
                     error = state.message,
