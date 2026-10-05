@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.adaptive.AdaptiveFormScreen
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -59,6 +61,7 @@ fun TrueNasConnectScreen(
 ) {
     val vm: TrueNasConnectViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
+    val window = LocalTrueHubWindow.current
     val snackbarHostState = remember { SnackbarHostState() }
     var enabled by remember { mutableStateOf(false) }
 
@@ -102,93 +105,119 @@ fun TrueNasConnectScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        val config = uiState.config
-                        if (config != null) {
+                    val onToggleEnabled: (Boolean) -> Unit = {
+                        vm.updateConfig(System.TNConnectUpdateArgs(enabled = it))
+                    }
+                    if (window.isCompactWidth) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
                             item {
-                                StatusCard(config = config, enabled = enabled, onToggleEnabled = {
-                                    vm.updateConfig(System.TNConnectUpdateArgs(enabled = it))
-                                })
-                            }
-
-                            item {
-                                ExpressiveSection(title = "Connection", icon = Icons.Default.Cloud) {
-                                    ExpressiveInfoCard {
-                                        InfoRow("Status", config.status)
-                                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                        InfoRow("Account Base URL", config.accountServiceBaseUrl!!)
-                                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                        InfoRow("TNC Base URL", config.tncBaseUrl!!)
-                                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                        InfoRow("Heartbeat URL", config.heartbeatUrl!!)
-                                    }
-                                }
-                            }
-
-                            if (config.interfaces.isNotEmpty()) {
-                                item {
-                                    ExpressiveSection(title = "Interfaces", icon = Icons.Default.Share) {
-                                        ExpressiveInfoCard {
-                                            InfoRow("Use All Interfaces", if (config.useAllInterfaces!!) "Yes" else "No")
-                                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                            InfoRow("Interfaces", config.interfaces.joinToString(", "))
-                                            if (config.interfacesIps.isNotEmpty()) {
-                                                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                                InfoRow("Interface IPs", config.interfacesIps.joinToString(", "))
-                                            }
-                                        }
-                                    }
-                                }
+                                TrueNasConnectContent(
+                                    uiState = uiState,
+                                    enabled = enabled,
+                                    onToggleEnabled = onToggleEnabled,
+                                    onGenerateClaimToken = { vm.generateClaimToken() },
+                                    onLoadRegistrationUri = { vm.loadRegistrationUri() }
+                                )
                             }
                         }
-
-                        item {
-                            ExpressiveSection(title = "Registration", icon = Icons.Default.Key) {
-                                ExpressiveInfoCard {
-                                    Text(
-                                        "Generate a claim token, then fetch the registration URI to claim this system.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(Modifier.height(12.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        Button(
-                                            onClick = { vm.generateClaimToken() },
-                                            enabled = !uiState.isActing,
-                                            modifier = Modifier.weight(1f).height(52.dp),
-                                            shape = RoundedCornerShape(16.dp)
-                                        ) {
-                                            Icon(Icons.Default.Key, null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Generate Claim", fontWeight = FontWeight.SemiBold)
-                                        }
-                                        OutlinedButton(
-                                            onClick = { vm.loadRegistrationUri() },
-                                            enabled = !uiState.isActing,
-                                            modifier = Modifier.weight(1f).height(52.dp),
-                                            shape = RoundedCornerShape(16.dp)
-                                        ) {
-                                            Icon(Icons.Default.Link, null, modifier = Modifier.size(18.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Registration", fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                    uiState.claimToken?.let {
-                                        Spacer(Modifier.height(16.dp))
-                                        InfoRow("Claim Token", it)
-                                    }
-                                    uiState.registrationUri?.let {
-                                        Spacer(Modifier.height(8.dp))
-                                        InfoRow("Registration URI", it)
-                                    }
-                                }
-                            }
+                    } else {
+                        // Medium and up: single 640dp form column, centered (R-8/pattern F).
+                        AdaptiveFormScreen(header = {}) {
+                            TrueNasConnectContent(
+                                uiState = uiState,
+                                enabled = enabled,
+                                onToggleEnabled = onToggleEnabled,
+                                onGenerateClaimToken = { vm.generateClaimToken() },
+                                onLoadRegistrationUri = { vm.loadRegistrationUri() }
+                            )
                         }
                     }
                 }
+        }
+    }
+}
+
+/** Shared body: status card + Connection/Interfaces/Registration sections, at every width. */
+@Composable
+private fun TrueNasConnectContent(
+    uiState: TrueNasConnectUiState,
+    enabled: Boolean,
+    onToggleEnabled: (Boolean) -> Unit,
+    onGenerateClaimToken: () -> Unit,
+    onLoadRegistrationUri: () -> Unit,
+) {
+    val config = uiState.config
+    if (config != null) {
+        StatusCard(config = config, enabled = enabled, onToggleEnabled = onToggleEnabled)
+
+        ExpressiveSection(title = "Connection", icon = Icons.Default.Cloud) {
+            ExpressiveInfoCard {
+                InfoRow("Status", config.status)
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                InfoRow("Account Base URL", config.accountServiceBaseUrl!!)
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                InfoRow("TNC Base URL", config.tncBaseUrl!!)
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                InfoRow("Heartbeat URL", config.heartbeatUrl!!)
+            }
+        }
+
+        if (config.interfaces.isNotEmpty()) {
+            ExpressiveSection(title = "Interfaces", icon = Icons.Default.Share) {
+                ExpressiveInfoCard {
+                    InfoRow("Use All Interfaces", if (config.useAllInterfaces!!) "Yes" else "No")
+                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                    InfoRow("Interfaces", config.interfaces.joinToString(", "))
+                    if (config.interfacesIps.isNotEmpty()) {
+                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                        InfoRow("Interface IPs", config.interfacesIps.joinToString(", "))
+                    }
+                }
+            }
+        }
+    }
+
+    ExpressiveSection(title = "Registration", icon = Icons.Default.Key) {
+        ExpressiveInfoCard {
+            Text(
+                "Generate a claim token, then fetch the registration URI to claim this system.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = onGenerateClaimToken,
+                    enabled = !uiState.isActing,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Key, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Generate Claim", fontWeight = FontWeight.SemiBold)
+                }
+                OutlinedButton(
+                    onClick = onLoadRegistrationUri,
+                    enabled = !uiState.isActing,
+                    modifier = Modifier.weight(1f).height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Link, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Registration", fontWeight = FontWeight.SemiBold)
+                }
+            }
+            uiState.claimToken?.let {
+                Spacer(Modifier.height(16.dp))
+                InfoRow("Claim Token", it)
+            }
+            uiState.registrationUri?.let {
+                Spacer(Modifier.height(8.dp))
+                InfoRow("Registration URI", it)
+            }
         }
     }
 }
