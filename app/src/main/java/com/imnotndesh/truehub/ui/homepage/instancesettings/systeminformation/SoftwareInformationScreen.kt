@@ -26,19 +26,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.adaptive.AdaptiveTokens
+import com.imnotndesh.truehub.ui.adaptive.HeightClass
 import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ProvideTrueHubWindowForPreview
 import com.imnotndesh.truehub.ui.adaptive.TrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.WidthClass
+import com.imnotndesh.truehub.ui.adaptive.fakeTrueHubWindow
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveDivider
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveSection
 import com.imnotndesh.truehub.ui.components.expressive.InfoRow
+import com.imnotndesh.truehub.ui.theme.TrueHubAppTheme
 
 @Composable
 fun SoftwareInformationScreen(
@@ -182,4 +188,72 @@ private fun booleanLabel(value: Boolean?): String = when (value) {
     true -> "Yes"
     false -> "No"
     null -> "—"
+}
+
+@Composable
+private fun SoftwareInformationPreviewContent(window: TrueHubWindow) {
+    TrueHubAppTheme {
+        ProvideTrueHubWindowForPreview(width = window.width, height = window.height) {
+            Scaffold(containerColor = MaterialTheme.colorScheme.background) { innerPadding ->
+                SoftwareInformationContent(
+                    uiState = softwareInformationPreviewState,
+                    window = window,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = innerPadding.calculateTopPadding())
+                )
+            }
+        }
+    }
+}
+
+private val softwareInformationPreviewState = SystemInformationUiState(
+    version = "TrueNAS-SCALE-24.10.0",
+    versionShort = "24.10.0",
+    productType = "SCALE",
+    state = "READY",
+    ready = true,
+    releaseNotesUrl = "https://www.truenas.com/docs/scale/24.10/gettingstarted/releasenotes/",
+    dedupEnabled = true,
+    fibreChannelEnabled = false,
+    vmEnabled = true,
+    isProduction = true,
+    isEulaAccepted = true,
+    managedByTruecommand = false
+)
+
+@Preview(name = "Compact 360x800", widthDp = 360, heightDp = 800)
+@Composable
+private fun SoftwareInformationCompactPreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.Compact, HeightClass.Medium))
+}
+
+@Preview(name = "Medium 700x1000", widthDp = 700, heightDp = 1000)
+@Composable
+private fun SoftwareInformationMediumPreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.Medium, HeightClass.Expanded))
+}
+
+@Preview(name = "Expanded 1024x640", widthDp = 1024, heightDp = 640)
+@Composable
+private fun SoftwareInformationExpandedPreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.Expanded, HeightClass.Medium))
+}
+
+@Preview(name = "Large 1280x800", widthDp = 1280, heightDp = 800)
+@Composable
+private fun SoftwareInformationLargePreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.Large, HeightClass.Medium))
+}
+
+@Preview(name = "XL 1600x900", widthDp = 1600, heightDp = 900)
+@Composable
+private fun SoftwareInformationXlPreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.ExtraLarge, HeightClass.Expanded))
+}
+
+@Preview(name = "Phone landscape 800x360", widthDp = 800, heightDp = 360)
+@Composable
+private fun SoftwareInformationLandscapePreview() {
+    SoftwareInformationPreviewContent(fakeTrueHubWindow(WidthClass.Medium, HeightClass.Compact))
 }
