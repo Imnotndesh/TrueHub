@@ -48,7 +48,9 @@ import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
-import com.imnotndesh.truehub.ui.homepage.instancesettings.general.ExpressiveSection
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveSection
+import com.imnotndesh.truehub.ui.components.expressive.InfoRow
 
 @Composable
 fun TrueNasConnectScreen(
@@ -114,7 +116,7 @@ fun TrueNasConnectScreen(
 
                             item {
                                 ExpressiveSection(title = "Connection", icon = Icons.Default.Cloud) {
-                                    InfoCard {
+                                    ExpressiveInfoCard {
                                         InfoRow("Status", config.status)
                                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                         InfoRow("Account Base URL", config.accountServiceBaseUrl!!)
@@ -129,7 +131,7 @@ fun TrueNasConnectScreen(
                             if (config.interfaces.isNotEmpty()) {
                                 item {
                                     ExpressiveSection(title = "Interfaces", icon = Icons.Default.Share) {
-                                        InfoCard {
+                                        ExpressiveInfoCard {
                                             InfoRow("Use All Interfaces", if (config.useAllInterfaces!!) "Yes" else "No")
                                             HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                             InfoRow("Interfaces", config.interfaces.joinToString(", "))
@@ -145,7 +147,7 @@ fun TrueNasConnectScreen(
 
                         item {
                             ExpressiveSection(title = "Registration", icon = Icons.Default.Key) {
-                                InfoCard {
+                                ExpressiveInfoCard {
                                     Text(
                                         "Generate a claim token, then fetch the registration URI to claim this system.",
                                         style = MaterialTheme.typography.bodySmall,
@@ -228,43 +230,5 @@ private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnable
             }
             Switch(checked = enabled, onCheckedChange = null)
         }
-    }
-}
-
-@Composable
-private fun InfoCard(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = androidx.compose.material3.CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) { content() }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(0.6f),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
