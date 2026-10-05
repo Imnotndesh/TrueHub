@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,15 +39,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.adaptive.AdaptiveFormScreen
 import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ProvideTrueHubWindowForPreview
+import com.imnotndesh.truehub.ui.adaptive.WidthClass
+import com.imnotndesh.truehub.ui.adaptive.fakeTrueHubWindow
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -223,8 +229,7 @@ private fun TrueNasConnectContent(
 }
 
 @Composable
-private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnabled: (Boolean) -> Unit) {
-    Card(
+private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnabled: (Boolean) -> Unit) {    Card(
         shape = RoundedCornerShape(24.dp),
         colors = androidx.compose.material3.CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -261,3 +266,87 @@ private fun StatusCard(config: System.TNCEntry, enabled: Boolean, onToggleEnable
         }
     }
 }
+
+// ── Previews ────────────────────────────────────────────────────────────────
+
+private fun previewState(): TrueNasConnectUiState = TrueNasConnectUiState(
+    config = System.TNCEntry(
+        id = 1,
+        enabled = true,
+        interfaces = listOf("enp0s1", "enp0s2"),
+        interfacesIps = listOf("10.0.0.4/24", "10.0.0.5/24"),
+        useAllInterfaces = false,
+        status = "Connected to the cloud",
+        accountServiceBaseUrl = "https://account.truenas.com",
+        tncBaseUrl = "https://tnc.truenas.com",
+        heartbeatUrl = "https://tnc.truenas.com/heartbeat"
+    )
+)
+
+@Composable
+private fun TrueNasConnectPreviewShell(width: WidthClass) {
+    ProvideTrueHubWindowForPreview(width = width) {
+        Column(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer)
+                )
+            )
+        ) {
+            UnifiedScreenHeader(
+                title = "TrueNAS Connect",
+                subtitle = "Cloud connection and registration",
+                isLoading = false,
+                isRefreshing = false,
+                onDismissError = {},
+                manager = null,
+                onBackPressed = {}
+            )
+            val state = previewState()
+            if (fakeTrueHubWindow(width).isCompactWidth) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    item {
+                        TrueNasConnectContent(
+                            uiState = state, enabled = true,
+                            onToggleEnabled = {}, onGenerateClaimToken = {}, onLoadRegistrationUri = {}
+                        )
+                    }
+                }
+            } else {
+                AdaptiveFormScreen(header = {}) {
+                    TrueNasConnectContent(
+                        uiState = state, enabled = true,
+                        onToggleEnabled = {}, onGenerateClaimToken = {}, onLoadRegistrationUri = {}
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(name = "TrueNAS Connect — compact", widthDp = 400, heightDp = 800)
+@Composable
+private fun TrueNasConnectCompactPreview() = TrueNasConnectPreviewShell(WidthClass.Compact)
+
+@Preview(name = "TrueNAS Connect — compact landscape", widthDp = 800, heightDp = 400)
+@Composable
+private fun TrueNasConnectCompactLandscapePreview() = TrueNasConnectPreviewShell(WidthClass.Compact)
+
+@Preview(name = "TrueNAS Connect — medium", widthDp = 800, heightDp = 1000)
+@Composable
+private fun TrueNasConnectMediumPreview() = TrueNasConnectPreviewShell(WidthClass.Medium)
+
+@Preview(name = "TrueNAS Connect — expanded", widthDp = 1000, heightDp = 800)
+@Composable
+private fun TrueNasConnectExpandedPreview() = TrueNasConnectPreviewShell(WidthClass.Expanded)
+
+@Preview(name = "TrueNAS Connect — large", widthDp = 1280, heightDp = 900)
+@Composable
+private fun TrueNasConnectLargePreview() = TrueNasConnectPreviewShell(WidthClass.Large)
+
+@Preview(name = "TrueNAS Connect — xlarge", widthDp = 1600, heightDp = 1000)
+@Composable
+private fun TrueNasConnectXLargePreview() = TrueNasConnectPreviewShell(WidthClass.ExtraLarge)
