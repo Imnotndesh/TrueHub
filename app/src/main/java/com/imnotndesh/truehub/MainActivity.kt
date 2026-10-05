@@ -49,6 +49,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.MainScreen
+import com.imnotndesh.truehub.ui.adaptive.ProvideTrueHubWindow
 import com.imnotndesh.truehub.ui.Screen
 import com.imnotndesh.truehub.ui.account.AccountSwitcherScreen
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -89,9 +90,11 @@ class MainActivity : ComponentActivity() {
                 darkTheme = systemDark || personalization.blackMode,
                 isBlackMode = personalization.blackMode
             ) {
-                MainActivityContent(
-                    viewModel = viewModel
-                )
+                ProvideTrueHubWindow {
+                    MainActivityContent(
+                        viewModel = viewModel
+                    )
+                }
             }
         }
     }
