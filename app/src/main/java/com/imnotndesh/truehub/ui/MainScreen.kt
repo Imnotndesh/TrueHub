@@ -415,7 +415,7 @@ internal fun FloatingBottomBar(
                         Row(
                             modifier = Modifier
                                 .horizontalScroll(itemScrollState)
-                                .padding(horizontal = 6.dp),
+                                .padding(horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(FloatingNavMetrics.itemGap)
                         ) {
@@ -476,18 +476,21 @@ private fun FloatingNavItem(
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = FloatingNavMetrics.itemPaddingHorizontal,
+                horizontal = if (selected && showLabel) FloatingNavMetrics.itemPaddingHorizontalSelected
+                else FloatingNavMetrics.itemPaddingHorizontal,
                 vertical = FloatingNavMetrics.itemPaddingVertical
             ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                contentDescription = item.title,
-                modifier = Modifier.size(if (showLabel) 22.dp else 28.dp)
-            )
+            if (selected || !showLabel) {
+                Icon(
+                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                    contentDescription = if (showLabel) null else item.title,
+                    modifier = Modifier.size(if (showLabel) 20.dp else 26.dp)
+                )
+            }
             if (showLabel) {
-                Spacer(Modifier.width(8.dp))
+                if (selected) Spacer(Modifier.width(8.dp))
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.labelMedium,
