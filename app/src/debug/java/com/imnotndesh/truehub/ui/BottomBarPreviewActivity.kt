@@ -37,6 +37,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.components.FloatingNavMetrics
@@ -119,5 +120,41 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, modifier = Modifier.width(200.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Preview(name = "Bottom bar - 3 items", showBackground = true, widthDp = 420, heightDp = 200)
+@Composable
+private fun BottomBarThreePreview() {
+    BottomBarPreviewContent(items = sampleItems.take(3), selected = Screen.Home.route)
+}
+
+@Preview(name = "Bottom bar - 4 items (max)", showBackground = true, widthDp = 420, heightDp = 200)
+@Composable
+private fun BottomBarFourPreview() {
+    BottomBarPreviewContent(items = sampleItems.take(4), selected = Screen.Containers.route)
+}
+
+@Composable
+private fun BottomBarPreviewContent(items: List<NavItem>, selected: String) {
+    TrueHubAppTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            FloatingBottomBar(
+                items = items,
+                currentRoute = selected,
+                isCompactNav = false,
+                searchExpanded = false,
+                onNavClick = {},
+                onSearchClick = {},
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = FloatingNavMetrics.barMargin, vertical = 12.dp)
+            )
+        }
     }
 }
