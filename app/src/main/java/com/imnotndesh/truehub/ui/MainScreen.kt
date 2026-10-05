@@ -472,7 +472,7 @@ private fun FloatingNavItem(
         contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
         else MaterialTheme.colorScheme.onSurfaceVariant,
         shape = RoundedCornerShape(100.dp),
-        modifier = modifier
+        modifier = modifier.height(FloatingNavMetrics.barHeight - 8.dp)
     ) {
         Row(
             modifier = Modifier.padding(
