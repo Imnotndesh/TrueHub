@@ -17,7 +17,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -77,7 +76,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -476,12 +474,12 @@ private fun FloatingNavItem(
         shape = RoundedCornerShape(100.dp),
         modifier = modifier
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(
                 horizontal = FloatingNavMetrics.itemPaddingHorizontal,
                 vertical = FloatingNavMetrics.itemPaddingVertical
             ),
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
@@ -489,14 +487,13 @@ private fun FloatingNavItem(
                 modifier = Modifier.size(if (showLabel) 22.dp else 28.dp)
             )
             if (showLabel) {
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
