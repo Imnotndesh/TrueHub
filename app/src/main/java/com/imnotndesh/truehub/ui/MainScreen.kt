@@ -179,7 +179,7 @@ import com.imnotndesh.truehub.ui.utils.AppCache
 import kotlinx.coroutines.delay
 
 
-private data class NavItem(
+internal data class NavItem(
     val screen: Screen,
     val title: String,
     val selectedIcon: ImageVector,
@@ -338,7 +338,7 @@ fun MainScreen(
 }
 
 @Composable
-private fun FloatingBottomBar(
+internal fun FloatingBottomBar(
     items: List<NavItem>,
     currentRoute: String?,
     isCompactNav: Boolean,
