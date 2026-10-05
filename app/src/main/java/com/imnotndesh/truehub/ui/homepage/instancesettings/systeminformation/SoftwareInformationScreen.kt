@@ -1,5 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -156,14 +158,21 @@ private fun FeaturesSection(uiState: SystemInformationUiState) {
 
 @Composable
 private fun ReleaseNotesSection(uiState: SystemInformationUiState) {
+    val uriHandler = LocalUriHandler.current
+    val releaseNotesUrl = uiState.releaseNotesUrl
     ExpressiveSection(title = "Release Notes", icon = Icons.Default.Link) {
         ExpressiveInfoCard {
             Text(
-                uiState.releaseNotesUrl ?: "—",
+                releaseNotesUrl ?: "—",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 3,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = if (releaseNotesUrl != null) {
+                    Modifier.clickable { uriHandler.openUri(releaseNotesUrl) }
+                } else {
+                    Modifier
+                }
             )
         }
     }
