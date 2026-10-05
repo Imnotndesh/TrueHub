@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.components.FloatingNavMetrics
 import com.imnotndesh.truehub.ui.theme.TrueHubAppTheme
 
@@ -70,10 +71,10 @@ private val sampleItems = listOf(
 private fun BottomBarPreviewScreen() {
     var selectedRoute by rememberSaveable { mutableStateOf(Screen.Home.route) }
     var compact by rememberSaveable { mutableStateOf(false) }
-    var showAll by rememberSaveable { mutableStateOf(false) }
+    var showMax by rememberSaveable { mutableStateOf(false) }
     var searchExpanded by rememberSaveable { mutableStateOf(false) }
 
-    val items = if (showAll) sampleItems else sampleItems.take(3)
+    val items = if (showMax) sampleItems.take(PersonalizationManager.MAX_NAVBAR_ITEMS) else sampleItems.take(3)
 
     Box(
         modifier = Modifier
@@ -93,7 +94,7 @@ private fun BottomBarPreviewScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             ToggleRow("Compact labels", compact) { compact = it }
-            ToggleRow("All 7 destinations", showAll) { showAll = it }
+            ToggleRow("${PersonalizationManager.MAX_NAVBAR_ITEMS} destinations (max)", showMax) { showMax = it }
             ToggleRow("Search pill", searchExpanded) { searchExpanded = it }
             Text("Selected: $selectedRoute", style = MaterialTheme.typography.bodySmall)
         }

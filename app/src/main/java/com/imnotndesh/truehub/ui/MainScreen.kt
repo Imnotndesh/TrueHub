@@ -417,7 +417,7 @@ internal fun FloatingBottomBar(
                         Row(
                             modifier = Modifier
                                 .horizontalScroll(itemScrollState)
-                                .padding(horizontal = 4.dp),
+                                .padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(FloatingNavMetrics.itemGap)
                         ) {

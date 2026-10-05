@@ -8,13 +8,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 object FloatingNavMetrics {
-    val barHeight: Dp = 56.dp
+    val barHeight: Dp = 60.dp
     val barMargin: Dp = 16.dp
-    val barGap: Dp = 8.dp
-    val itemGap: Dp = 2.dp
-    val itemPaddingHorizontal: Dp = 6.dp
-    val itemPaddingVertical: Dp = 4.dp
-    val searchButtonSize: Dp = 48.dp
+    val barGap: Dp = 10.dp
+    val itemGap: Dp = 8.dp
+    val itemPaddingHorizontal: Dp = 10.dp
+    val itemPaddingVertical: Dp = 8.dp
+    val searchButtonSize: Dp = 52.dp
 }
 
 @Composable

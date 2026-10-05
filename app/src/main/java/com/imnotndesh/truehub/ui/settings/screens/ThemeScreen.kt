@@ -291,6 +291,12 @@ fun ThemeScreen(
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    Text(
+                        "Choose up to ${PersonalizationManager.MAX_NAVBAR_ITEMS} items. Home is always included.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Home is always present and locked first.
@@ -306,20 +312,23 @@ fun ThemeScreen(
                     )
 
                     val optional = PersonalizationManager.availableDestinations.filter { !it.isRequired }
+                    val atCapacity = enabledDestinations.size >= PersonalizationManager.MAX_NAVBAR_ITEMS
                     optional.forEachIndexed { index, destination ->
                         val selected = enabledDestinations.contains(destination)
                         val selectedIndex = enabledDestinations.indexOfFirst { it == destination }
                         DestinationRow(
                             title = destination.title,
                             enabled = selected,
-                            canToggle = true,
+                            canToggle = selected || !atCapacity,
                             canMoveUp = selected && selectedIndex > 1,
                             canMoveDown = selected && selectedIndex < enabledDestinations.lastIndex,
                             onToggle = {
                                 val updated = if (selected) {
                                     enabledDestinations - destination
-                                } else {
+                                } else if (enabledDestinations.size < PersonalizationManager.MAX_NAVBAR_ITEMS) {
                                     enabledDestinations + destination
+                                } else {
+                                    enabledDestinations
                                 }
                                 PersonalizationManager.saveNavbar(context, userKey, updated)
                             },
