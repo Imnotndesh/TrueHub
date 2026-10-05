@@ -65,13 +65,15 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun AppInfoPane(
     app: Apps.AppQueryResponse,
     onClose: () -> Unit,
-    onOpenAdvanced: (String) -> Unit = {}
+    onOpenAdvanced: (String) -> Unit = {},
+    serverBaseHttpUrl: String? = null
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -207,7 +209,7 @@ fun AppInfoPane(
                     if (portals.isNotEmpty()) {
                         ServiceInfoSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
                             portals.forEach { (name, url) ->
-                                ServicePortalCard(name = name, url = url)
+                                ServicePortalCard(name = name, url = url.withRoutableServerHost(serverBaseHttpUrl))
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }

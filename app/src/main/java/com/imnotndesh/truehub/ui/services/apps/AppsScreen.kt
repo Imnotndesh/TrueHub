@@ -463,6 +463,7 @@ fun AppsScreen(
                                 },
                                 onCloseInfoPane = { selectedAppForInfo = null },
                                 onOpenAdvanced = onOpenAdvanced,
+                                serverBaseHttpUrl = manager.serverBaseHttpUrl,
                                 isSelectionMode = isSelectionMode,
                                 selectedAppIds = selectedAppIds,
                                 onToggleSelection = { appId ->
@@ -624,6 +625,7 @@ private fun AppsSplitPaneContent(
     onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
     onCloseInfoPane: () -> Unit,
     onOpenAdvanced: (String) -> Unit = {},
+    serverBaseHttpUrl: String = "",
     isSelectionMode: Boolean = false,
     selectedAppIds: Set<String> = emptySet(),
     onToggleSelection: (String) -> Unit = {},
@@ -670,7 +672,8 @@ private fun AppsSplitPaneContent(
                     AppInfoPane(
                         app = app,
                         onClose = onCloseInfoPane,
-                        onOpenAdvanced = onOpenAdvanced
+                        onOpenAdvanced = onOpenAdvanced,
+                        serverBaseHttpUrl = serverBaseHttpUrl
                     )
                 }
             }

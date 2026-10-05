@@ -426,6 +426,20 @@ private fun AdvancedInstanceContent(
             }
         }
 
+        instance.portals?.let { portals ->
+            if (portals.isNotEmpty()) {
+                ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
+                    portals.forEach { (name, url) ->
+                        AdvancedPortalCard(
+                            name = name,
+                            url = url.withRoutableServerHost(serverBaseHttpUrl)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+
         // Categories, Tags & Maintainers
         if (!instance.metadata?.categories.isNullOrEmpty() || !instance.metadata?.keywords.isNullOrEmpty()) {
             ExpressiveSection(title = "Categories & Tags", icon = Icons.Default.Tag) {

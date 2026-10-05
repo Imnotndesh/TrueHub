@@ -13,8 +13,11 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,6 +32,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -62,6 +69,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -69,6 +77,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -339,85 +349,110 @@ private fun FloatingBottomBar(
 ) {
     val effectsSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
-    AnimatedContent(
+    BoxWithConstraints(
         modifier = modifier,
-        targetState = searchExpanded,
-        transitionSpec = {
-            (
-                fadeIn(effectsSpec) +
-                    scaleIn(spatialSpec, initialScale = 0.92f)
-                ).togetherWith(
-                fadeOut(effectsSpec) +
-                    scaleOut(spatialSpec, targetScale = 0.92f)
-            )
-        },
-        label = "bottomBarSearch"
-    ) { expanded ->
-        if (expanded) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
-                shadowElevation = 8.dp,
-                modifier = Modifier.fillMaxWidth().height(FloatingNavMetrics.barHeight)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = "Search",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(FloatingNavMetrics.barGap)
-            ) {
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        val maxPillWidth = (maxWidth - FloatingNavMetrics.searchButtonSize - FloatingNavMetrics.barGap)
+            .coerceAtLeast(0.dp)
+        val itemScrollState = rememberScrollState()
+        val selectedRequester = remember { BringIntoViewRequester() }
+        LaunchedEffect(currentRoute) {
+            withFrameNanos { }
+            selectedRequester.bringIntoView()
+        }
+
+        AnimatedContent(
+            modifier = Modifier.fillMaxWidth(),
+            targetState = searchExpanded,
+            transitionSpec = {
+                (
+                    fadeIn(effectsSpec) +
+                        scaleIn(spatialSpec, initialScale = 0.92f)
+                    ).togetherWith(
+                    fadeOut(effectsSpec) +
+                        scaleOut(spatialSpec, targetScale = 0.92f)
+                )
+            },
+            label = "bottomBarSearch"
+        ) { expanded ->
+            if (expanded) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
                     shadowElevation = 8.dp,
-                    modifier = Modifier.weight(1f).height(FloatingNavMetrics.barHeight)
+                    modifier = Modifier.fillMaxWidth().height(FloatingNavMetrics.barHeight)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items.forEach { item ->
-                            FloatingNavItem(
-                                item = item,
-                                selected = currentRoute == item.screen.route,
-                                showLabel = !isCompactNav,
-                                onClick = { onNavClick(item.screen.route) }
-                            )
-                        }
-                    }
-                }
-                Surface(
-                    onClick = onSearchClick,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    shape = CircleShape,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.size(FloatingNavMetrics.searchButtonSize)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            modifier = Modifier.size(24.dp)
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = "Search",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
+                        shadowElevation = 8.dp,
+                        modifier = Modifier
+                            .height(FloatingNavMetrics.barHeight)
+                            .widthIn(max = maxPillWidth)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .horizontalScroll(itemScrollState)
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(FloatingNavMetrics.itemGap)
+                        ) {
+                            items.forEach { item ->
+                                val selected = currentRoute == item.screen.route
+                                FloatingNavItem(
+                                    item = item,
+                                    selected = selected,
+                                    showLabel = !isCompactNav,
+                                    onClick = { onNavClick(item.screen.route) },
+                                    modifier = if (selected) {
+                                        Modifier.bringIntoViewRequester(selectedRequester)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.width(FloatingNavMetrics.barGap))
+                    Surface(
+                        onClick = onSearchClick,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = CircleShape,
+                        shadowElevation = 8.dp,
+                        modifier = Modifier.size(FloatingNavMetrics.searchButtonSize)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -430,35 +465,38 @@ private fun FloatingNavItem(
     item: NavItem,
     selected: Boolean,
     showLabel: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
         contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
         else MaterialTheme.colorScheme.onSurfaceVariant,
-        shape = RoundedCornerShape(100.dp)
+        shape = RoundedCornerShape(100.dp),
+        modifier = modifier
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(
-                horizontal = if (selected && showLabel) FloatingNavMetrics.itemPaddingHorizontalSelected
-                else FloatingNavMetrics.itemPaddingHorizontal,
+                horizontal = FloatingNavMetrics.itemPaddingHorizontal,
                 vertical = FloatingNavMetrics.itemPaddingVertical
             ),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                 contentDescription = item.title,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(if (showLabel) 22.dp else 28.dp)
             )
-            if (selected && showLabel) {
-                Spacer(Modifier.width(8.dp))
+            if (showLabel) {
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
             }
         }
