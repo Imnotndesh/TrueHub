@@ -25,6 +25,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Cache Gradle + wrapper + build cache
         uses: gradle/actions/setup-gradle@v4
@@ -222,6 +224,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
