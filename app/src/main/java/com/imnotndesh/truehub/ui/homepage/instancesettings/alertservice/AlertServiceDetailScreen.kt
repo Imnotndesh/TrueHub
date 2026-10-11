@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -6,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -50,14 +54,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertsservice.AlertServiceDetailViewModel
@@ -68,10 +76,7 @@ fun AlertServiceDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: AlertServiceDetailViewModel = viewModel(
-        factory = AlertServiceDetailViewModel.AlertServiceDetailViewModelFactory(manager, serviceId),
-        key = serviceId.toString()
-    )
+    val viewModel: AlertServiceDetailViewModel = hiltViewModel(key = serviceId.toString())
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var isEditing by remember { mutableStateOf(false) }
@@ -115,7 +120,7 @@ fun AlertServiceDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val statusColor by animateColorAsState(
-        targetValue = if (current?.enabled == true) Color(0xFF2E7D32)
+        targetValue = if (current?.enabled == true) StatusTone.POSITIVE.color()
         else MaterialTheme.colorScheme.outline,
         label = "statusColor"
     )
@@ -123,25 +128,23 @@ fun AlertServiceDetailScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer)
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = current?.name ?: "Alert Service",
             subtitle = current?.type__title ?: "Service details",
             isLoading = uiState.isLoading,
             isRefreshing = false,
-            error = null,
-            onDismissError = {},
+            error = uiState.error,
+            onDismissError = { viewModel.clearError() },
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
         Box(modifier = Modifier.weight(1f)) {
             when {
+                uiState.error != null && current == null && !uiState.isLoading ->
+                    ErrorState(uiState.error!!, onRetry = { viewModel.loadService() })
                 uiState.isLoading -> LoadingScreen("Loading service details")
                 current != null -> Column(
                     modifier = Modifier
@@ -150,38 +153,31 @@ fun AlertServiceDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Status header card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(56.dp).clip(CircleShape)
-                                    .background(statusColor.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.NotificationsActive, null, tint = statusColor, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(current.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Text(current.type__title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                    DetailHeroCard(
+                        title = current.name,
+                        subtitle = current.type__title,
+                        leading = {
+                            DetailHeroIcon(
+                                icon = Icons.Default.NotificationsActive,
+                                containerColor = statusColor.copy(alpha = 0.12f),
+                                contentColor = statusColor
+                            )
+                        },
+                        badge = {
                             Surface(color = statusColor.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                                 Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(statusColor))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (current.enabled) "Enabled" else "Disabled", style = MaterialTheme.typography.labelMedium, color = statusColor, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        if (current.enabled) "Enabled" else "Disabled",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
-                    }
+                    )
 
                     if (isEditing) {
                         EditServiceForm(
@@ -272,6 +268,10 @@ fun AlertServiceDetailScreen(
                     }
                 }
             }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
         }
     }
 
@@ -376,9 +376,18 @@ private fun EditServiceForm(
                 else -> Text("No editable fields for type: ${attrs.type}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = enabled,
+                        role = Role.Switch,
+                        onValueChange = onEnabledChange
+                    ),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("Enabled", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                Switch(checked = enabled, onCheckedChange = onEnabledChange)
+                Switch(checked = enabled, onCheckedChange = null)
             }
         }
     }

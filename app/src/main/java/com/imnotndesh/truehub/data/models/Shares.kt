@@ -12,7 +12,7 @@ object Shares {
         val path: String,
         val path_suffix: String?,
         val home: Boolean?,
-        val name: String,
+        val name: String? = null,
         val comment: String?,
         val ro: Boolean?,
         val browsable: Boolean,
@@ -63,6 +63,21 @@ object Shares {
         val enabled: Boolean = false,
         val locked: Boolean = false,
         val expose_snapshots: Boolean = false
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class SmbAclEntry(
+        @field:Json("ae_perm") val aePerm: String? = null,
+        @field:Json("ae_type") val aeType: String? = null,
+        @field:Json("ae_who_sid") val aeWhoSid: String? = null,
+        @field:Json("ae_who_id") val aeWhoId: Int? = null,
+        @field:Json("ae_who_str") val aeWhoStr: String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class SmbAcl(
+        @field:Json("share_name") val shareName: String? = null,
+        @field:Json("share_acl") val shareAcl: List<SmbAclEntry> = emptyList()
     )
 //    @JsonClass(generateAdapter = true)
 //    enum class NfsSecurity{

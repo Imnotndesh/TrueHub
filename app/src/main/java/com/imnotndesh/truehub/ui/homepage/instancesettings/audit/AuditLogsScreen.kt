@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.audit
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -55,6 +57,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -62,8 +66,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -124,7 +131,6 @@ fun AuditLogsScreen(
                 isLoading = uiState.isLoading && uiState.logs.isEmpty(),
                 isRefreshing = uiState.isRefreshing,
                 error = uiState.error,
-                onRefresh = { viewModel.refresh() },
                 onDismissError = { viewModel.clearError() },
                 manager = manager,
                 onBackPressed = onNavigateBack
@@ -135,6 +141,9 @@ fun AuditLogsScreen(
             if (showContent && !uiState.isRefreshing) {
                 val downloadState = uiState.downloadState
                 FloatingActionButton(
+                    modifier = if (downloadState == DownloadState.Downloading || downloadState == DownloadState.Generating) {
+                        Modifier.semantics { contentDescription = "Exporting logs" }
+                    } else Modifier,
                     onClick = {
                         when {
                             downloadState == DownloadState.Idle || downloadState == DownloadState.Error -> {
@@ -151,7 +160,7 @@ fun AuditLogsScreen(
                 ) {
                     when (downloadState) {
                         DownloadState.Downloading, DownloadState.Generating -> {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 4.dp, color = MaterialTheme.colorScheme.onPrimary)
                         }
                         DownloadState.Success -> {
                             Icon(Icons.Default.CheckCircle, contentDescription = "Export complete")
@@ -176,26 +185,8 @@ fun AuditLogsScreen(
                 uiState.logs.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading audit logs…")
                 }
-                uiState.logs.isEmpty() && !uiState.isLoading && uiState.error != null -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Error,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = uiState.error ?: "Couldn't load audit logs",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                uiState.logs.isEmpty() && !uiState.isLoading && uiState.error != null ->
+                    ErrorState(uiState.error ?: "Couldn't load audit logs", onRetry = { viewModel.refresh() })
                 uiState.logs.isEmpty() -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -218,7 +209,11 @@ fun AuditLogsScreen(
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .widthIn(max = 840.dp)
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,
@@ -295,7 +290,7 @@ private fun ServiceFilterBar(
 @Composable
 private fun AuditLogCard(item: System.AuditQueryResultItem) {
     val succeeded = item.success != false
-    val statusColor = if (succeeded) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+    val statusColor = if (succeeded) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.error
     val statusIcon = if (succeeded) Icons.Default.CheckCircle else Icons.Default.Warning
 
     Card(
@@ -321,7 +316,7 @@ private fun AuditLogCard(item: System.AuditQueryResultItem) {
             ) {
                 Icon(
                     imageVector = statusIcon,
-                    contentDescription = item.username ?: "event",
+                    contentDescription = null,
                     tint = statusColor,
                     modifier = Modifier.size(22.dp)
                 )

@@ -1,11 +1,14 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.service
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,9 +28,10 @@ data class ServiceDetailUiState(
  * from the list screen, then immediately re-fetches the live instance so
  * state/pids aren't stale by the time this screen renders.
  */
-class ServiceDetailViewModel(
-    private val manager: TrueNASApiManager,
-    initialService: System.ServiceQueryResponse
+@HiltViewModel(assistedFactory = ServiceDetailViewModel.Factory::class)
+class ServiceDetailViewModel @AssistedInject constructor(
+    @Assisted initialService: System.ServiceQueryResponse,
+    private val manager: TrueNASApiManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServiceDetailUiState(service = initialService))
@@ -123,13 +127,8 @@ class ServiceDetailViewModel(
         _uiState.update { it.copy(error = null) }
     }
 
-    class ServiceDetailViewModelFactory(
-        private val manager: TrueNASApiManager,
-        private val service: System.ServiceQueryResponse
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ServiceDetailViewModel(manager, service) as T
-        }
+    @AssistedFactory
+    interface Factory {
+        fun create(initialService: System.ServiceQueryResponse): ServiceDetailViewModel
     }
 }

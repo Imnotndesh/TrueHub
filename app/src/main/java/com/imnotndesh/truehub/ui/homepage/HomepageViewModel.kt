@@ -2,11 +2,14 @@ package com.imnotndesh.truehub.ui.homepage
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.ToastManager
@@ -17,6 +20,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -55,9 +61,10 @@ sealed class LoadAveragesState {
 }
 */
 
-class HomeViewModel(
+@HiltViewModel
+class HomeViewModel @Inject constructor(
     private val apiManager: TrueNASApiManager,
-    private val applicationContext: Context
+    @ApplicationContext private val applicationContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -75,6 +82,23 @@ class HomeViewModel(
         startConnectivityMonitoring()
         loadDashboardData()
         loadUserData()
+        observeShareCache()
+    }
+
+    private fun observeShareCache() {
+        viewModelScope.launch {
+            combine(AppCache.cachedSmbShares, AppCache.cachedNfsShares) { smbShares, nfsShares ->
+                smbShares to nfsShares
+            }.collect { (smbShares, nfsShares) ->
+                _uiState.update { currentState ->
+                    if (currentState is HomeUiState.Success) {
+                        currentState.copy(smbShares = smbShares, nfsShares = nfsShares)
+                    } else {
+                        currentState
+                    }
+                }
+            }
+        }
     }
 
     private fun startConnectivityMonitoring() {
@@ -184,28 +208,54 @@ class HomeViewModel(
         } else {
             _uiState.value = HomeUiState.Loading
         }
-        loadDashboardData()
+        loadDashboardData(recoverSession = !apiManager.isConnected() || currentState is HomeUiState.Error)
     }
 
     fun retryLoad() {
         _uiState.value = HomeUiState.Loading
-        loadDashboardData()
+        loadDashboardData(recoverSession = true)
     }
 
     fun clearError() {
         if (_uiState.value is HomeUiState.Error) {
             _uiState.value = HomeUiState.Loading
-            loadDashboardData()
+            loadDashboardData(recoverSession = true)
         }
+    }
+
+    private suspend fun recoverBeforeLoad(): Boolean {
+        return SessionProvider.allowsRefreshAfterRecovery(apiManager.recoverAfterDisconnect())
     }
 
     // ═══════════════════════════════════════════════════════════
     //  Dashboard data load (batched to reduce API pressure)
     // ═══════════════════════════════════════════════════════════
 
-    private fun loadDashboardData() {
+    private fun loadDashboardData(recoverSession: Boolean = false) {
         viewModelScope.launch {
+            val cachedSystemInfo = AppCache.cachedSystemInfo.value
+            if (cachedSystemInfo != null && _uiState.value !is HomeUiState.Success) {
+                _uiState.value = HomeUiState.Success(
+                    systemInfo = cachedSystemInfo,
+                    systemVersionShort = null,
+                    poolDetails = AppCache.cachedPools.value,
+                    diskDetails = AppCache.cachedDisks.value,
+                    cpuData = null,
+                    memoryData = null,
+                    temperatureData = null,
+                    smbShares = AppCache.cachedSmbShares.value,
+                    nfsShares = AppCache.cachedNfsShares.value,
+                    systemUpdateVersions = AppCache.cachedUpdateVersions.value,
+                    isRefreshing = true
+                )
+            }
             try {
+                if (recoverSession && !recoverBeforeLoad()) {
+                    _uiState.value = HomeUiState.Error("Failed to reconnect")
+                    _isConnected.value = false
+                    return@launch
+                }
+
                 val systemInfoResult = apiManager.system.getSystemInfoWithResult()
                 if (systemInfoResult !is ApiResult.Success) {
                     _uiState.value = HomeUiState.Error("Failed to load system information")
@@ -237,24 +287,31 @@ class HomeViewModel(
                     )
                 }
 
-                val pools = (poolsResult.await() as? ApiResult.Success)?.data ?: emptyList()
-                val disks = (disksResult.await() as? ApiResult.Success)?.data ?: emptyList()
-                val smbShares = (smbSharesResult.await() as? ApiResult.Success)?.data ?: emptyList()
-                val nfsShares = (nfsSharesResult.await() as? ApiResult.Success)?.data ?: emptyList()
-                val updateVersions = (updateVersionsResult.await() as? ApiResult.Success)?.data ?: emptyList()
+                val poolsResultValue = poolsResult.await()
+                val disksResultValue = disksResult.await()
+                val smbSharesResultValue = smbSharesResult.await()
+                val nfsSharesResultValue = nfsSharesResult.await()
+                val updateVersionsResultValue = updateVersionsResult.await()
                 val versionShort = (versionShortResult.await() as? ApiResult.Success)?.data
 
-                // Parse combined graph response
                 val graphData = (graphResult.await() as? ApiResult.Success)?.data
                 val cpuData = graphData?.find { it.name == System.ReportingGraphName.CPU.name.lowercase() }
                 val memoryData = graphData?.find { it.name == System.ReportingGraphName.MEMORY.name.lowercase() }
                 val tempData = graphData?.find { it.name == System.ReportingGraphName.CPUTEMP.name.lowercase() }
 
-                AppCache.updatePools(pools)
-                AppCache.updateDisks(disks)
-                AppCache.updateSmbShares(smbShares)
-                AppCache.updateNfsShares(nfsShares)
-                AppCache.updateSystemUpdateVersions(updateVersions)
+                val pools = (poolsResultValue as? ApiResult.Success)?.data ?: AppCache.cachedPools.value
+                val disks = (disksResultValue as? ApiResult.Success)?.data ?: AppCache.cachedDisks.value
+                val smbShares = (smbSharesResultValue as? ApiResult.Success)?.data ?: AppCache.cachedSmbShares.value
+                val nfsShares = (nfsSharesResultValue as? ApiResult.Success)?.data ?: AppCache.cachedNfsShares.value
+                val updateVersions = (updateVersionsResultValue as? ApiResult.Success)?.data ?: AppCache.cachedUpdateVersions.value
+
+                if (poolsResultValue is ApiResult.Success) AppCache.updatePools(poolsResultValue.data)
+                if (disksResultValue is ApiResult.Success) AppCache.updateDisks(disksResultValue.data)
+                if (smbSharesResultValue is ApiResult.Success) AppCache.updateSmbShares(smbSharesResultValue.data)
+                if (nfsSharesResultValue is ApiResult.Success) AppCache.updateNfsShares(nfsSharesResultValue.data)
+                if (updateVersionsResultValue is ApiResult.Success) {
+                    AppCache.updateSystemUpdateVersions(updateVersionsResultValue.data)
+                }
 
                 _uiState.value = HomeUiState.Success(
                     systemInfo = systemInfo,
@@ -326,19 +383,6 @@ class HomeViewModel(
                     is ApiResult.Loading -> { /* no-op */ }
                 }
             } catch (_: Exception) { /* fail silent */ }
-        }
-    }
-
-    class HomeViewModelFactory(
-        private val apiManager: TrueNASApiManager,
-        private val context: Context
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                return HomeViewModel(apiManager, context) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }

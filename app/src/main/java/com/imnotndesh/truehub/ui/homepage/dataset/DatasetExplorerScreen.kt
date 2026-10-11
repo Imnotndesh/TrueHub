@@ -102,10 +102,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Storage
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 enum class DatasetViewMode { TREE, LIST, GRID }
@@ -117,8 +119,7 @@ fun DatasetExplorerScreen(
     poolName: String,
     onNavigateBack: () -> Unit
 ) {
-    val viewModel: DatasetExplorerViewModel =
-        viewModel(factory = DatasetExplorerViewModel.Factory(manager))
+    val viewModel: DatasetExplorerViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val selectedDataset by viewModel.selectedDataset.collectAsState()
 
@@ -204,7 +205,6 @@ fun DatasetExplorerScreen(
                     isLoading = uiState is DatasetExplorerViewModel.UiState.Loading,
                     isRefreshing = false,
                     error = (uiState as? DatasetExplorerViewModel.UiState.Error)?.message,
-                    onRefresh = { viewModel.loadDatasets(poolName) },
                     onDismissError = { },
                     manager = manager,
                     onBackPressed = onNavigateBack
@@ -220,9 +220,15 @@ fun DatasetExplorerScreen(
                     onQueryChange = { searchQuery = it },
                     onViewModeChange = { viewMode = it }
                 )
+                PullToRefreshContent(
+                    isRefreshing = uiState is DatasetExplorerViewModel.UiState.LoadingWithCache,
+                    onRefresh = { viewModel.loadDatasets(poolName) },
+                    modifier = Modifier.fillMaxSize()
+                ) {
                 when (val state = uiState) {
                     is DatasetExplorerViewModel.UiState.Loading -> LoadingScreen("Loading Datasets…")
-                    is DatasetExplorerViewModel.UiState.Error -> {}
+                    is DatasetExplorerViewModel.UiState.Error ->
+                        ErrorState(state.message, onRetry = { viewModel.loadDatasets(poolName) })
                     is DatasetExplorerViewModel.UiState.Success,
                     is DatasetExplorerViewModel.UiState.LoadingWithCache -> {
                         val rootNode = when (val s = uiState) {
@@ -265,14 +271,15 @@ fun DatasetExplorerScreen(
                         }
                     }
                 }
+                }
             }
         }
 
         // Overlay Slide-Over Panel for Mobile viewports
         AnimatedVisibility(
             visible = isMobileSheetExpanded && selectedDataset != null,
-            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+            enter = slideInHorizontally(initialOffsetX = { it }, animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+            exit = slideOutHorizontally(targetOffsetX = { it }, animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeOut()
         ) {
             if (selectedDataset != null) {
                 MobileSlideOverPanel(
@@ -354,7 +361,7 @@ private fun DatasetToolbar(
                                             DatasetViewMode.LIST -> Icons.Default.List
                                             DatasetViewMode.GRID -> Icons.Default.GridView
                                         },
-                                        contentDescription = mode.name,
+                                        contentDescription = null,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -610,6 +617,7 @@ private fun GridView(
     onSelect: (Storage.ZfsDataset) -> Unit,
     extraBottomPadding: Dp = 96.dp
 ) {
+    val minDepth = remember(nodes) { nodes.minOfOrNull { ds -> ds.name.count { it == '/' } } ?: 0 }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 140.dp),
         contentPadding = PaddingValues(
@@ -621,6 +629,16 @@ private fun GridView(
     ) {
         items(nodes, key = { it.id }) { ds ->
             val isSelected = ds.id == selectedId
+            // Depth relative to the shallowest dataset on screen drives icon size/shape, so a
+            // root dataset reads clearly bigger than the subdirectories beneath it.
+            val depth = ds.name.count { c -> c == '/' } - minDepth
+            val iconSize = (34 - depth * 5).coerceIn(18, 34).dp
+            val containerSize = (60 - depth * 6).coerceIn(40, 60).dp
+            val icon = when {
+                depth <= 0 -> Icons.Default.Storage
+                ds.children.isEmpty() -> Icons.Default.Folder
+                else -> Icons.Default.FolderOpen
+            }
             val elevation by animateDpAsState(
                 targetValue = if (isSelected) 6.dp else 1.dp,
                 label = "gridElevation"
@@ -641,7 +659,7 @@ private fun GridView(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
+                            .size(containerSize)
                             .clip(RoundedCornerShape(14.dp))
                             .background(
                                 if (isSelected) MaterialTheme.colorScheme.primary.copy(0.15f)
@@ -650,11 +668,11 @@ private fun GridView(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (ds.children.isEmpty()) Icons.Default.Folder else Icons.Default.Storage,
+                            imageVector = icon,
                             contentDescription = null,
                             tint = if (isSelected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(iconSize)
                         )
                     }
                     Spacer(Modifier.height(10.dp))
@@ -701,11 +719,11 @@ private fun DatasetFabGroup(
         AnimatedVisibility(
             visible = isMenuExpanded,
             enter = expandVertically(
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                 expandFrom = Alignment.Bottom
             ) + fadeIn(),
             exit = shrinkVertically(
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                 shrinkTowards = Alignment.Bottom
             ) + fadeOut()
         ) {
@@ -761,7 +779,7 @@ private fun DatasetFabGroup(
                     ) {
                         Icon(
                             imageVector = if (isDetailsPanelExpanded) Icons.Default.FolderOpen else Icons.Default.Info,
-                            contentDescription = "Toggle Details",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -783,7 +801,7 @@ private fun DatasetFabGroup(
 
                 val arrowRotation by animateFloatAsState(
                     targetValue = if (isMenuExpanded) 180f else 0f,
-                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
                     label = "arrowRotation"
                 )
 
@@ -850,7 +868,7 @@ fun DatasetTreeItem(
 
     val chevronRotation by animateFloatAsState(
         targetValue = if (isExpanded) 90f else 0f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "treeChevron"
     )
 
@@ -953,8 +971,8 @@ fun DatasetTreeItem(
         // Child node tree animation frame
         AnimatedVisibility(
             visible = isExpanded,
-            enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-            exit = shrinkVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) + fadeOut()
+            enter = expandVertically(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeIn(),
+            exit = shrinkVertically(animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec()) + fadeOut()
         ) {
             Column {
                 dataset.children.forEach { child ->
@@ -1037,30 +1055,31 @@ fun DatasetSpaceDonutChart(
         horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Box(
-            modifier = Modifier.size(100.dp),
+            modifier = Modifier.size(128.dp),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(90.dp)) {
+            Canvas(modifier = Modifier.size(116.dp)) {
                 drawArc(
                     color = trackColor,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
                     color = primaryColor,
                     startAngle = -90f,
                     sweepAngle = sweptAngle,
                     useCenter = false,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = usedStr,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
                 )
                 Text(
                     text = "Used",

@@ -1,8 +1,10 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,10 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
@@ -51,9 +54,7 @@ fun TrueCommandScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: TrueCommandViewModel = viewModel(
-        factory = TrueCommandViewModel.ViewModelFactory(manager)
-    )
+    val vm: TrueCommandViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -100,10 +101,7 @@ fun TrueCommandScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
+                    InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                         val config = uiState.config
                         if (config != null) {
                             item {
@@ -166,7 +164,13 @@ fun TrueCommandScreen(
 @Composable
 private fun ToggleRow(label: String, description: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -182,7 +186,7 @@ private fun ToggleRow(label: String, description: String, checked: Boolean, onCh
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

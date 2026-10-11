@@ -1,8 +1,10 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,9 +42,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -61,9 +64,7 @@ fun BootPoolScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: BootViewModel = viewModel(
-        factory = BootViewModel.ViewModelFactory(manager)
-    )
+    val vm: BootViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -108,12 +109,7 @@ fun BootPoolScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
+                    InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     item {
                         uiState.bootState?.let { PoolHealthCard(it) }
                     }
@@ -148,7 +144,15 @@ fun BootPoolScreen(
                                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                         InfoRow("Fragmentation", it.fragmentation)
                                     }
-                                } ?: Text("Boot pool state unavailable.")
+                                } ?: Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "Boot pool state unavailable.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                    OutlinedButton(onClick = { vm.loadAll(forceRefresh = true) }) { Text("Retry") }
+                                }
                             }
                         }
                     }
@@ -388,13 +392,20 @@ private fun AttachDiskDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.toggleable(
+                        value = expand,
+                        role = Role.Switch,
+                        onValueChange = { expand = it }
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
                         "Expand pool after attach",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    Switch(checked = expand, onCheckedChange = { expand = it })
+                    Switch(checked = expand, onCheckedChange = null)
                 }
             }
         },

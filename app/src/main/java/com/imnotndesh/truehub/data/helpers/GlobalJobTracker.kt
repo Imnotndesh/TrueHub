@@ -5,6 +5,7 @@ import android.content.Intent
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.JobNotificationService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.workers.CancelJobReceiver
 import kotlinx.coroutines.*
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -23,6 +24,7 @@ object GlobalJobTracker {
         if (jobs.containsKey(jobId)) return
 
         jobs[jobId] = scope.launch {
+            val profile = MultiAccountPrefs.getLastUsedProfile(context)
             var running = true
             while (running) {
                 val result = manager.system.getJobInfoJobWithResult(jobId)
@@ -44,6 +46,10 @@ object GlobalJobTracker {
                             putExtra("progress", progress)
                             putExtra("done", isDone)
                             putExtra("status_text", data.progress?.description ?: "Processing...")
+                            profile?.let { (serverId, accountId) ->
+                                putExtra(CancelJobReceiver.EXTRA_SERVER_ID, serverId)
+                                putExtra(CancelJobReceiver.EXTRA_ACCOUNT_ID, accountId)
+                            }
                         }
                         context.startForegroundService(intent)
                     }

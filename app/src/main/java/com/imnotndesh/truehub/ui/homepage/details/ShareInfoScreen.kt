@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.details
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -44,8 +48,8 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Stream
-import androidx.compose.material.icons.filled.ToggleOn
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,10 +58,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -65,10 +77,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
+import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 
 sealed class ShareType {
     data class Smb(val share: Shares.SmbShare) : ShareType()
@@ -82,152 +100,196 @@ fun ShareInfoScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit
 ) {
-    val title = when (shareType) {
-        is ShareType.Smb -> shareType.share.name
-        is ShareType.Nfs -> shareType.share.path.substringAfterLast('/').ifEmpty { "NFS Share" }
+    val viewModel: ShareInfoViewModel = hiltViewModel()
+    val state by viewModel.uiState.collectAsState()
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(shareType) { viewModel.load(shareType) }
+    LaunchedEffect(state.deleted) {
+        if (state.deleted) {
+            ToastManager.showSuccess("Share deleted")
+            onNavigateBack()
+        }
     }
-    val subtitle = when (shareType) {
-        is ShareType.Smb -> "SMB Share"
-        is ShareType.Nfs -> "NFS Share"
+
+    val smb = state.smbShare ?: (shareType as? ShareType.Smb)?.share
+    val nfs = state.nfsShare ?: (shareType as? ShareType.Nfs)?.share
+
+    val title = when {
+        smb != null -> smb.name.orEmpty().ifBlank { "SMB Share" }
+        nfs != null -> nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" }
+        else -> "Share"
     }
+    val subtitle = if (smb != null) "SMB Share" else "NFS Share"
 
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = title,
             subtitle = subtitle,
-            isLoading = false,
-            isRefreshing = false,
-            error = null,
-            onDismissError = {},
+            isLoading = state.isLoading,
+            isRefreshing = state.isLoading,
+            error = state.error,
+            onDismissError = { viewModel.dismissError() },
             manager = manager,
-            onBackPressed = onNavigateBack
+            onBackPressed = onNavigateBack,
+            trailingActions = {
+                ExpressiveIconButton(
+                    onClick = { showDeleteDialog = true },
+                    icon = Icons.Default.Delete,
+                    contentDescription = "Delete share",
+                    enabled = !state.isDeleting,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        PullToRefreshContent(
+            isRefreshing = state.isLoading,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier.fillMaxSize()
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             item {
-                when (shareType) {
-                    is ShareType.Smb -> ShareHeroCard(
-                        name = shareType.share.name,
-                        path = shareType.share.path,
-                        enabled = shareType.share.enabled,
-                        icon = if (shareType.share.timemachine == true) Icons.Default.Backup
-                        else if (shareType.share.home == true) Icons.Default.Home
+                when {
+                    smb != null -> ShareHeroCard(
+                        name = smb.name.orEmpty(),
+                        path = smb.path,
+                        enabled = smb.enabled,
+                        icon = if (smb.timemachine == true) Icons.Default.Backup
+                        else if (smb.home == true) Icons.Default.Home
                         else Icons.Default.Folder,
-                        badgeLabel = "SMB"
+                        badgeLabel = "SMB",
+                        featureChips = { ShareFeatureChips(share = smb) }
                     )
-                    is ShareType.Nfs -> ShareHeroCard(
-                        name = shareType.share.path.substringAfterLast('/').ifEmpty { "NFS Share" },
-                        path = shareType.share.path,
-                        enabled = shareType.share.enabled,
+                    nfs != null -> ShareHeroCard(
+                        name = nfs.path.substringAfterLast('/').ifEmpty { "NFS Share" },
+                        path = nfs.path,
+                        enabled = nfs.enabled,
                         icon = Icons.Default.Storage,
-                        badgeLabel = "NFS"
+                        badgeLabel = "NFS",
+                        featureChips = { NfsFeatureChips(share = nfs) }
                     )
                 }
             }
 
             item {
-                when (shareType) {
-                    is ShareType.Smb -> ShareStatusBanner(enabled = shareType.share.enabled)
-                    is ShareType.Nfs -> ShareStatusBanner(enabled = shareType.share.enabled)
+                when {
+                    smb != null -> SmbShareSections(share = smb)
+                    nfs != null -> NfsShareSections(share = nfs)
                 }
             }
 
-            item {
-                when (shareType) {
-                    is ShareType.Smb -> SmbShareSections(share = shareType.share)
-                    is ShareType.Nfs -> NfsShareSections(share = shareType.share)
-                }
+            state.smbAcl?.let { acl ->
+                item { SmbAclSection(acl = acl) }
             }
 
             item { Spacer(modifier = Modifier.height(24.dp)) }
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete share?") },
+            text = { Text("This removes the share configuration. Data on disk is not deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.delete()
+                    }
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SmbAclSection(acl: Shares.SmbAcl) {
+    ShareInfoSection(title = "Share ACL", icon = Icons.Default.Security) {
+        if (acl.shareAcl.isEmpty()) {
+            Text(
+                text = "No ACL entries.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                acl.shareAcl.forEach { entry ->
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(
+                                text = entry.aeWhoStr ?: entry.aeWhoSid ?: "Unknown",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = listOfNotNull(entry.aeType, entry.aePerm).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ShareHeroCard(
     name: String,
     path: String,
     enabled: Boolean,
     icon: ImageVector,
-    badgeLabel: String
+    badgeLabel: String,
+    featureChips: @Composable () -> Unit = {}
 ) {
     val enabledColor by animateColorAsState(
-        targetValue = if (enabled) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        targetValue = if (enabled) StatusTone.POSITIVE.color() else MaterialTheme.colorScheme.error,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "heroEnabled"
     )
 
-    WavyGradientBackground {
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+    DetailHeroCard(
+        title = name,
+        subtitle = path,
+        leading = { DetailHeroIcon(icon = icon) },
+        badge = {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = path,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ShareBadge(
-                            label = badgeLabel,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        ShareBadge(
-                            label = if (enabled) "Active" else "Disabled",
-                            containerColor = enabledColor.copy(alpha = 0.15f),
-                            contentColor = enabledColor
-                        )
-                    }
-                }
+                ShareBadge(
+                    label = badgeLabel,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                ShareBadge(
+                    label = if (enabled) "Active" else "Disabled",
+                    containerColor = enabledColor.copy(alpha = 0.15f),
+                    contentColor = enabledColor
+                )
+                featureChips()
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -247,74 +309,18 @@ private fun ShareBadge(label: String, containerColor: Color, contentColor: Color
 }
 
 @Composable
-private fun ShareStatusBanner(enabled: Boolean) {
-    val bannerColor by animateColorAsState(
-        targetValue = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "bannerColor"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "bannerContent"
-    )
-
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = bannerColor),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = if (enabled) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    text = "Share Status",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-            }
-            Text(
-                text = if (enabled) "Enabled & Active" else "Disabled",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor
-            )
-        }
-    }
-}
-
-@Composable
 private fun SmbShareSections(share: Shares.SmbShare) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         ShareInfoSection(title = "Basic Information", icon = Icons.Default.Info) {
             ExpressiveInfoGrid(
                 items = buildList {
-                    add("Share Name" to share.name)
+                    add("Share Name" to share.name.orEmpty())
                     add("Path" to share.path)
                     if (!share.path_suffix.isNullOrEmpty()) add("Path Suffix" to share.path_suffix)
                     if (!share.comment.isNullOrEmpty()) add("Description" to share.comment)
-                    add("Purpose" to share.purpose!!.ifEmpty { "General" })
+                    add("Purpose" to share.purpose.orEmpty().ifEmpty { "General" })
                 }
             )
-        }
-
-        ShareInfoSection(title = "Features", icon = Icons.Default.ToggleOn) {
-            ShareFeatureChips(share = share)
         }
 
         ShareInfoSection(title = "Access Control", icon = Icons.Default.Security) {
@@ -373,10 +379,6 @@ private fun NfsShareSections(share: Shares.NfsShare) {
                     if (share.comment.isNotEmpty()) add("Description" to share.comment)
                 }
             )
-        }
-
-        ShareInfoSection(title = "Features", icon = Icons.Default.ToggleOn) {
-            NfsFeatureChips(share = share)
         }
 
         if (share.networks.isNotEmpty() || share.hosts.isNotEmpty()) {
@@ -493,6 +495,7 @@ private fun ShareInfoSection(
             }
             Text(
                 text = title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -548,7 +551,7 @@ private fun AccessDetailRow(label: String, value: String, isEnabled: Boolean) {
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
-                    tint = Color(0xFF2E7D32)
+                    tint = StatusTone.POSITIVE.color()
                 )
             }
             Text(
@@ -590,32 +593,22 @@ private fun FeatureChip(text: String, icon: ImageVector) {
 
 @Composable
 private fun ShareFeatureChips(share: Shares.SmbShare) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.browsable) FeatureChip("Browsable", Icons.Default.Visibility)
-            if (share.guestok == true) FeatureChip("Guest Access", Icons.Default.PersonOutline)
-            if (share.ro == true) FeatureChip("Read-Only", Icons.Default.Lock)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.home == true) FeatureChip("Home Share", Icons.Default.Home)
-            if (share.recyclebin == true) FeatureChip("Recycle Bin", Icons.Default.Delete)
-            if (share.shadowcopy == true) FeatureChip("Shadow Copy", Icons.Default.ContentCopy)
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (share.acl == true) FeatureChip("ACL", Icons.Default.AdminPanelSettings)
-            if (share.streams == true) FeatureChip("Streams", Icons.Default.Stream)
-            if (share.durablehandle == true) FeatureChip("Durable Handle", Icons.Default.Link)
-        }
-    }
+    if (share.browsable) FeatureChip("Browsable", Icons.Default.Visibility)
+    if (share.guestok == true) FeatureChip("Guest Access", Icons.Default.PersonOutline)
+    if (share.ro == true) FeatureChip("Read-Only", Icons.Default.Lock)
+    if (share.home == true) FeatureChip("Home Share", Icons.Default.Home)
+    if (share.recyclebin == true) FeatureChip("Recycle Bin", Icons.Default.Delete)
+    if (share.shadowcopy == true) FeatureChip("Shadow Copy", Icons.Default.ContentCopy)
+    if (share.acl == true) FeatureChip("ACL", Icons.Default.AdminPanelSettings)
+    if (share.streams == true) FeatureChip("Streams", Icons.Default.Stream)
+    if (share.durablehandle == true) FeatureChip("Durable Handle", Icons.Default.Link)
 }
 
 @Composable
 private fun NfsFeatureChips(share: Shares.NfsShare) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (share.ro) FeatureChip("Read-Only", Icons.Default.Lock)
-        if (share.locked) FeatureChip("Locked", Icons.Default.LockPerson)
-        if (share.expose_snapshots) FeatureChip("Snapshots Exposed", Icons.Default.CameraAlt)
-    }
+    if (share.ro) FeatureChip("Read-Only", Icons.Default.Lock)
+    if (share.locked) FeatureChip("Locked", Icons.Default.LockPerson)
+    if (share.expose_snapshots) FeatureChip("Snapshots Exposed", Icons.Default.CameraAlt)
 }
 
 @Composable
@@ -689,7 +682,7 @@ private fun ShareNetworkCard(share: Shares.SmbShare) {
             if (!share.hostsallow.isNullOrEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp), tint = Color(0xFF2E7D32))
+                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp), tint = StatusTone.POSITIVE.color())
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Allowed Hosts", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -745,7 +738,7 @@ private fun ShareAuditCard(share: Shares.SmbShare) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.CheckCircle, null, tint = StatusTone.POSITIVE.color(), modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Auditing Enabled", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

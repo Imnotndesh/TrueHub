@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.general
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,9 +47,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -58,9 +61,7 @@ fun GeneralSystemSettingsScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {}
 ) {
-    val vm: GeneralSystemSettingsViewModel = viewModel(
-        factory = GeneralSystemSettingsViewModel.ViewModelFactory(manager)
-    )
+    val vm: GeneralSystemSettingsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val isFabVisible = !scrollState.isScrollInProgress
@@ -93,6 +94,8 @@ fun GeneralSystemSettingsScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingScreen("Loading system settings...")
+            uiState.error != null && uiState.config == null ->
+                ErrorState(uiState.error!!, onRetry = { vm.refresh() })
             uiState.config != null -> {
                 val config = uiState.config!!
                 PullToRefreshContent(
@@ -102,16 +105,13 @@ fun GeneralSystemSettingsScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
+                InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     uiState.checkinWaiting?.let { seconds ->
-                        RollbackWaitingCard(seconds = seconds, onCheckIn = { vm.doCheckin() })
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            RollbackWaitingCard(seconds = seconds, onCheckIn = { vm.doCheckin() })
+                        }
                     }
+                    item {
                     ExpressiveSection(title = "Web Interface", icon = Icons.Default.Visibility) {
                         ExpressiveInfoCard {
                             InfoRow(label = "HTTP Port", value = config.uiPort.toString())
@@ -128,7 +128,9 @@ fun GeneralSystemSettingsScreen(
                         }
 
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Network Addresses", icon = Icons.Default.SettingsEthernet) {
                         ExpressiveInfoCard {
                             InfoRow(label = "IPv4 Addresses", value = config.uiAddress?.joinToString(", ").orEmpty().ifEmpty { "All (0.0.0.0)" })
@@ -139,8 +141,10 @@ fun GeneralSystemSettingsScreen(
                         }
 
                     }
+                    }
 
                     uiState.localUrl?.let { url ->
+                        item {
                         ExpressiveSection(title = "Local URL", icon = Icons.Default.Link) {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
@@ -169,8 +173,10 @@ fun GeneralSystemSettingsScreen(
                                 }
                             }
                         }
+                        }
                     }
 
+                    item {
                     ExpressiveSection(title = "Localization", icon = Icons.Default.Language) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Timezone", value = config.timezone.orEmpty().ifEmpty { "Not Configured" })
@@ -179,7 +185,9 @@ fun GeneralSystemSettingsScreen(
                         }
 
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Other", icon = Icons.Default.Security) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Wizard Shown", value = if (config.wizardShown == true) "Yes" else "No")
@@ -189,6 +197,7 @@ fun GeneralSystemSettingsScreen(
                             InfoRow(label = "Usage Collection", value = if (config.usageCollectionIsSet == true) "Configured" else "Not configured")
                         }
 
+                    }
                     }
                 }
                 }

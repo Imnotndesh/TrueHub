@@ -1,6 +1,16 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.imnotndesh.truehub.ui.components.ErrorState
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -35,19 +45,23 @@ import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,8 +81,13 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveInfoCard
+import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.ExpressiveSection
+import com.imnotndesh.truehub.ui.homepage.instancesettings.advanced.InfoRow
 import com.imnotndesh.truehub.ui.utils.ScreenshotViewer
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 /**
@@ -88,38 +108,77 @@ fun AppAdvancedInfoScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var activeScreenshotIndex by remember { mutableStateOf<Int?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(appId) {
+    LaunchedEffect(appId, reloadKey) {
+        isLoading = true
         when (val result = manager.apps.getAppInstanceWithResult(appId)) {
-            is ApiResult.Success -> instance = result.data
+            is ApiResult.Success -> {
+                instance = result.data
+                error = null
+            }
             is ApiResult.Error -> error = result.message ?: "Failed to load instance"
             is ApiResult.Loading -> {}
         }
         isLoading = false
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
+    val scrollState = rememberScrollState()
+    val density = LocalDensity.current
+    val collapseThreshold = remember(density) { with(density) { 32.dp.roundToPx() } }
+    val collapsed by remember { derivedStateOf { scrollState.value > collapseThreshold } }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        when {
+            isLoading -> LoadingScreen("Loading application details…")
+            error != null && instance == null -> ErrorState(
+                message = error ?: "Failed to load instance",
+                onRetry = {
+                    error = null
+                    reloadKey++
+                }
+            )
+            instance != null -> AdvancedInstanceContent(
+                instance = instance!!,
+                serverBaseHttpUrl = manager.serverBaseHttpUrl,
+                scrollState = scrollState,
+                onScreenshotClick = { activeScreenshotIndex = it }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = !collapsed,
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it / 2 },
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             UnifiedScreenHeader(
-                title = "Advanced Info",
-                subtitle = instance?.metadata?.title ?: appId,
-                isLoading = isLoading,
+                title = "Advanced Information",
+                subtitle = appId,
+                isLoading = false,
                 isRefreshing = false,
                 error = error,
                 onDismissError = { error = null },
-                manager = manager,
                 onBackPressed = onNavigateBack
             )
         }
-    ) { innerPadding ->
-        when {
-            isLoading -> LoadingScreen("Loading application details…")
-            error != null && instance == null -> NullContent()
-            instance != null -> AdvancedInstanceContent(
-                instance = instance!!,
-                modifiers = Modifier.padding(innerPadding),
-                onScreenshotClick = { activeScreenshotIndex = it }
+
+        AnimatedVisibility(
+            visible = collapsed,
+            enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { -it },
+            exit = fadeOut(tween(140)) + slideOutVertically(tween(200)) { -it },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        ) {
+            MinimalBackHeader(
+                onBackPressed = onNavigateBack,
+                error = error,
+                onDismissError = { error = null }
             )
         }
     }
@@ -148,78 +207,18 @@ private fun NullContent() {
 @Composable
 private fun AdvancedInstanceContent(
     instance: Apps.AppQueryResponse,
-    modifiers: Modifier,
+    serverBaseHttpUrl: String,
+    scrollState: ScrollState,
     onScreenshotClick: (Int) -> Unit
 ) {
     Column(
-        modifier = modifiers
+        modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .verticalScroll(scrollState)
+            .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 32.dp)
+            .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Header summary card
-        Card(
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Apps,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = instance.metadata?.title ?: instance.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "ID: ${instance.id}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "Version: ${instance.humanVersion ?: instance.version ?: "Unknown"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    color = runStateContainerColor(instance.state),
-                    shape = RoundedCornerShape(6.dp)
-                ) {
-                    Text(
-                        text = instance.state,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-            }
-        }
-
         // Workloads overview — top-level get_instance summary (exhausts active_workloads).
         val workloads = instance.activeWorkloads
         ExpressiveSection(title = "Workloads Overview", icon = Icons.Default.NetworkCheck) {
@@ -296,7 +295,7 @@ private fun AdvancedInstanceContent(
                             modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
                         )
                         Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -346,7 +345,7 @@ private fun AdvancedInstanceContent(
             if (images.isNotEmpty()) {
                 ExpressiveSection(title = "Container Images", icon = Icons.Default.Image) {
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        color = MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -425,7 +424,7 @@ private fun AdvancedInstanceContent(
 
         // Links
         if (instance.metadata?.home != null || !instance.metadata?.sources.isNullOrEmpty() || instance.metadata?.changelogUrl != null) {
-            ExpressiveSection(title = "Links", icon = Icons.Default.Link) {
+            ExpressiveSection(title = "Resources", icon = Icons.Default.Link) {
                 instance.metadata.home?.let { home ->
                     AdvancedLinkCard(name = "Homepage", url = home, icon = Icons.Default.Home)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -441,12 +440,50 @@ private fun AdvancedInstanceContent(
             }
         }
 
-        // Web Portals
         instance.portals?.let { portals ->
             if (portals.isNotEmpty()) {
                 ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
                     portals.forEach { (name, url) ->
-                        AdvancedPortalCard(name = name, url = url)
+                        AdvancedPortalCard(
+                            name = name,
+                            url = url.withRoutableServerHost(serverBaseHttpUrl)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+
+        // Categories, Tags & Maintainers
+        if (!instance.metadata?.categories.isNullOrEmpty() || !instance.metadata?.keywords.isNullOrEmpty()) {
+            ExpressiveSection(title = "Categories & Tags", icon = Icons.Default.Tag) {
+                instance.metadata.categories?.let { categories ->
+                    AdvancedChipGroup(
+                        title = "Categories",
+                        items = categories,
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                instance.metadata.keywords?.let { keywords ->
+                    if (keywords.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        AdvancedChipGroup(
+                            title = "Keywords",
+                            items = keywords,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+        }
+
+        instance.metadata?.maintainers?.let { maintainers ->
+            if (maintainers.isNotEmpty()) {
+                ExpressiveSection(title = "Maintainers", icon = Icons.Default.Person) {
+                    maintainers.forEach { maintainer ->
+                        AdvancedMaintainerCard(maintainer = maintainer)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
@@ -459,8 +496,9 @@ private fun AdvancedInstanceContent(
                 ExpressiveSection(title = "Notes", icon = Icons.AutoMirrored.Filled.Note) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            containerColor = MaterialTheme.colorScheme.surface
                         ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -479,18 +517,10 @@ private fun AdvancedInstanceContent(
 }
 
 @Composable
-private fun runStateContainerColor(state: String): Color {
-    return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32).copy(alpha = 0.12f)
-        "stopped", "exited" -> MaterialTheme.colorScheme.surfaceContainerHighest
-        else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-    }
-}
-
-@Composable
 private fun AdvancedPortCard(port: Apps.UsedPort) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -524,7 +554,8 @@ private fun AdvancedPortCard(port: Apps.UsedPort) {
 @Composable
 private fun AdvancedNetworkCard(network: Apps.Network) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -592,7 +623,8 @@ private fun DetailLine(label: String, value: String) {
 @Composable
 private fun AdvancedContainerCard(container: Apps.ContainerDetail) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -648,7 +680,8 @@ private fun AdvancedContainerCard(container: Apps.ContainerDetail) {
 @Composable
 private fun AdvancedVolumeCard(volume: Apps.Volume) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -685,7 +718,8 @@ private fun AdvancedHostMountCard(mount: Apps.HostMount) {
 @Composable
 private fun AdvancedRunAsContextCard(context: Apps.RunAsContext) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -709,7 +743,8 @@ private fun AdvancedRunAsContextCard(context: Apps.RunAsContext) {
 @Composable
 private fun AdvancedCapabilityCard(capability: Apps.Capability) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -725,7 +760,8 @@ private fun AdvancedLinkCard(name: String, url: String, icon: androidx.compose.u
     val uriHandler = LocalUriHandler.current
     Card(
         onClick = { uriHandler.openUri(url) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -756,6 +792,87 @@ private fun AdvancedPortalCard(name: String, url: String) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedChipGroup(
+    title: String,
+    items: List<String>,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items.forEach { item ->
+                FilterChip(
+                    onClick = {},
+                    label = { Text(text = item) },
+                    selected = false,
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = containerColor,
+                        labelColor = contentColor,
+                        disabledContainerColor = containerColor,
+                        disabledLabelColor = contentColor
+                    ),
+                    border = null,
+                    shape = RoundedCornerShape(14.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedMaintainerCard(maintainer: Apps.Maintainer) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = maintainer.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(maintainer.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                maintainer.email?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                maintainer.url?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }

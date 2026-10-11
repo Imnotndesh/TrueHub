@@ -5,7 +5,6 @@ import com.imnotndesh.truehub.ui.Screen
 import com.imnotndesh.truehub.ui.homepage.details.ShareType
 import com.imnotndesh.truehub.ui.homepage.pools.PoolDataHolder
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
-import com.imnotndesh.truehub.ui.services.containers.details.ContainerDataHolder
 import com.imnotndesh.truehub.ui.services.vm.details.VmDataHolder
 
 /**
@@ -45,6 +44,13 @@ object SearchResultNavigation {
                 }
             }
 
+            is SearchResult.NfsShareResult -> {
+                AppDataHolder.selectedShareType = ShareType.Nfs(result.share)
+                navController.navigate(Screen.ShareInfo.route) {
+                    launchSingleTop = true
+                }
+            }
+
             is SearchResult.ShareResult -> {
                 AppDataHolder.selectedShareType = ShareType.Smb(result.share)
                 navController.navigate(Screen.ShareInfo.route) {
@@ -80,8 +86,7 @@ object SearchResultNavigation {
             }
 
             is SearchResult.ContainerResult -> {
-                ContainerDataHolder.selectedContainer = result.container
-                navController.navigate(Screen.ContainerInfo.route) {
+                navController.navigate(Screen.ContainerInfo.createRoute(result.container.id)) {
                     launchSingleTop = true
                 }
             }

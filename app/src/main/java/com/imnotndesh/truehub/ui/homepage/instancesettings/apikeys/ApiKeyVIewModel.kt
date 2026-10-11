@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.apikeys
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -38,7 +39,6 @@ data class ApiKeyListUiState(
         }
 }
 
-
 data class ApiKeyDetailUiState(
     val isLoading: Boolean = false,
     val isDeleting: Boolean = false,
@@ -55,7 +55,8 @@ data class ApiKeyCreateUiState(
     val error: String? = null
 )
 
-class ApiKeyViewModel(
+@HiltViewModel
+class ApiKeyViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -149,11 +150,8 @@ class ApiKeyViewModel(
             _detailState.value = _detailState.value.copy(isResetting = true, error = null)
             val update = System.ApiKeyUpdate(reset = true)
             when (val r = manager.system.updateApiKeyWithResult(keyId, update)) {
-                is ApiResult.Success -> {
-                    // Re-fetch to get updated key
-                    loadDetail(keyId)
-                    _detailState.value = _detailState.value.copy(isResetting = false)
-                }
+                is ApiResult.Success -> _detailState.value = _detailState.value.copy(
+                    isResetting = false, resetResult = r.data)
                 is ApiResult.Error -> _detailState.value = _detailState.value.copy(
                     isResetting = false, error = r.message)
                 is ApiResult.Loading -> {}
@@ -175,15 +173,7 @@ class ApiKeyViewModel(
     }
 
     fun clearDetailError() { _detailState.value = _detailState.value.copy(error = null) }
+    fun clearResetResult() { _detailState.value = _detailState.value.copy(resetResult = null) }
     fun clearCreateError() { _createState.value = _createState.value.copy(error = null) }
     fun clearCreateResult() { _createState.value = _createState.value.copy(createResult = null) }
-
-    class ApiKeyViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ApiKeyViewModel(manager) as T
-        }
-    }
 }

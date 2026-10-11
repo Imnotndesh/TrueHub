@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.network
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
@@ -59,9 +61,7 @@ fun NetworkScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {}
 ) {
-    val vm: NetworkConfigViewModel = viewModel(
-        factory = NetworkConfigViewModel.ViewModelFactory(manager)
-    )
+    val vm: NetworkConfigViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val isFabVisible = !scrollState.isScrollInProgress
@@ -104,7 +104,10 @@ fun NetworkScreen(
                 ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = 840.dp)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
                         .verticalScroll(scrollState)
                         .padding(start = 16.dp, end = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp)

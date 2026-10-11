@@ -1,4 +1,9 @@
 package com.imnotndesh.truehub.ui.services.apps.details.marketplace
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.HelpOutline
 
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
@@ -75,9 +80,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.ApiResult
@@ -103,20 +107,28 @@ fun MarketplaceAppDetailsScreen(
 ) {
     val context = LocalContext.current
 
-    val appsViewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val appsViewModel: AppsScreenViewModel = hiltViewModel()
     var activeScreenshotIndex by remember { mutableStateOf<Int?>(null) }
-    val appDetailsViewModel: AppDetailsViewModel = viewModel(
-        factory = AppDetailsViewModel.provideFactory(manager)
-    )
+    val appDetailsViewModel: AppDetailsViewModel = hiltViewModel()
 
     val deletionJobId by appDetailsViewModel.deletionJobId.collectAsStateWithLifecycle()
     val activeJobs by JobRepository.activeJobs.collectAsStateWithLifecycle()
     val currentDeletionJob = deletionJobId?.let { activeJobs[it] }
+    val deletionError by appDetailsViewModel.deletionError.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showUninstallDialog by remember { mutableStateOf(false) }
     LaunchedEffect(currentDeletionJob?.state) {
-        if (currentDeletionJob?.state == "SUCCESS") {
-            onUninstallSuccess()
+        when (currentDeletionJob?.state) {
+            "SUCCESS" -> onUninstallSuccess()
+            "FAILED", "ABORTED" -> appDetailsViewModel.reportDeletionFailure(
+                "Uninstall failed. Please try again."
+            )
+        }
+    }
+    LaunchedEffect(deletionError) {
+        deletionError?.let {
+            snackbarHostState.showSnackbar(it)
+            appDetailsViewModel.clearDeletionError()
         }
     }
 
@@ -137,7 +149,8 @@ fun MarketplaceAppDetailsScreen(
     }
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { _ ->
             LazyColumn(
                 modifier = Modifier
@@ -182,7 +195,7 @@ fun MarketplaceAppDetailsScreen(
                             isDeleting = currentDeletionJob != null,
                             onInstallClick = { onInstallClick(app.name, app.train) },
                             onUninstallClick = {
-                                appDetailsViewModel.deleteApp(context = context, appName = app.name)
+                                showUninstallDialog = true
                             },
                             onInstallAnotherClick = { onInstallClick(app.name, app.train) }
                         )
@@ -430,6 +443,28 @@ fun MarketplaceAppDetailsScreen(
             onDismiss = { activeScreenshotIndex = null }
         )
     }
+
+    if (showUninstallDialog) {
+        AlertDialog(
+            onDismissRequest = { showUninstallDialog = false },
+            title = { Text("Uninstall ${app.title.ifBlank { app.name }}?") },
+            text = {
+                Text("This removes the application and its configuration. This cannot be undone.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUninstallDialog = false
+                        appDetailsViewModel.deleteApp(context = context, appName = app.name)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Uninstall") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUninstallDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -508,7 +543,6 @@ private fun HeroHeaderSection(
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(app.icon_url)
-                                .decoderFactory(SvgDecoder.Factory())
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "${app.title} icon",
@@ -561,12 +595,26 @@ private fun HeroHeaderSection(
 
 @Composable
 private fun HealthStatusCard(healthy: Boolean?, errorMsg: String?) {
-    val isHealthy = healthy ?: true
-    val containerColor = if (isHealthy) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-    else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-    val contentColor = if (isHealthy) MaterialTheme.colorScheme.onPrimaryContainer
-    else MaterialTheme.colorScheme.onErrorContainer
-    val icon = if (isHealthy) Icons.Default.CheckCircle else Icons.Default.Warning
+    val containerColor = when (healthy) {
+        true -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        false -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+        null -> MaterialTheme.colorScheme.surfaceContainerHighest
+    }
+    val contentColor = when (healthy) {
+        true -> MaterialTheme.colorScheme.onPrimaryContainer
+        false -> MaterialTheme.colorScheme.onErrorContainer
+        null -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val icon = when (healthy) {
+        true -> Icons.Default.CheckCircle
+        false -> Icons.Default.Warning
+        null -> Icons.Default.HelpOutline
+    }
+    val title = when (healthy) {
+        true -> "Application Stable & Healthy"
+        false -> "System Health Alert"
+        null -> "Health status unknown"
+    }
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -581,11 +629,11 @@ private fun HealthStatusCard(healthy: Boolean?, errorMsg: String?) {
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = if (isHealthy) "Application Stable & Healthy" else "System Health Alert",
+                    text = title,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
-                if (!isHealthy && !errorMsg.isNullOrBlank()) {
+                if (healthy != true && !errorMsg.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(text = errorMsg, style = MaterialTheme.typography.bodySmall)
                 }

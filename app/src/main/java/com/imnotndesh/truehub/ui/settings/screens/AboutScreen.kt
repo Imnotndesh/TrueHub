@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.settings.screens
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.animateFloatAsState
@@ -61,7 +63,7 @@ import androidx.core.net.toUri
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.LoggingPrefs
-import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -88,9 +90,15 @@ fun AboutScreen(
             tapCount = 0
         }
     }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
         ) {
@@ -110,7 +118,7 @@ fun AboutScreen(
                     .height(240.dp)
                     .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp, topEnd = 32.dp, topStart = 32.dp))
             ) {
-                AnimatedWavyGradientBackground {
+                ExpressiveScreenBackground {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -300,6 +308,7 @@ fun AboutScreen(
             }
         }
 
+    }
 }
 @Composable
 private fun SupportButton(onClick: () -> Unit) {

@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -77,9 +79,12 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
@@ -92,11 +97,12 @@ fun AlertServicesListScreen(
     onNavigateToCreate: () -> Unit = {},
     onNavigateToClassesConfig: () -> Unit = {}
 ) {
-    val viewModel: AlertServicesListViewModel = viewModel(
-        factory = AlertServicesListViewModel.AlertServicesListViewModelFactory(manager)
-    )
+    val viewModel: AlertServicesListViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val window = LocalTrueHubWindow.current
+    var selectedServiceId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedServiceId != null
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -108,23 +114,23 @@ fun AlertServicesListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(colorScheme.surface, colorScheme.surfaceContainer)
-                )
-            )
+            .background(colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = "Alert Services",
             subtitle = "${uiState.services.size} service(s) configured",
             isLoading = uiState.isLoading,
             isRefreshing = uiState.isRefreshing,
-            error = null,
-            onDismissError = {},
+            error = uiState.error,
+            onDismissError = { viewModel.clearError() },
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             floatingActionButton = {
@@ -145,6 +151,8 @@ fun AlertServicesListScreen(
             ) {
                 when {
                     uiState.isLoading -> LoadingScreen("Loading alert services...")
+                    uiState.error != null && uiState.services.isEmpty() ->
+                        ErrorState(uiState.error!!, onRetry = { viewModel.refresh() })
                     uiState.services.isEmpty() -> EmptyServicesState()
                     else -> LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -163,6 +171,17 @@ fun AlertServicesListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedServiceId?.let { serviceId ->
+                    AlertServiceDetailScreen(
+                        serviceId = serviceId,
+                        manager = manager,
+                        onNavigateBack = { selectedServiceId = null }
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -286,7 +305,7 @@ private fun AlertServiceCard(
     onClick: () -> Unit
 ) {
     val statusColor by animateColorAsState(
-        targetValue = if (service.enabled) Color(0xFF2E7D32) else colorScheme.outline,
+        targetValue = if (service.enabled) StatusTone.POSITIVE.color() else colorScheme.outline,
         label = "statusColor"
     )
 

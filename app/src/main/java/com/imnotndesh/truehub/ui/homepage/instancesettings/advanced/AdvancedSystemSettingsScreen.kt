@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.advanced
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,9 +45,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -57,9 +59,7 @@ fun AdvancedSystemSettingsScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {}
 ) {
-    val vm: AdvancedSystemSettingsViewModel = viewModel(
-        factory = AdvancedSystemSettingsViewModel.ViewModelFactory(manager)
-    )
+    val vm: AdvancedSystemSettingsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val isFabVisible = !scrollState.isScrollInProgress
@@ -91,6 +91,8 @@ fun AdvancedSystemSettingsScreen(
     ) { innerPadding ->
         when {
             uiState.isLoading -> LoadingScreen("Loading advanced settings...")
+            uiState.error != null && uiState.config == null ->
+                ErrorState(uiState.error!!, onRetry = { vm.refresh() })
             uiState.config != null -> {
                 val config = uiState.config!!
                 PullToRefreshContent(
@@ -100,19 +102,16 @@ fun AdvancedSystemSettingsScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
-                        .padding(start = 16.dp, end = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
+                InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     if (config.login_banner.isNotBlank() || config.motd.isNotBlank()) {
+                        item {
                         ExpressiveSection(title = "Messaging", icon = Icons.Default.Mail) {
                             MessageBannerCard(loginBanner = config.login_banner, motd = config.motd)
                         }
+                        }
                     }
 
+                    item {
                     ExpressiveSection(title = "Console & Serial", icon = Icons.Default.Menu) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Console Menu", value = if (config.consolemenu) "Enabled" else "Disabled")
@@ -125,9 +124,10 @@ fun AdvancedSystemSettingsScreen(
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             InfoRow(label = "Serial Speed", value = config.serialspeed.ifEmpty { "—" })
                         }
-                        // ❌ SectionEditButton removed
+                    }
                     }
 
+                    item {
                     ExpressiveSection(title = "Kernel & Debug", icon = Icons.Default.BugReport) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Debug Kernel", value = if (config.debugkernel) "Enabled" else "Disabled")
@@ -141,7 +141,9 @@ fun AdvancedSystemSettingsScreen(
                             InfoRow(label = "Extra Kernel Options", value = config.kernel_extra_options.ifEmpty { "None" })
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Syslog", icon = Icons.Default.Dns) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Syslog Level", value = config.sysloglevel.ifEmpty { "—" })
@@ -161,7 +163,9 @@ fun AdvancedSystemSettingsScreen(
                             InfoRow(label = "Syslog Servers", value = if (serverCount > 0) "$serverCount configured" else "None")
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Crash Reporting", icon = Icons.Default.Report) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Traceback", value = if (config.traceback) "Enabled" else "Disabled")
@@ -171,14 +175,18 @@ fun AdvancedSystemSettingsScreen(
                             InfoRow(label = "Anonymous Stats", value = if (config.anonstats) "Enabled" else "Disabled")
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "GPU Isolation", icon = Icons.Default.DeveloperBoard) {
                         ExpressiveInfoCard {
                             val gpuCount = config.isolated_gpu_pci_ids.size
                             InfoRow(label = "Isolated GPUs", value = if (gpuCount > 0) "$gpuCount GPU(s) isolated" else "None")
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Power", icon = Icons.Default.PowerSettingsNew) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Power Daemon", value = if (config.powerdaemon) "Enabled" else "Disabled")
@@ -186,7 +194,9 @@ fun AdvancedSystemSettingsScreen(
                             InfoRow(label = "Boot Scrub", value = "${config.boot_scrub}")
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "SED", icon = Icons.Default.Key) {
                         ExpressiveInfoCard {
                             InfoRow(label = "SED User", value = config.sed_user.ifEmpty { "—" })
@@ -194,13 +204,15 @@ fun AdvancedSystemSettingsScreen(
                             InfoRow(label = "SED Password Set", value = if (uiState.sedPasswordIsSet) "Yes" else "No")
                         }
                     }
+                    }
 
+                    item {
                     ExpressiveSection(title = "Storage", icon = Icons.Default.SdStorage) {
                         ExpressiveInfoCard {
                             InfoRow(label = "Overprovision", value = config.overprovision?.toString() ?: "Not set")
                         }
                     }
-                    Spacer(modifier = Modifier.height(64.dp))
+                    }
                 }
                 }
             }

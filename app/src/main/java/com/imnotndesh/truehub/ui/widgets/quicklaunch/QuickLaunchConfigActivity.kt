@@ -40,6 +40,7 @@ import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.IconCache
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.WidgetDataStore
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.data.models.Config
@@ -89,30 +90,13 @@ class QuickLaunchConfigActivity : ComponentActivity() {
                 isLoading = false; loadError = "Account not found"; return@LaunchedEffect
             }
 
-            val client = TrueNASClient(Config.ClientConfig(serverUrl = server.serverUrl, insecure = server.insecure))
-            if (!client.connect()) {
-                isLoading = false; loadError = "Could not connect to server"; return@LaunchedEffect
-            }
-
-            val m = TrueNASApiManager(client, context)
-            val token = MultiAccountPrefs.getTokenForLastUsed(context)
-            var authed = token != null && (m.auth.loginWithTokenAndResult(token) is ApiResult.Success)
-
-            if (!authed) {
-                val (credentialPrimary, credentialSecondary) = MultiAccountPrefs.getAccountCredentials(
-                    context, accountId, account.loginMethod
-                )
-                val loginResult = when (account.loginMethod) {
-                    LoginMethod.API_KEY -> credentialPrimary?.let { m.auth.loginWithApiKeyWithResult(it) }
-                    LoginMethod.PASSWORD, LoginMethod.TOTP -> if (credentialPrimary != null && credentialSecondary != null) {
-                        m.auth.loginUserWithResult(AuthService.DefaultAuth(credentialPrimary, credentialSecondary))
-                    } else null
+            val session = SessionProvider.open(context, server, account)
+            val m = when (session) {
+                is SessionProvider.OpenResult.Ready -> session.manager
+                is SessionProvider.OpenResult.TemporaryAuthenticated -> session.manager
+                else -> {
+                    isLoading = false; loadError = "Authentication failed"; return@LaunchedEffect
                 }
-                authed = loginResult is ApiResult.Success && loginResult.data == true
-            }
-
-            if (!authed) {
-                isLoading = false; loadError = "Authentication failed"; return@LaunchedEffect
             }
 
             when (val result = m.apps.getInstalledAppsWithResult()) {

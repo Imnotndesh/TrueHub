@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.details
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -139,15 +141,15 @@ fun PerformanceScreen(
             val value = currentCpu?.data?.lastOrNull()?.let { point ->
                 if (point.size > 1) point.drop(1).average() else 0.0
             } ?: 0.0
-            "${DecimalFormat("#.#").format(value)}% current"
+            "${DecimalFormat("#.#").format(value)}% latest"
         }
         MetricType.MEMORY -> {
             val value = currentMemory?.data?.lastOrNull()?.getOrNull(1) ?: 0.0
-            "${DecimalFormat("#.#").format(value / (1024.0 * 1024.0 * 1024.0))} GB current"
+            "${DecimalFormat("#.#").format(value / (1024.0 * 1024.0 * 1024.0))} GB latest"
         }
         MetricType.TEMPERATURE -> {
             val value = currentTemp?.data?.lastOrNull()?.getOrNull(1) ?: 0.0
-            "${DecimalFormat("#.#").format(value)}°C current"
+            "${DecimalFormat("#.#").format(value)}°C latest"
         }
         MetricType.ALL -> "System metrics"
     }
@@ -443,74 +445,34 @@ private fun MetricHeroCard(
             subtitle = "All metrics",
             icon = Icons.Default.Assessment,
             badge1 = "Overview",
-            badge2 = "Live"
+            badge2 = "Snapshot"
         )
     }
 
-    Card(
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = info.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(36.dp)
+    DetailHeroCard(
+        title = info.title,
+        subtitle = info.subtitle,
+        leading = { DetailHeroIcon(icon = info.icon) },
+        badge = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MetricBadge(
+                    label = info.badge1,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = info.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                MetricBadge(
+                    label = info.badge2,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-                Text(
-                    text = info.subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                MetricBadge(
+                    label = "Snapshot",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetricBadge(
-                        label = info.badge1,
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    MetricBadge(
-                        label = info.badge2,
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    MetricBadge(
-                        label = "Live",
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -550,6 +512,13 @@ private fun MetricHealthBanner(
         MetricType.ALL -> true
     }
 
+    val hasData = when (metricType) {
+        MetricType.CPU -> cpuData != null
+        MetricType.MEMORY -> memoryData != null
+        MetricType.TEMPERATURE -> temperatureData != null
+        MetricType.ALL -> true
+    }
+
     val progressValue = when (metricType) {
         MetricType.CPU -> {
             val value = cpuData?.data?.lastOrNull()?.let { if (it.size > 1) it.drop(1).average() else 0.0 } ?: 0.0
@@ -568,17 +537,17 @@ private fun MetricHealthBanner(
 
     val bannerColor by animateColorAsState(
         targetValue = if (thresholdOk) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerColor"
     )
     val contentColor by animateColorAsState(
         targetValue = if (thresholdOk) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "bannerContent"
     )
     val animatedProgress by animateFloatAsState(
         targetValue = progressValue,
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        animationSpec = MaterialTheme.motionScheme.slowSpatialSpec(),
         label = "metricProgress"
     )
 
@@ -616,7 +585,12 @@ private fun MetricHealthBanner(
                     )
                 }
                 Text(
-                    text = if (thresholdOk) "Normal" else "High Load",
+                    text = when {
+                        !hasData -> "No data"
+                        metricType == MetricType.MEMORY -> "In use"
+                        thresholdOk -> "Normal"
+                        else -> "High Load"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor

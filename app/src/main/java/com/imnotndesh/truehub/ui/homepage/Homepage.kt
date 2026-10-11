@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Error
@@ -69,19 +70,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
-import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
+import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.homepage.details.MetricType
 import com.imnotndesh.truehub.ui.homepage.details.ShareType
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppDataHolder
@@ -100,11 +103,9 @@ fun HomeScreen(
     onSystemInfoClick: () -> Unit = {},
     onNavigateToPerformance: (MetricType) -> Unit,
     onNavigateToShareInfo: (ShareType) -> Unit = {},
-    onSearchClick: (() -> Unit)? = null
+    onCreateShare: () -> Unit = {},
 ) {
-    val viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.HomeViewModelFactory(manager, LocalContext.current.applicationContext)
-    )
+    val viewModel: HomeViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
@@ -122,7 +123,6 @@ fun HomeScreen(
             manager = manager,
             onNavigateToSettings = onNavigateToSettings,
             onShutdownInvoke = { showShutdownDialog = true },
-            onSearchClick = onSearchClick
         )
         PullToRefreshBox(
             isRefreshing = isRefreshing,
@@ -130,7 +130,7 @@ fun HomeScreen(
         ) {
             when (val state = uiState) {
                 is HomeUiState.Loading -> {
-                    LoadingScreen("Loading Homescreen")
+                    HomeSkeleton()
                 }
                 is HomeUiState.Error -> ErrorScreen(
                     error = state.message,
@@ -147,6 +147,7 @@ fun HomeScreen(
                     onPoolClick = onPoolClick,
                     onDiskClick = { onDisksClick() },
                     onNavigateToShareInfo = onNavigateToShareInfo,
+                    onCreateShare = onCreateShare,
                     onNavigateToPerformance = {metricType ->
                         onNavigateToPerformance(metricType)
                     },
@@ -250,6 +251,7 @@ private fun HomeContent(
     onSystemInfoClick: () -> Unit = {},
     onDiskClick: () -> Unit,
     onNavigateToShareInfo: (ShareType) -> Unit,
+    onCreateShare: () -> Unit,
     onNavigateToPerformance: (MetricType) -> Unit,
     onUpdateClick: () -> Unit
 ) {
@@ -262,6 +264,7 @@ private fun HomeContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(bottom = floatingNavBottomClearance())
     ) {
         SystemOverviewCard(
             isConnectedStatus = isConnectedStatus,
@@ -292,6 +295,7 @@ private fun HomeContent(
                 // onTempClick = {AppDataHolder.temperatureData = state.temperatureData; onNavigateToPerformance(MetricType.TEMPERATURE)},
                 onDiskClick = { AppDataHolder.disks = state.diskDetails; onDiskClick() },
                 onPoolClick = onPoolClick,
+                onCreateShare = onCreateShare,
                 onSmbShareClick = { share -> onNavigateToShareInfo(ShareType.Smb(share)) },
                 onNfsShareClick = { share -> onNavigateToShareInfo(ShareType.Nfs(share)) }
             )
@@ -316,6 +320,7 @@ private fun HomeContent(
             SharesCard(
                 smbShares = state.smbShares,
                 nfsShares = state.nfsShares,
+                onCreateShare = onCreateShare,
                 onSmbShareClick = { share -> onNavigateToShareInfo(ShareType.Smb(share)) },
                 onNfsShareClick = { share -> onNavigateToShareInfo(ShareType.Nfs(share)) }
             )
@@ -334,6 +339,7 @@ private fun AdaptiveGridLayout(
     // onTempClick: () -> Unit,
     onDiskClick: () -> Unit,
     onPoolClick: (System.Pool) -> Unit,
+    onCreateShare: () -> Unit,
     onSmbShareClick: (Shares.SmbShare) -> Unit,
     onNfsShareClick: (Shares.NfsShare) -> Unit
 ) {
@@ -346,7 +352,7 @@ private fun AdaptiveGridLayout(
         } else {
             add(SectionItem.NoStorage)
         }
-        add(SectionItem.Shares(state.smbShares, state.nfsShares, onSmbShareClick, onNfsShareClick))
+        add(SectionItem.Shares(state.smbShares, state.nfsShares, onCreateShare, onSmbShareClick, onNfsShareClick))
     }
 
     FlowRow(
@@ -369,6 +375,7 @@ private fun AdaptiveGridLayout(
                     is SectionItem.Shares -> SharesCard(
                         smbShares = section.smbShares,
                         nfsShares = section.nfsShares,
+                        onCreateShare = section.onCreateShare,
                         onSmbShareClick = section.onSmbShareClick,
                         onNfsShareClick = section.onNfsShareClick
                     )
@@ -391,12 +398,12 @@ private fun SystemOverviewCard(
     onSystemInfoClick: () -> Unit = {}
 ) {
     val statusColor = if (isConnectedStatus) {
-        Color(0xFF2E7D32)
+        StatusTone.POSITIVE.color()
     } else {
-        Color(0xFFF57C00)
+        StatusTone.WARNING.color()
     }
 
-    val glassContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.25f)
+    val glassContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.35f)
     val glassBorderBrush = remember {
         Brush.linearGradient(
             colors = listOf(
@@ -408,12 +415,12 @@ private fun SystemOverviewCard(
 
     val themeAdaptiveBorderBrush = Brush.linearGradient(
         colors = listOf(
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f)
         )
     )
 
-    WavyGradientBackground {
+    ExpressiveScreenBackground {
         Card(
             modifier = modifier
                 .fillMaxWidth()
@@ -505,7 +512,7 @@ private fun SystemOverviewCard(
                                 onClick = onUpdateClick,
                                 icon = Icons.Filled.SystemUpdateAlt,
                                 label = "Update (${systemUpdateVersions.size})",
-                                tint = Color(0xFFF57C00)
+                                tint = StatusTone.WARNING.color()
                             )
                         }
                     }
@@ -671,7 +678,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
         return "${DecimalFormat("#.#").format(size)} ${units[unitIndex]}"
     }
 
-    Card(onClick = onClick, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(onClick = onClick, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
@@ -682,8 +689,8 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
                 val hasWarning = pool.warning
                 val statusColor = when {
                     !isHealthy -> MaterialTheme.colorScheme.error
-                    hasWarning -> Color(0xFFF57C00)
-                    else -> Color(0xFF2E7D32)
+                    hasWarning -> StatusTone.WARNING.color()
+                    else -> StatusTone.POSITIVE.color()
                 }
                 Surface(color = statusColor.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                     val statusText = when {
@@ -707,7 +714,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
                 val progressColor by animateColorAsState(
                     targetValue = when {
                         usedPercentage > 0.8f -> MaterialTheme.colorScheme.error
-                        usedPercentage > 0.6f -> Color(0xFFF57C00)
+                        usedPercentage > 0.6f -> StatusTone.WARNING.color()
                         else -> MaterialTheme.colorScheme.primary
                     },
                     label = "progressColor"
@@ -737,7 +744,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
 
             if ((pool.warning == true) && !pool.status_detail.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(pool.status_detail, style = MaterialTheme.typography.bodySmall, color = Color(0xFFF57C00), modifier = Modifier.padding(horizontal = 4.dp))
+                Text(pool.status_detail, style = MaterialTheme.typography.bodySmall, color = StatusTone.WARNING.color(), modifier = Modifier.padding(horizontal = 4.dp))
             }
         }
     }
@@ -745,7 +752,7 @@ private fun StorageCard(modifier: Modifier = Modifier, pool: System.Pool, onClic
 
 @Composable
 private fun NoStorageCard(modifier: Modifier = Modifier) {
-    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.Storage, null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(16.dp))
@@ -760,15 +767,23 @@ private fun SharesCard(
     smbShares: List<Shares.SmbShare>,
     nfsShares: List<Shares.NfsShare>,
     modifier: Modifier = Modifier,
+    onCreateShare: () -> Unit = {},
     onSmbShareClick: (Shares.SmbShare) -> Unit = {},
     onNfsShareClick: (Shares.NfsShare) -> Unit = {}
 ) {
-    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)), modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
         Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("SMB Shares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(100.dp)) {
-                    Text("${smbShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(100.dp)) {
+                        Text("${smbShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                    ExpressiveIconButton(
+                        onClick = onCreateShare,
+                        icon = Icons.Default.Add,
+                        contentDescription = "Create share"
+                    )
                 }
             }
             if (smbShares.isEmpty()) {
@@ -792,8 +807,15 @@ private fun SharesCard(
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("NFS Shares", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(100.dp)) {
-                    Text("${nfsShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(100.dp)) {
+                        Text("${nfsShares.size}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                    ExpressiveIconButton(
+                        onClick = onCreateShare,
+                        icon = Icons.Default.Add,
+                        contentDescription = "Create share"
+                    )
                 }
             }
             if (nfsShares.isEmpty()) {
@@ -834,7 +856,7 @@ private fun SmbShareItem(share: Shares.SmbShare, onShareClick: (Shares.SmbShare)
                     }
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(share.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(share.name.orEmpty().ifBlank { share.path }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(share.path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -1175,5 +1197,5 @@ private sealed class SectionItem {
     // data class LoadAverages(val state: LoadAveragesState, val onCpuClick: () -> Unit, val onMemoryClick: () -> Unit, val onLoadClick: () -> Unit, val onTempClick: () -> Unit) : SectionItem()
     data class StoragePool(val pool: System.Pool, val onPoolClick: (System.Pool) -> Unit) : SectionItem()
     object NoStorage : SectionItem()
-    data class Shares(val smbShares: List<Shares.SmbShare>, val nfsShares: List<Shares.NfsShare>, val onSmbShareClick: (Shares.SmbShare) -> Unit, val onNfsShareClick: (Shares.NfsShare) -> Unit) : SectionItem()
+    data class Shares(val smbShares: List<Shares.SmbShare>, val nfsShares: List<Shares.NfsShare>, val onCreateShare: () -> Unit, val onSmbShareClick: (Shares.SmbShare) -> Unit, val onNfsShareClick: (Shares.NfsShare) -> Unit) : SectionItem()
 }

@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.service
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -23,7 +24,10 @@ data class ServicesScreenUiState(
     val error: String? = null
 )
 
-class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class ServicesScreenViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServicesScreenUiState())
     val uiState: StateFlow<ServicesScreenUiState> = _uiState.asStateFlow()
@@ -117,14 +121,5 @@ class ServicesScreenViewModel(private val manager: TrueNASApiManager) : ViewMode
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    class ServicesScreenViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ServicesScreenViewModel(manager) as T
-        }
     }
 }

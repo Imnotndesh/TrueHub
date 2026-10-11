@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.glance.GlanceId
+import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
@@ -18,6 +19,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.background
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -74,7 +76,7 @@ private fun EmptyState(context: Context) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(Color(0xD9FFFFFF), Color(0xD91C1B1F))
             .cornerRadius(20.dp)
             .clickable(actionStartActivity(configIntent(context))),
         contentAlignment = Alignment.Center
@@ -103,7 +105,7 @@ private fun QuickLaunchRow(apps: List<QuickLaunchApp>, context: Context) {
     Row(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(Color(0xD9FFFFFF), Color(0xD91C1B1F))
             .cornerRadius(20.dp)
             .padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

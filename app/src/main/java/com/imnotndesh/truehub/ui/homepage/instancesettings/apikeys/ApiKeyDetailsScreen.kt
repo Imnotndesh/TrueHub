@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.apikeys
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -43,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -50,10 +54,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System.formatDate
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 @Composable
@@ -62,25 +69,26 @@ fun ApiKeyDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: ApiKeyViewModel = viewModel(
-        factory = ApiKeyViewModel.ApiKeyViewModelFactory(manager), key = keyId.toString()
-    )
+    val vm: ApiKeyViewModel = hiltViewModel(key = keyId.toString())
     val uiState by vm.detailState.collectAsState()
     val clipboard = LocalClipboardManager.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { vm.loadDetail(keyId) }
-    LaunchedEffect(uiState.deleteResult) { if (uiState.deleteResult == true) onNavigateBack() }
+    LaunchedEffect(uiState.deleteResult) {
+        if (uiState.deleteResult == true) {
+            ToastManager.showSuccess("API key deleted")
+            onNavigateBack()
+        }
+    }
 
     val current = uiState.key
     val sc = animateColorAsState(
-        if (current?.revoked == true) Color(0xFFC62828) else Color(0xFF2E7D32), label = ""
+        if (current?.revoked == true) StatusTone.NEGATIVE.color() else StatusTone.POSITIVE.color(), label = ""
     )
 
-    Column(Modifier.fillMaxSize().background(
-        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer))
-    )) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UnifiedScreenHeader(
             title = current?.name ?: "API Key",
             subtitle = current?.username ?: "Key details",
@@ -93,30 +101,31 @@ fun ApiKeyDetailScreen(
                 uiState.isLoading -> LoadingScreen("Loading key details")
                 current != null -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Status card
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(2.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(56.dp).clip(CircleShape).background(sc.value.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Key, null, tint = sc.value, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(current.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface)
-                                Text(current.username ?: "System key", style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                    DetailHeroCard(
+                        title = current.name,
+                        subtitle = current.username ?: "System key",
+                        leading = {
+                            DetailHeroIcon(
+                                icon = Icons.Default.Key,
+                                containerColor = sc.value.copy(alpha = 0.12f),
+                                contentColor = sc.value
+                            )
+                        },
+                        badge = {
                             Surface(color = sc.value.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(8.dp).clip(CircleShape).background(sc.value))
                                     Spacer(Modifier.width(6.dp))
-                                    Text(if (current.revoked) "Revoked" else "Active",
-                                        style = MaterialTheme.typography.labelMedium, color = sc.value, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        if (current.revoked) "Revoked" else "Active",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = sc.value,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
-                    }
+                    )
 
                     // Key Info section
                     SectionCard(title = "Key Info", icon = Icons.Default.VpnKey) {
@@ -174,6 +183,18 @@ fun ApiKeyDetailScreen(
         confirmButton = { TextButton(onClick = { showResetDialog = false; vm.resetKey(keyId) }) { Text("Reset") } },
         dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
     )
+
+    uiState.resetResult?.let { result ->
+        CreditCardKeyDialog(
+            title = "API Key Reset",
+            keyName = result.name,
+            keyValue = result.key,
+            onDismiss = {
+                vm.clearResetResult()
+                vm.loadDetail(keyId)
+            }
+        )
+    }
 }
 
 @Composable
@@ -183,7 +204,7 @@ private fun SectionCard(title: String, icon: ImageVector, content: @Composable (
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                Text(title, modifier = Modifier.semantics { heading() }, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))

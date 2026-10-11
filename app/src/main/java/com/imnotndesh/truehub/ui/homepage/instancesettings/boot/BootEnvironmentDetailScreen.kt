@@ -1,8 +1,12 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,9 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -60,9 +65,7 @@ fun BootEnvironmentDetailScreen(
     environmentId: String,
     onNavigateBack: () -> Unit = {}
 ) {
-    val vm: BootEnvironmentsViewModel = viewModel(
-        factory = BootEnvironmentsViewModel.ViewModelFactory(manager)
-    )
+    val vm: BootEnvironmentsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -107,39 +110,22 @@ fun BootEnvironmentDetailScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
+                    InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     item {
                         val isActive = environment.active == true
-                        androidx.compose.material3.Card(
-                            shape = RoundedCornerShape(24.dp),
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = if (isActive)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                else MaterialTheme.colorScheme.surfaceContainerLow
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
-                                Text(
-                                    text = environment.id ?: "",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (isActive) "Currently running" else "Inactive",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isActive) MaterialTheme.colorScheme.primary
+                        DetailHeroCard(
+                            title = environment.id ?: "",
+                            subtitle = if (isActive) "Currently running" else "Inactive",
+                            leading = {
+                                DetailHeroIcon(
+                                    icon = Icons.Default.PowerSettingsNew,
+                                    containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
+                        )
                     }
 
                     item {
@@ -183,7 +169,14 @@ fun BootEnvironmentDetailScreen(
                                     InfoRow("Can Activate", booleanLabel(environment.canActivate))
                                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .toggleable(
+                                                value = environment.keep == true,
+                                                enabled = !uiState.isActing,
+                                                role = Role.Switch,
+                                                onValueChange = { value -> vm.keep(environmentId, value) }
+                                            ),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(
@@ -195,7 +188,7 @@ fun BootEnvironmentDetailScreen(
                                         Switch(
                                             checked = environment.keep == true,
                                             enabled = !uiState.isActing,
-                                            onCheckedChange = { value -> vm.keep(environmentId, value) }
+                                            onCheckedChange = null
                                         )
                                     }
                                 }
@@ -251,7 +244,8 @@ fun BootEnvironmentDetailScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        "Environment \"$environmentId\" not found.",
+                        if (uiState.error != null) "Couldn't load this boot environment. ${uiState.error}"
+                        else "Environment \"$environmentId\" not found.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

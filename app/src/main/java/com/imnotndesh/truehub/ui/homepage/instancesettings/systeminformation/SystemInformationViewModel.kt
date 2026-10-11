@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,10 @@ data class SystemInformationUiState(
     val error: String? = null
 )
 
-class SystemInformationViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class SystemInformationViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SystemInformationUiState())
     val uiState: StateFlow<SystemInformationUiState> = _uiState.asStateFlow()
@@ -68,7 +72,9 @@ class SystemInformationViewModel(private val manager: TrueNASApiManager) : ViewM
             val eulaAcceptedDeferred = async { manager.system.isEulaAccepted() }
             val managedByDeferred = async { manager.system.isManagedByTruecommand() }
 
-            val hostId = (hostIdDeferred.await() as? ApiResult.Success)?.data
+            val hostIdResult = hostIdDeferred.await()
+            val hostId = (hostIdResult as? ApiResult.Success)?.data
+            val loadError = (hostIdResult as? ApiResult.Error)?.message
             val bootId = (bootIdDeferred.await() as? ApiResult.Success)?.data
             val state = (stateDeferred.await() as? ApiResult.Success)?.data
             val ready = (readyDeferred.await() as? ApiResult.Success)?.data
@@ -89,6 +95,7 @@ class SystemInformationViewModel(private val manager: TrueNASApiManager) : ViewM
                 it.copy(
                     isLoading = false,
                     isRefreshing = false,
+                    error = loadError,
                     bootId = bootId ?: it.bootId,
                     hostId = hostId ?: it.hostId,
                     state = state ?: it.state,
@@ -112,14 +119,5 @@ class SystemInformationViewModel(private val manager: TrueNASApiManager) : ViewM
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return SystemInformationViewModel(manager) as T
-        }
     }
 }

@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.appimages
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -166,7 +169,11 @@ fun DockerImageListScreen(
                 ) {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .widthIn(max = 840.dp)
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -229,10 +236,16 @@ fun DockerImageListScreen(
             onSubmit = { ref ->
                 showPullDialog = false
                 if (ref.isNotBlank()) {
+                    val reference = ref.trim()
+                    ToastManager.showInfo("Pulling $reference…")
                     appScope.launch {
-                        when (val result = manager.apps.pullImageWithResult(ref.trim())) {
-                            is ApiResult.Error -> error = result.message ?: "Pull failed"
-                            else -> {}
+                        when (val result = manager.apps.pullImageWithResult(reference)) {
+                            is ApiResult.Success -> ToastManager.showSuccess("Pulled $reference")
+                            is ApiResult.Error -> {
+                                error = result.message ?: "Pull failed"
+                                ToastManager.showError(result.message ?: "Pull failed")
+                            }
+                            is ApiResult.Loading -> {}
                         }
                         refresh()
                     }

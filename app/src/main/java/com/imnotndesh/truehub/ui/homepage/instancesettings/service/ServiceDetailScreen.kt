@@ -1,4 +1,8 @@
 package com.imnotndesh.truehub.ui.services.system.services
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusChip
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.components.expressive.AdaptiveDetailScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -45,12 +49,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -71,9 +80,11 @@ fun ServiceDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: ServiceDetailViewModel = viewModel(
-        factory = ServiceDetailViewModel.ServiceDetailViewModelFactory(manager, service),
-        key = service.id.toString()
+    val viewModel: ServiceDetailViewModel = hiltViewModel<ServiceDetailViewModel, ServiceDetailViewModel.Factory>(
+        key = service.id.toString(),
+        creationCallback = { factory ->
+            factory.create(service)
+        }
     )
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -110,60 +121,32 @@ fun ServiceDetailScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+        AdaptiveDetailScreen(
+            header = {},
+            modifier = Modifier.padding(innerPadding)
         ) {
-            // Status header card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(statusColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = getServiceStatusIcon(current.state),
-                            contentDescription = current.state,
-                            tint = statusColor,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = current.state.lowercase().replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (current.pids.isNotEmpty()) {
-                            Text(
-                                text = "PID${if (current.pids.size > 1) "s" else ""}: ${current.pids.joinToString(", ")}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+            DetailHeroCard(
+                title = current.service,
+                subtitle = if (current.pids.isNotEmpty()) {
+                    "PID${if (current.pids.size > 1) "s" else ""}: ${current.pids.joinToString(", ")}"
+                } else {
+                    "Service Details"
+                },
+                leading = {
+                    DetailHeroIcon(
+                        icon = getServiceStatusIcon(current.state),
+                        containerColor = statusColor.copy(alpha = 0.15f),
+                        contentColor = statusColor
+                    )
+                },
+                badge = {
+                    ExpressiveStatusChip(
+                        label = current.state.lowercase().replaceFirstChar { it.uppercase() },
+                        tone = if (isRunning) StatusTone.POSITIVE else StatusTone.NEUTRAL,
+                        icon = getServiceStatusIcon(current.state)
+                    )
                 }
-            }
+            )
 
             // Start on boot toggle
             Card(
@@ -202,6 +185,10 @@ fun ServiceDetailScreen(
                         Switch(
                             checked = current.enable,
                             onCheckedChange = { viewModel.setStartOnBoot(it) },
+                            modifier = Modifier.semantics {
+                                contentDescription = "Start on boot"
+                                stateDescription = if (current.enable) "On" else "Off"
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -304,11 +291,12 @@ private fun getServiceStatusIcon(state: String): ImageVector {
     }
 }
 
+@Composable
 private fun getServiceStatusColor(state: String): Color {
     return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32)
-        "failed", "error" -> Color(0xFFD32F2F)
-        "paused" -> Color(0xFFF57C00)
-        else -> Color(0xFF757575)
+        "running" -> StatusTone.POSITIVE.color()
+        "failed", "error" -> StatusTone.NEGATIVE.color()
+        "paused" -> StatusTone.WARNING.color()
+        else -> StatusTone.NEUTRAL.color()
     }
 }

@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.apps.details.marketplace
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import android.provider.Settings
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -84,17 +87,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import kotlinx.coroutines.delay
 import coil.request.ImageRequest
-import coil.decode.SvgDecoder
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 
@@ -107,9 +110,7 @@ fun MarketplaceScreen(
     onInstallApplication: (Apps.AppAvailableItem) -> Unit = {},
     initialCategory: String? = null
 ) {
-    val viewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val viewModel: AppsScreenViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(initialCategory) }
@@ -268,9 +269,7 @@ fun MarketplaceScreen(
             // Main content – pulls to refresh
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.isLoading && uiState.marketplaceApps.isEmpty() && !uiState.isRefreshing) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
+                    MarketplaceSkeleton()
                 } else {
                     PullToRefreshContent(
                         isRefreshing = uiState.isRefreshing,
@@ -286,7 +285,7 @@ fun MarketplaceScreen(
                                         focusManager.clearFocus()
                                     })
                                 },
-                            contentPadding = PaddingValues(bottom = 40.dp)
+                            contentPadding = PaddingValues(bottom = 40.dp + floatingNavBottomClearance())
                         ) {
                             // Search results mode (if search query not empty)
                             if (searchQuery.isNotBlank()) {
@@ -474,12 +473,17 @@ fun RecommendedCarousel(
     onAppClick: (Apps.AppAvailableItem) -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { apps.size })
+    var autoAdvance by remember { mutableStateOf(true) }
+    val reducedMotion = rememberReducedMotion()
 
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, autoAdvance, reducedMotion, apps.size) {
+        if (!autoAdvance || reducedMotion || apps.size <= 1) return@LaunchedEffect
         while (true) {
             delay(4_000)
-            val next = (pagerState.currentPage + 1) % apps.size
-            pagerState.animateScrollToPage(next, animationSpec = tween(durationMillis = 500))
+            if (!pagerState.isScrollInProgress) {
+                val next = (pagerState.currentPage + 1) % apps.size
+                pagerState.animateScrollToPage(next, animationSpec = tween(durationMillis = 500))
+            }
         }
     }
 
@@ -488,7 +492,14 @@ fun RecommendedCarousel(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = 20.dp),
             pageSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { autoAdvance = false },
+                        onHorizontalDrag = { _, _ -> }
+                    )
+                }
         ) { page ->
             val app = apps[page]
             HeroCarouselCard(app = app, onClick = { onAppClick(app) })
@@ -749,7 +760,7 @@ fun SearchResultRow(
                 } else {
                     ButtonDefaults.filledTonalButtonColors()
                 },
-                modifier = Modifier.height(38.dp)
+                modifier = Modifier.heightIn(min = 48.dp)
             ) {
                 Icon(
                     imageVector = if (app.installed) Icons.Default.Add else Icons.Default.Download,
@@ -784,7 +795,6 @@ fun AppIcon(iconUrl: String?, title: String, size: Int) {
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(iconUrl)
-                .decoderFactory(SvgDecoder.Factory())
                 .crossfade(true)
                 .build(),
             contentDescription = "$title icon",
@@ -810,5 +820,16 @@ fun AppIcon(iconUrl: String?, title: String, size: Int) {
                 modifier = Modifier.size((size * 0.7f).dp)
             )
         }
+    }
+}
+@Composable
+private fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        ) == 0f
     }
 }

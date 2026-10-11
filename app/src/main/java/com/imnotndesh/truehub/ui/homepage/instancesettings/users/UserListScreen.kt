@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.users
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -82,7 +84,9 @@ import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -97,24 +101,18 @@ fun UserListScreen(
     onNavigateToCreateUser: () -> Unit = {},
     onNavigateToSetupAdmin: () -> Unit = {},
     ) {
-    val viewModel: UserSettingsViewModel = viewModel(
-        factory = UserSettingsViewModel.UserSettingsViewModelFactory(manager)
-    )
+    val viewModel: UserSettingsViewModel = hiltViewModel()
     val uiState by viewModel.listState.collectAsState()
+    val window = LocalTrueHubWindow.current
+    var selectedUserId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedUserId != null
 
     LaunchedEffect(Unit) { viewModel.loadUsers() }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = "Users",
@@ -127,6 +125,10 @@ fun UserListScreen(
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -313,6 +315,17 @@ fun UserListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedUserId?.let { userId ->
+                    UserDetailScreen(
+                        userId = userId,
+                        manager = manager,
+                        onNavigateBack = { selectedUserId = null }
+                    )
+                }
+            }
+        )
     }
 }
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -433,10 +446,10 @@ private fun UserCard(
     val isLocked = user.locked
     val statusColor by animateColorAsState(
         targetValue = when {
-            isLocked -> Color(0xFFC62828)
-            user.builtin -> Color(0xFF1565C0)
-            user.roles.contains("FULL_ADMIN") -> Color(0xFF6A1B9A)
-            else -> Color(0xFF2E7D32)
+            isLocked -> StatusTone.NEGATIVE.color()
+            user.builtin -> StatusTone.INFO.color()
+            user.roles.contains("FULL_ADMIN") -> MaterialTheme.colorScheme.tertiary
+            else -> StatusTone.POSITIVE.color()
         },
         label = "statusColor"
     )

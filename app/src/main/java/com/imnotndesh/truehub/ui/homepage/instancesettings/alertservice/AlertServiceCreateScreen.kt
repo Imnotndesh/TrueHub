@@ -3,6 +3,7 @@ package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,9 +42,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -147,7 +150,7 @@ fun AlertServiceCreateScreen(
             )
             when (val result = manager.alertsService.createAlertServiceWithResult(create)) {
                 is ApiResult.Success -> {
-                    snackbarHostState.showSnackbar("Alert service created!")
+                    ToastManager.showSuccess("Alert service created")
                     onNavigateBack()
                 }
                 is ApiResult.Error -> {
@@ -337,10 +340,16 @@ fun AlertServiceCreateScreen(
                             OutlinedTextField(value = snmpCommunity, onValueChange = { snmpCommunity = it }, label = { Text("Community") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .toggleable(
+                                        value = snmpV3,
+                                        role = Role.Switch,
+                                        onValueChange = { snmpV3 = it }
+                                    )
                             ) {
                                 Text("SNMP v3", modifier = Modifier.weight(1f))
-                                Switch(checked = snmpV3, onCheckedChange = { snmpV3 = it })
+                                Switch(checked = snmpV3, onCheckedChange = null)
                             }
                         }
                     }
@@ -357,7 +366,12 @@ fun AlertServiceCreateScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .padding(20.dp)
+                        .toggleable(
+                            value = enabled,
+                            role = Role.Switch,
+                            onValueChange = { enabled = it }
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -365,7 +379,7 @@ fun AlertServiceCreateScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
                     )
-                    Switch(checked = enabled, onCheckedChange = { enabled = it })
+                    Switch(checked = enabled, onCheckedChange = null)
                 }
             }
 

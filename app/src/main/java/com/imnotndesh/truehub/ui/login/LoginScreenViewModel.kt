@@ -1,11 +1,13 @@
 package com.imnotndesh.truehub.ui.login
 
-import android.app.Application
 import android.content.Context
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.imnotndesh.truehub.data.ApiResult
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.EncryptedPrefs
@@ -18,6 +20,7 @@ import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
 import com.imnotndesh.truehub.ui.components.ToastManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,9 +68,10 @@ sealed class LoginEvent {
     data class UpdateSaveApiKey(val enabled: Boolean, val context: Context) : LoginEvent()
 }
 
-class LoginScreenViewModel(
-    private var manager: TrueNASApiManager?,
-    private val application: Application
+@HiltViewModel(assistedFactory = LoginScreenViewModel.Factory::class)
+class LoginScreenViewModel @AssistedInject constructor(
+    @Assisted private var manager: TrueNASApiManager?,
+    @ApplicationContext private val application: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
@@ -283,7 +287,11 @@ class LoginScreenViewModel(
         when (loginResult) {
             is LoginExResult.AuthRespSuccess -> {
                 // Generate token and save
-                val tokenResult = manager!!.auth.generateTokenWithResult()
+                val tokenResult = manager!!.auth.generateTokenWithResult(
+                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                    )
+                )
                 when (tokenResult) {
                     is ApiResult.Success -> {
                         saveBaseInfo(context, tokenResult.data, "password")
@@ -353,7 +361,11 @@ class LoginScreenViewModel(
                         is ApiResult.Success -> {
                             when (val lr = result.data) {
                                 is LoginExResult.AuthRespSuccess -> {
-                                    val tokenResult = manager!!.auth.generateTokenWithResult()
+                                    val tokenResult = manager!!.auth.generateTokenWithResult(
+                    com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                        ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                    )
+                )
                                     when (tokenResult) {
                                         is ApiResult.Success -> {
                                             saveBaseInfo(
@@ -409,44 +421,38 @@ class LoginScreenViewModel(
         ToastManager.showInfo("Validating API key...")
         try {
             withTimeout(10000L) {
-                val mechanism = LoginMechanisms.AuthApiKeyPlain(
-                    username = state.username.ifBlank { "api-key" },
-                    api_key = state.apiKey,
-                    login_options = LoginMechanisms.LoginOptions(user_info = true)
-                )
-                val result = manager!!.auth.loginEx(mechanism, includeUserInfo = true)
+                // auth.login_ex API_KEY_PLAIN requires the key owner's username, which the
+                // key-only UI does not collect; auth.login_with_api_key authenticates on the key alone.
+                val result = manager!!.auth.loginWithApiKeyWithResult(state.apiKey)
 
                 when (result) {
                     is ApiResult.Success -> {
-                        when (val lr = result.data) {
-                            is LoginExResult.AuthRespSuccess -> {
-                                val tokenResult = manager!!.auth.generateTokenWithResult()
-                                when (tokenResult) {
-                                    is ApiResult.Success -> {
-                                        saveBaseInfo(context, tokenResult.data, "api_key")
-                                        saveDetailsForAutoLogin(
-                                            context, "api_key", state.apiKey,
-                                            null, null, state.saveDetailsForAutoLogin
-                                        )
-                                        _uiState.update {
-                                            it.copy(isLoading = false, isLoginSuccessful = true)
-                                        }
-                                    }
-                                    is ApiResult.Error -> {
-                                        _uiState.update { it.copy(isLoading = false) }
-                                        ToastManager.showError("Token generation failed: ${tokenResult.message}")
-                                    }
-                                    is ApiResult.Loading -> {}
+                        if (!result.data) {
+                            _uiState.update { it.copy(isLoading = false) }
+                            ToastManager.showError("Invalid API key")
+                            return@withTimeout
+                        }
+                        val tokenResult = manager!!.auth.generateTokenWithResult(
+                            com.imnotndesh.truehub.data.models.Auth.TokenRequest(
+                                ttl = MultiAccountPrefs.LONG_TOKEN_TTL_SECONDS
+                            )
+                        )
+                        when (tokenResult) {
+                            is ApiResult.Success -> {
+                                saveBaseInfo(context, tokenResult.data, "api_key")
+                                saveDetailsForAutoLogin(
+                                    context, "api_key", state.apiKey,
+                                    null, null, state.saveDetailsForAutoLogin
+                                )
+                                _uiState.update {
+                                    it.copy(isLoading = false, isLoginSuccessful = true)
                                 }
                             }
-                            is LoginExResult.AuthRespAuthErr -> {
+                            is ApiResult.Error -> {
                                 _uiState.update { it.copy(isLoading = false) }
-                                ToastManager.showError("Invalid API key")
+                                ToastManager.showError("Token generation failed: ${tokenResult.message}")
                             }
-                            else -> {
-                                _uiState.update { it.copy(isLoading = false) }
-                                ToastManager.showError("API key authentication failed")
-                            }
+                            is ApiResult.Loading -> {}
                         }
                     }
                     is ApiResult.Error -> {
@@ -532,33 +538,23 @@ class LoginScreenViewModel(
         // Save account
         MultiAccountPrefs.saveAccount(context, account)
 
-        // Save credentials only if auto-login is enabled
-        if (autoLoginEnabled) {
-            MultiAccountPrefs.saveAccountCredentials(
-                context = context,
-                accountId = account.id,
-                loginMethod = account.loginMethod,
-                apiKey = apiKey,
-                username = username,
-                password = password
-            )
-        }
+        // Persist credentials unconditionally so the account switcher (and recovery) can
+        // re-authenticate; `autoLoginEnabled` still gates automatic login on startup.
+        MultiAccountPrefs.saveAccountCredentials(
+            context = context,
+            accountId = account.id,
+            loginMethod = account.loginMethod,
+            apiKey = apiKey,
+            username = username,
+            password = password
+        )
 
         // Mark as last used
         MultiAccountPrefs.saveLastUsedProfile(context, server.id, account.id)
     }
-}
 
-class LoginViewModelFactory(
-    private val manager: TrueNASApiManager?,
-    private val application: Application
-) : ViewModelProvider.Factory {
-
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(LoginScreenViewModel::class.java)) {
-            return LoginScreenViewModel(manager, application) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+    @AssistedFactory
+    interface Factory {
+        fun create(manager: TrueNASApiManager?): LoginScreenViewModel
     }
 }

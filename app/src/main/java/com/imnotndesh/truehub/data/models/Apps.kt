@@ -517,6 +517,77 @@ object Apps {
         @field:Json("app_name") val appName: String? = null,
         val name: String? = null
     )
+
+    // ─────────────────────────────────────────────────────────────
+    // Catalog / choices / metadata
+    // ─────────────────────────────────────────────────────────────
+
+    /** A single entry of `app.gpu_choices`. */
+    @JsonClass(generateAdapter = true)
+    data class AppGpu(
+        val vendor: String? = null,
+        val description: String? = null,
+        val error: String? = null,
+        @field:Json("vendor_specific_config") val vendorSpecificConfig: Map<String, Any?> = emptyMap(),
+        @field:Json("gpu_details") val gpuDetails: Map<String, Any?> = emptyMap(),
+        @field:Json("pci_slot") val pciSlot: String? = null
+    )
+
+    /** Options for `app.container_ids`. */
+    @JsonClass(generateAdapter = true)
+    data class ContainerIdsOptions(
+        @field:Json("alive_only") val aliveOnly: Boolean = true
+    )
+
+    /** Options for `app.pull_images`. */
+    @JsonClass(generateAdapter = true)
+    data class PullImagesOptions(
+        val redeploy: Boolean = true
+    )
+
+    // ─────────────────────────────────────────────────────────────
+    // Container registries (app.registry.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /** A registry entry returned by `app.registry.*`. */
+    @JsonClass(generateAdapter = true)
+    data class AppRegistryEntry(
+        val id: Int,
+        val name: String,
+        val description: String? = null,
+        val username: String,
+        val password: String,
+        val uri: String
+    )
+
+    /** Payload for `app.registry.create` / `app.registry.update`. */
+    @JsonClass(generateAdapter = true)
+    data class AppRegistryUpsert(
+        val name: String? = null,
+        val description: String? = null,
+        val username: String? = null,
+        val password: String? = null,
+        val uri: String? = null
+    )
+
+    // ─────────────────────────────────────────────────────────────
+    // Catalog (catalog.*)
+    // ─────────────────────────────────────────────────────────────
+
+    /** Catalog config returned by `catalog.config` / `catalog.update`. */
+    @JsonClass(generateAdapter = true)
+    data class CatalogEntry(
+        val id: String,
+        val label: String,
+        @field:Json("preferred_trains") val preferredTrains: List<String> = emptyList(),
+        val location: String
+    )
+
+    /** Payload for `catalog.update`. */
+    @JsonClass(generateAdapter = true)
+    data class CatalogUpdateArgs(
+        @field:Json("preferred_trains") val preferredTrains: List<String> = emptyList()
+    )
 }
 
 /**

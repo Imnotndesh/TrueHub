@@ -1,5 +1,6 @@
 // AppInfoPane.kt
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.ui.components.HtmlDescription
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -64,14 +65,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.imnotndesh.truehub.data.models.Apps
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
 fun AppInfoPane(
     app: Apps.AppQueryResponse,
     onClose: () -> Unit,
-    onOpenAdvanced: (String) -> Unit = {}
+    onOpenAdvanced: (String) -> Unit = {},
+    serverBaseHttpUrl: String? = null
 ) {
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -170,11 +172,9 @@ fun AppInfoPane(
 
                 app.metadata?.description?.let { description ->
                     ServiceInfoSection(title = "Description", icon = Icons.Default.Description) {
-                        Text(
-                            text = description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
+                        HtmlDescription(
+                            html = description,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -207,7 +207,7 @@ fun AppInfoPane(
                     if (portals.isNotEmpty()) {
                         ServiceInfoSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
                             portals.forEach { (name, url) ->
-                                ServicePortalCard(name = name, url = url)
+                                ServicePortalCard(name = name, url = url.withRoutableServerHost(serverBaseHttpUrl))
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
                         }
@@ -343,85 +343,81 @@ private fun AppInfoPaneHeader(
     onClose: () -> Unit,
     onOpenAdvanced: (String) -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-    ) {
-        WavyGradientBackground {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = { onOpenAdvanced(app.id) }) {
-                    Icon(
-                        imageVector = Icons.Default.Build,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Advanced",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-                IconButton(onClick = onClose) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = { onOpenAdvanced(app.id) }) {
+                Icon(
+                    imageVector = Icons.Default.Build,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.size(4.dp))
+                Text(
+                    text = "Advanced",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                app.metadata?.icon?.let { iconUrl ->
-                    AsyncImage(
-                        model = iconUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            app.metadata?.icon?.let { iconUrl ->
+                AsyncImage(
+                    model = iconUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.size(16.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = app.metadata?.title ?: app.name,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Version ${app.humanVersion ?: app.version ?: "Unknown"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    )
-                    if (app.customApp) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
-                            Text(
-                                text = "Custom",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                            )
-                        }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Version ${app.humanVersion ?: app.version ?: "Unknown"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (app.customApp) {
+                    Spacer(Modifier.height(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "Custom",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
                     }
                 }
             }

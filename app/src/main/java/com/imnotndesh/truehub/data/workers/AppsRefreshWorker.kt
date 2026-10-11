@@ -1,6 +1,7 @@
 package com.imnotndesh.truehub.data.workers
 
 import android.content.Context
+import androidx.hilt.work.HiltWorker
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -13,21 +14,24 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.TrueNASClient
-import com.imnotndesh.truehub.data.api.AuthService
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
+import com.imnotndesh.truehub.data.helpers.WorkerSession
+import com.imnotndesh.truehub.data.helpers.WorkerSession.profileIds
 import com.imnotndesh.truehub.data.helpers.QuickLaunchSync
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.WidgetDataStore
-import com.imnotndesh.truehub.data.models.Config
-import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.workers.AppsRefreshWorker.Companion.scheduleImmediate
 import com.imnotndesh.truehub.data.workers.AppsRefreshWorker.Companion.scheduleRecurring
 import com.imnotndesh.truehub.ui.utils.AppCache
 import com.imnotndesh.truehub.ui.widgets.AppsUpdateWidgetUpdater
 import com.imnotndesh.truehub.ui.widgets.pools.PoolsWidgetUpdater
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
@@ -41,9 +45,10 @@ import java.util.concurrent.TimeUnit
  * [WidgetDataStore.saveAppsAndPools], and [PoolsWidgetUpdater.update] is
  * called so the pools widget refreshes alongside the apps widget.
  */
-class AppsRefreshWorker(
-    private val context: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class AppsRefreshWorker @AssistedInject constructor(
+    @Assisted private val context: Context,
+    @Assisted workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
     companion object {
@@ -51,36 +56,48 @@ class AppsRefreshWorker(
         const val ONE_TIME_WORK_NAME = "TrueHub_Apps_Refresh_Once"
 
         fun scheduleRecurring(context: Context) {
-            val request = PeriodicWorkRequestBuilder<AppsRefreshWorker>(3, TimeUnit.HOURS)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
-                .build()
+            val applicationContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                val requestBuilder = PeriodicWorkRequestBuilder<AppsRefreshWorker>(3, TimeUnit.HOURS)
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+                    )
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
+                MultiAccountPrefs.getLastUsedProfile(applicationContext)?.let { (serverId, accountId) ->
+                    requestBuilder.setInputData(WorkerSession.profileInputData(serverId, accountId))
+                }
+                val request = requestBuilder.build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+                WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+                    WORK_NAME,
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    request
+                )
+            }
         }
 
         fun scheduleImmediate(context: Context) {
-            val request = OneTimeWorkRequestBuilder<AppsRefreshWorker>()
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
-                .build()
+            val applicationContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                val requestBuilder = OneTimeWorkRequestBuilder<AppsRefreshWorker>()
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+                    )
+                MultiAccountPrefs.getLastUsedProfile(applicationContext)?.let { (serverId, accountId) ->
+                    requestBuilder.setInputData(WorkerSession.profileInputData(serverId, accountId))
+                }
+                val request = requestBuilder.build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                ONE_TIME_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                request
-            )
+                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                    ONE_TIME_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    request
+                )
+            }
         }
     }
 
@@ -90,40 +107,22 @@ class AppsRefreshWorker(
             val servers = MultiAccountPrefs.getServers(context)
             if (servers.isEmpty()) return@withContext Result.success()
 
-            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(context)
-                ?: return@withContext Result.success()
-
-            val server  = MultiAccountPrefs.getServer(context, serverId)
-                ?: return@withContext Result.failure()
-            val account = MultiAccountPrefs.getAccount(context, accountId)
-                ?: return@withContext Result.failure()
-
-            client = TrueNASClient(Config.ClientConfig(
-                serverUrl = server.serverUrl,
-                insecure  = server.insecure
-            ))
-            if (!client.connect()) return@withContext Result.retry()
-
-            val manager = TrueNASApiManager(client, context)
-
-            val token  = MultiAccountPrefs.getTokenForLastUsed(context)
-            val authed = if (token != null) {
-                (manager.auth.loginWithTokenAndResult(token) is ApiResult.Success)
-            } else false
-
-            if (!authed) {
-                val (cred1, cred2) = MultiAccountPrefs.getAccountCredentials(
-                    context, accountId, account.loginMethod
+            val profileIds = inputData.profileIds()
+            val manager: TrueNASApiManager
+            when (
+                val session = WorkerSession.open(
+                    context,
+                    profileIds?.first,
+                    profileIds?.second
                 )
-                val loginResult = when (account.loginMethod) {
-                    LoginMethod.API_KEY -> cred1?.let {
-                        manager.auth.loginWithApiKeyWithResult(it)
-                    } ?: return@withContext Result.failure()
-                    LoginMethod.PASSWORD, LoginMethod.TOTP -> if (cred1 != null && cred2 != null) {
-                        manager.auth.loginUserWithResult(AuthService.DefaultAuth(cred1, cred2))
-                    } else return@withContext Result.failure()
+            ) {
+                is WorkerSession.Result.Ready -> {
+                    manager = session.manager
+                    client = session.client
                 }
-                if (loginResult is ApiResult.Error) return@withContext Result.retry()
+                is WorkerSession.Result.Unauthenticated -> return@withContext Result.success()
+                is WorkerSession.Result.Retryable ->
+                    return@withContext if (runAttemptCount < 3) Result.retry() else Result.failure()
             }
 
             // ── Fetch apps + pools concurrently ──────────────────────────────

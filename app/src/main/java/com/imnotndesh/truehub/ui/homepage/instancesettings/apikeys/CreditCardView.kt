@@ -121,6 +121,7 @@ private fun rememberDeviceTilt(): Pair<Float, Float> {
 
 @Composable
 fun CreditCardKeyDialog(
+    title: String = "API Key Created",
     keyName: String,
     keyValue: String,
     onDismiss: () -> Unit
@@ -148,10 +149,7 @@ fun CreditCardKeyDialog(
     // sliding up and scaling, instead of a flat fade/scale ---
     val entranceProgress by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "entrance"
     )
     val slideOffset by animateFloatAsState(
@@ -185,12 +183,12 @@ fun CreditCardKeyDialog(
 
     val animatedRotationX by animateFloatAsState(
         targetValue = liveRotationX,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "rotX"
     )
     val animatedRotationY by animateFloatAsState(
         targetValue = liveRotationY,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "rotY"
     )
 
@@ -214,7 +212,7 @@ fun CreditCardKeyDialog(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                "API Key Created",
+                text = title,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 18.sp

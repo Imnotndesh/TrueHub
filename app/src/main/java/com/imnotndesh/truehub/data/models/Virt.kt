@@ -84,7 +84,7 @@ object Virt {
         val type: Type,
         val status : Status,
         val cpu: String? = null,
-        val memory: Int? = null,
+        val memory: Long? = null,
         val autostart : Boolean,
         val environment: Map<String,String>,
         val aliases : List<Aliases>,
@@ -105,7 +105,7 @@ object Virt {
         val environment: Map<String,String>? = null,
         val autostart : Boolean? = null,
         val cpu: String? = null,
-        val memory: Int? = null,
+        val memory: Long? = null,
         val vnc_port : Int? = null, // remember to set UI to limit this to between  greater or equal to 5900 and lesser or equal to 65535
         val vnc_enabled : Boolean,
         val vnc_password : String? = null,
@@ -153,7 +153,7 @@ object Virt {
         val description: String? = null,
         val readonly : Boolean? = false,
         val dev_type: String,
-        val gpu_type: String,
+        val gpu_type: String? = null,
         val id : String? = null,
         val gid : Int? = null,
         val uid: Int? = null,
@@ -164,6 +164,23 @@ object Virt {
         val productid: String? = null,
         val vendorid: String? = null,
     ): Device
+    @JsonClass(generateAdapter = true)
+    data class GpuChoice(
+        val bus: String? = null,
+        val slot: String? = null,
+        val description: String? = null,
+        val vendor: String? = null,
+        val pci: String? = null
+    )
+    @JsonClass(generateAdapter = true)
+    data class UsbChoice(
+        @field:Json("vendor_id") val vendorId: String? = null,
+        @field:Json("product_id") val productId: String? = null,
+        val bus: Int? = null,
+        val dev: Int? = null,
+        val product: String? = null,
+        val manufacturer: String? = null
+    )
     @Suppress("PropertyName")
     data class ProxyDevice(
         val name: String? = null,
@@ -229,12 +246,71 @@ object Virt {
      * @see com.imnotndesh.truehub.data.api.ApiMethods.Virt.GET_IMAGE_CHOICES
      */
     data class ImageChoice(
-        val label: String,
-        val os :String,
-        val release: String,
-        val archs : List<String>,
-        val variant: String,
-        val instance_types: List<String>,
+        val label: String? = null,
+        val os: String? = null,
+        val release: String? = null,
+        val archs: List<String> = emptyList(),
+        val variant: String? = null,
+        val instance_types: List<String> = emptyList(),
         val secureboot: Boolean? = null
     )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalEntry(
+        val id: Int,
+        val pool: String? = null,
+        val dataset: String? = null,
+        @field:Json("storage_pools") val storagePools: List<String>? = null,
+        val bridge: String? = null,
+        @field:Json("v4_network") val v4Network: String? = null,
+        @field:Json("v6_network") val v6Network: String? = null,
+        val state: String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalUpdate(
+        val pool: String? = null,
+        @field:Json("storage_pools") val storagePools: List<String>? = null,
+        val bridge: String? = null,
+        @field:Json("v4_network") val v4Network: String? = null,
+        @field:Json("v6_network") val v6Network: String? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class GlobalNetwork(
+        val type: String? = null,
+        val managed: Boolean? = null,
+        @field:Json("ipv4_address") val ipv4Address: String? = null,
+        @field:Json("ipv4_nat") val ipv4Nat: Boolean? = null,
+        @field:Json("ipv6_address") val ipv6Address: String? = null,
+        @field:Json("ipv6_nat") val ipv6Nat: Boolean? = null
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeEntry(
+        val id: String ?= null,
+        val name: String ?= null,
+        @field:Json("storage_pool") val storagePool: String ? = null,
+        @field:Json("content_type") val contentType: String ?= null,
+        @field:Json("created_at") val createdAt: String ?= null,
+        val type: String ?= null,
+        val config: Map<String, Any?> = emptyMap(),
+        @field:Json("used_by") val usedBy: List<String> = emptyList()
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeCreate(
+        val name: String ?= null,
+        @field:Json("storage_pool") val storagePool: String ?= "Not Configured",
+        @field:Json("content_type") val contentType: String = "BLOCK",
+        val size: Int = 1024
+    )
+
+    @JsonClass(generateAdapter = true)
+    data class VolumeUpdate(
+        val size: Int? = null
+    )
 }
+
+fun Virt.VolumeEntry.sizeInMb(): Int? =
+    (config["size"] as? Number)?.toInt()

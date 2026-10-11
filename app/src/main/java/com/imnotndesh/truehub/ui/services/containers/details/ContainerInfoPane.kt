@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -23,9 +21,6 @@ import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -34,60 +29,56 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.intl.Locale
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.models.Virt.ContainerResponse
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveBadge
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveDivider
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveSection
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveShapeBox
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusChip
+import com.imnotndesh.truehub.ui.components.expressive.InfoRow
+import com.imnotndesh.truehub.ui.services.containers.containerShape
+import com.imnotndesh.truehub.ui.services.containers.containerStatusIcon
+import com.imnotndesh.truehub.ui.services.containers.containerStatusLabel
+import com.imnotndesh.truehub.ui.services.containers.containerStatusTone
+import com.imnotndesh.truehub.ui.services.containers.containerTypeContainerColor
+import com.imnotndesh.truehub.ui.services.containers.containerTypeContentColor
+import com.imnotndesh.truehub.ui.services.containers.containerTypeIcon
+import com.imnotndesh.truehub.ui.services.containers.formatMemory
 
 @Composable
 fun ContainerInfoPane(
     container: ContainerResponse,
     onClose: () -> Unit,
-    showInlineHeader: Boolean = true
+    showInlineHeader: Boolean = true,
+    contentTopPadding: Dp = 24.dp,
+    topContent: (@Composable ColumnScope.() -> Unit)? = null,
+    bottomActions: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
+        tonalElevation = if (showInlineHeader) 2.dp else 0.dp,
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             if (showInlineHeader) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = container.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    IconButton(onClick = onClose) {
-                        Icon(Icons.Default.Close, contentDescription = "Close Pane")
-                    }
-                }
+                ContainerPaneHeader(container = container, onClose = onClose)
             }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 24.dp, end = 24.dp, top = contentTopPadding, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                topContent?.invoke(this)
 
-            ExpressiveSection(title = "Status", icon = Icons.Default.Info) {
-                val statusStr = container.status.toString().uppercase()
-                val isRunning = statusStr == "RUNNING" || statusStr == "ACTIVE"
-                val statusColor = if (isRunning) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-                val onStatusColor = if (isRunning) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = statusColor),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+                ExpressiveSection(title = "Status", icon = Icons.Default.Info) {
+                    ExpressiveInfoCard {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -96,188 +87,163 @@ fun ContainerInfoPane(
                             Text(
                                 text = "Current State",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = onStatusColor.copy(alpha = 0.8f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Medium
                             )
-                            Text(
-                                text = statusStr,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = onStatusColor
+                            ExpressiveStatusChip(
+                                label = containerStatusLabel(container.status),
+                                tone = containerStatusTone(container.status),
+                                icon = containerStatusIcon(container.status)
                             )
                         }
                     }
                 }
-            }
 
-            ExpressiveSection(title = "System Details", icon = Icons.Default.Computer) {
-                ExpressiveInfoCard {
-                    InfoRow(label = "Container ID", value = container.id.take(12))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                    InfoRow(label = "Type", value = container.type.toString())
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                    InfoRow(label = "Autostart", value = if (container.autostart) "Enabled" else "Disabled")
+                ExpressiveSection(title = "System Details", icon = Icons.Default.Computer) {
+                    ExpressiveInfoCard {
+                        InfoRow(label = "Container ID", value = container.id.take(12))
+                        ExpressiveDivider()
+                        InfoRow(label = "Type", value = container.type.toString())
+                        ExpressiveDivider()
+                        InfoRow(label = "Autostart", value = if (container.autostart) "Enabled" else "Disabled")
 
-                    container.secure_boot?.let { secureBoot ->
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                        InfoRow(label = "Secure Boot", value = if (secureBoot) "Enabled" else "Disabled")
-                    }
+                        container.secure_boot?.let { secureBoot ->
+                            ExpressiveDivider()
+                            InfoRow(label = "Secure Boot", value = if (secureBoot) "Enabled" else "Disabled")
+                        }
 
-                    if (container.aliases.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                        InfoRow(label = "Aliases", value = container.aliases.joinToString { it.toString() })
+                        if (container.aliases.isNotEmpty()) {
+                            ExpressiveDivider()
+                            InfoRow(label = "Aliases", value = container.aliases.joinToString { it.toString() })
+                        }
                     }
                 }
-            }
 
-            if (container.cpu != null || container.memory != null) {
-                ExpressiveSection(title = "Resources", icon = Icons.Default.Memory) {
-                    ExpressiveInfoCard {
-                        container.cpu?.let { cpu ->
-                            InfoRow(label = "CPU Allocation", value = cpu)
-                        }
-
-                        if (container.cpu != null && container.memory != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                        }
-
-                        container.memory?.let { memory ->
-                            val memoryStr = if (memory >= 1024) {
-                                "${String.format(Locale.toString(), memory / 1024.0)} GB"
-                            } else {
-                                "$memory MB"
+                if (container.cpu != null || container.memory != null) {
+                    ExpressiveSection(title = "Resources", icon = Icons.Default.Memory) {
+                        ExpressiveInfoCard {
+                            container.cpu?.let { cpu ->
+                                InfoRow(label = "CPU Allocation", value = cpu)
                             }
-                            InfoRow(label = "Memory Allocation", value = memoryStr)
-                        }
-                    }
-                }
-            }
 
-            if (container.storage_pool != null || container.root_disk_size != null) {
-                ExpressiveSection(title = "Storage", icon = Icons.Default.Storage) {
-                    ExpressiveInfoCard {
-                        container.storage_pool?.let { pool ->
-                            InfoRow(label = "Storage Pool", value = pool)
-                        }
+                            if (container.cpu != null && container.memory != null) {
+                                ExpressiveDivider()
+                            }
 
-                        if (container.storage_pool != null && container.root_disk_size != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                        }
-
-                        container.root_disk_size?.let { size ->
-                            InfoRow(label = "Root Disk Size", value = "$size GB")
-                        }
-
-                        container.root_disk_io_bus?.let { bus ->
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                            InfoRow(label = "IO Bus", value = bus.toString())
-                        }
-                    }
-                }
-            }
-
-            if (container.vnc_enabled) {
-                ExpressiveSection(title = "Remote Access (VNC)", icon = Icons.Default.DesktopWindows) {
-                    ExpressiveInfoCard {
-                        InfoRow(label = "VNC Status", value = "Enabled")
-                        container.vnc_port?.let { port ->
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                            InfoRow(label = "Port", value = port.toString())
-                        }
-                        if (container.vnc_password != null) {
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-                            InfoRow(label = "Password", value = "••••••••")
-                        }
-                    }
-                }
-            }
-
-            if (container.environment.isNotEmpty()) {
-                ExpressiveSection(title = "Environment Variables", icon = Icons.Default.DeveloperBoard) {
-                    ExpressiveInfoCard {
-                        val entries = container.environment.entries.toList()
-                        entries.forEachIndexed { index, entry ->
-                            InfoRow(label = entry.key, value = entry.value)
-                            if (index < entries.size - 1) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                            container.memory?.let { memory ->
+                                InfoRow(label = "Memory Allocation", value = formatMemory(memory))
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                if (container.storage_pool != null || container.root_disk_size != null) {
+                    ExpressiveSection(title = "Storage", icon = Icons.Default.Storage) {
+                        ExpressiveInfoCard {
+                            container.storage_pool?.let { pool ->
+                                InfoRow(label = "Storage Pool", value = pool)
+                            }
+
+                            if (container.storage_pool != null && container.root_disk_size != null) {
+                                ExpressiveDivider()
+                            }
+
+                            container.root_disk_size?.let { size ->
+                                InfoRow(label = "Root Disk Size", value = "$size GB")
+                            }
+
+                            container.root_disk_io_bus?.let { bus ->
+                                ExpressiveDivider()
+                                InfoRow(label = "IO Bus", value = bus.toString())
+                            }
+                        }
+                    }
+                }
+
+                if (container.vnc_enabled) {
+                    ExpressiveSection(title = "Remote Access (VNC)", icon = Icons.Default.DesktopWindows) {
+                        ExpressiveInfoCard {
+                            InfoRow(label = "VNC Status", value = "Enabled")
+                            container.vnc_port?.let { port ->
+                                ExpressiveDivider()
+                                InfoRow(label = "Port", value = port.toString())
+                            }
+                            if (container.vnc_password != null) {
+                                ExpressiveDivider()
+                                InfoRow(label = "Password", value = "••••••••")
+                            }
+                        }
+                    }
+                }
+
+                if (container.environment.isNotEmpty()) {
+                    ExpressiveSection(title = "Environment Variables", icon = Icons.Default.DeveloperBoard) {
+                        ExpressiveInfoCard {
+                            val entries = container.environment.entries.toList()
+                            entries.forEachIndexed { index, entry ->
+                                InfoRow(label = entry.key, value = entry.value)
+                                if (index < entries.size - 1) {
+                                    ExpressiveDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+
+                bottomActions?.invoke(this)
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }
 
 @Composable
-private fun ExpressiveSection(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+private fun ContainerPaneHeader(
+    container: ContainerResponse,
+    onClose: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 8.dp, top = 24.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        ExpressiveShapeBox(
+            shape = containerShape(container.type),
+            containerColor = containerTypeContainerColor(container.type),
+            modifier = Modifier.size(56.dp)
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.size(32.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+            Icon(
+                imageVector = containerTypeIcon(container.type),
+                contentDescription = null,
+                tint = containerTypeContentColor(container.type),
+                modifier = Modifier.size(28.dp)
             )
         }
-        Column(content = content)
-    }
-}
-
-@Composable
-private fun ExpressiveInfoCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            content()
+        Spacer(Modifier.size(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = container.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(6.dp))
+            ExpressiveStatusChip(
+                label = containerStatusLabel(container.status),
+                tone = containerStatusTone(container.status),
+                icon = containerStatusIcon(container.status)
+            )
         }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(0.6f)
-        )
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }

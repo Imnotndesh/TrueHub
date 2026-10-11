@@ -2,6 +2,7 @@ package com.imnotndesh.truehub.ui.settings
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -60,6 +62,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.BugReport
+import com.imnotndesh.truehub.BuildConfig
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.LoggingPrefs
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
@@ -71,10 +74,12 @@ fun SettingsScreen(
     onNavigateToLicenses: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {},
     onNavigateToLogin: () -> Unit = {},
+    onSignOutComplete: () -> Unit = {},
     onDummyAction: (String) -> Unit = {},
     onNavigateToTheme : () -> Unit = {},
     onNavigateToChangePassword : () -> Unit = {},
     onNavigateToLogging: () -> Unit = {},
+    onNavigateToAppUpdate: () -> Unit = {},
     onNavigateBack: () -> Unit = {}
 ) {
     val viewModel : SettingsScreenViewModel = viewModel(
@@ -98,7 +103,7 @@ fun SettingsScreen(
 
     LaunchedEffect(uiState.logoutSuccess) {
         if (uiState.logoutSuccess) {
-            onNavigateToLogin()
+            onSignOutComplete()
             viewModel.handleEvent(SettingsEvent.ClearLogoutSuccess)
         }
     }
@@ -161,6 +166,12 @@ fun SettingsScreen(
                         onClick = { onNavigateToTheme() }
                     ),
                     SettingItem(
+                        icon = Icons.Default.SystemUpdateAlt,
+                        name = "App Updates",
+                        description = "Version ${BuildConfig.VERSION_NAME} · Check for new releases",
+                        onClick = { onNavigateToAppUpdate() }
+                    ),
+                    SettingItem(
                         icon = Icons.Default.PrivacyTip,
                         name = "Privacy",
                         description = "Control data sharing & permissions",
@@ -203,6 +214,7 @@ fun SettingsScreen(
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
+
             SettingsSection(
                 title = "About",
                 items = buildList {
@@ -295,8 +307,9 @@ private fun SettingCard(item: SettingItem) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(28.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )

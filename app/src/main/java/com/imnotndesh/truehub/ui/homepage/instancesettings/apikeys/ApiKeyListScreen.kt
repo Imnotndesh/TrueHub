@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.apikeys
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -69,7 +71,9 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -83,16 +87,15 @@ fun ApiKeyListScreen(
     onNavigateToDetail: (Int) -> Unit = {},
     onNavigateToCreate: () -> Unit = {}
 ) {
-    val vm: ApiKeyViewModel = viewModel(
-        factory = ApiKeyViewModel.ApiKeyViewModelFactory(manager)
-    )
+    val vm: ApiKeyViewModel = hiltViewModel()
     val uiState by vm.listState.collectAsState()
+    val window = LocalTrueHubWindow.current
+    var selectedKeyId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedKeyId != null
 
     LaunchedEffect(Unit) { vm.loadKeys() }
 
-    Column(modifier = Modifier.fillMaxSize().background(
-        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer))
-    )) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UnifiedScreenHeader(
             title = "API Keys",
             subtitle = "${uiState.filteredKeys.size} / ${uiState.keys.size} key(s)",
@@ -101,6 +104,10 @@ fun ApiKeyListScreen(
             manager = manager, onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -190,12 +197,23 @@ fun ApiKeyListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedKeyId?.let { keyId ->
+                    ApiKeyDetailScreen(
+                        keyId = keyId,
+                        manager = manager,
+                        onNavigateBack = { selectedKeyId = null }
+                    )
+                }
+            }
+        )
     }
 }
 
 @Composable
 private fun KeyCard(key: System.ApiKeyEntry, onClick: () -> Unit) {
-    val sc = animateColorAsState(if (key.revoked) Color(0xFFC62828) else Color(0xFF2E7D32), label = "")
+    val sc = animateColorAsState(if (key.revoked) StatusTone.NEGATIVE.color() else StatusTone.POSITIVE.color(), label = "")
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),

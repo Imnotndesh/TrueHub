@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.settings.screens
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Arrangement
@@ -40,7 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -84,10 +86,15 @@ fun LicensesScreen(
             )
         }
     ) { paddingValues ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentAlignment = Alignment.TopCenter
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
         ) {
             // Compact Header Section
             Box(
@@ -96,7 +103,7 @@ fun LicensesScreen(
                     .height(140.dp)
                     .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
             ) {
-                WavyGradientBackground {
+                ExpressiveScreenBackground {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -176,5 +183,6 @@ fun LicensesScreen(
                 }
             }
         }
+    }
     }
 }

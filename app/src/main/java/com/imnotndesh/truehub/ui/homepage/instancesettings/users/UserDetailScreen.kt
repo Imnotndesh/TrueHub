@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.users
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -6,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,16 +58,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
+import com.imnotndesh.truehub.ui.components.SecretRevealDialog
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
 
@@ -75,10 +85,7 @@ fun UserDetailScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: UserSettingsViewModel = viewModel(
-        factory = UserSettingsViewModel.UserSettingsViewModelFactory(manager),
-        key = userId.toString()
-    )
+    val viewModel: UserSettingsViewModel = hiltViewModel(key = userId.toString())
     val uiState by viewModel.detailState.collectAsState()
     var isEditing by remember { mutableStateOf(false) }
 
@@ -116,10 +123,10 @@ fun UserDetailScreen(
 
     val statusColor by animateColorAsState(
         targetValue = when {
-            current?.locked == true -> Color(0xFFC62828)
-            current?.builtin == true -> Color(0xFF1565C0)
-            current?.roles?.contains("FULL_ADMIN") == true -> Color(0xFF6A1B9A)
-            else -> Color(0xFF2E7D32)
+            current?.locked == true -> StatusTone.NEGATIVE.color()
+            current?.builtin == true -> StatusTone.INFO.color()
+            current?.roles?.contains("FULL_ADMIN") == true -> MaterialTheme.colorScheme.tertiary
+            else -> StatusTone.POSITIVE.color()
         },
         label = "statusColor"
     )
@@ -134,14 +141,7 @@ fun UserDetailScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = current?.username ?: "User",
@@ -164,56 +164,20 @@ fun UserDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Status header card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(statusColor.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Person, null,
-                                    tint = statusColor,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    current.username,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    current.full_name,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (current.email != null) {
-                                    Text(
-                                        current.email,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
+                    DetailHeroCard(
+                        title = current.username,
+                        subtitle = listOfNotNull(
+                            current.full_name.takeIf { it.isNotBlank() },
+                            current.email?.takeIf { it.isNotBlank() }
+                        ).joinToString(" · "),
+                        leading = {
+                            DetailHeroIcon(
+                                icon = Icons.Default.Person,
+                                containerColor = statusColor.copy(alpha = 0.12f),
+                                contentColor = statusColor
+                            )
+                        },
+                        badge = {
                             Surface(
                                 color = statusColor.copy(alpha = 0.12f),
                                 shape = RoundedCornerShape(100.dp)
@@ -238,7 +202,7 @@ fun UserDetailScreen(
                                 }
                             }
                         }
-                    }
+                    )
 
                     if (isEditing) {
                         EditUserForm(
@@ -431,6 +395,12 @@ fun UserDetailScreen(
                     )
                     HorizontalDivider()
 
+                    Text(
+                        "Renewing immediately invalidates the current secret. Make sure you can add the new secret to your authenticator before you continue.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     Button(
                         onClick = {
                             viewModel.renew2faSecret(current.username)
@@ -528,12 +498,14 @@ fun UserDetailScreen(
             if (uiState.passwordChangeResult == true) {
                 showPasswordSheet = false
                 changePasswordValue = ""
+                ToastManager.showSuccess("Password updated")
                 viewModel.clearPasswordChangeResult()
             }
         }
         LaunchedEffect(uiState.unset2faResult) {
             if (uiState.unset2faResult == true) {
                 showTwoFactorSheet = false
+                ToastManager.showSuccess("Two-factor authentication disabled")
                 viewModel.clearUnset2faResult()
                 viewModel.loadUserDetail(userId)
             }
@@ -541,10 +513,24 @@ fun UserDetailScreen(
         LaunchedEffect(uiState.renew2faResult) {
             if (uiState.renew2faResult != null) {
                 showTwoFactorSheet = false
-                viewModel.clearRenew2faResult()
+            }
+        }
+        LaunchedEffect(uiState.updateResult) {
+            if (uiState.updateResult == true) {
+                isEditing = false
+                ToastManager.showSuccess("User updated")
+                viewModel.clearUpdateResult()
             }
         }
 
+        uiState.renew2faResult?.twofactor_config?.provisioning_uri?.let { uri ->
+            SecretRevealDialog(
+                title = "Two-Factor Secret",
+                message = "The previous secret is now invalid. Add this account to your authenticator app now — it won't be shown again.",
+                secret = uri,
+                onDismiss = { viewModel.clearRenew2faResult() }
+            )
+        }
     }
 
     if (showDeleteDialog) {
@@ -602,6 +588,7 @@ private fun SectionCard(
                 )
                 Text(
                     title,
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -686,22 +673,34 @@ private fun EditUserForm(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = locked,
+                        role = Role.Switch,
+                        onValueChange = onLockedChange
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Locked", style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f))
-                Switch(checked = locked, onCheckedChange = onLockedChange)
+                Switch(checked = locked, onCheckedChange = null)
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = passwordDisabled,
+                        role = Role.Switch,
+                        onValueChange = onPasswordDisabledChange
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Password Disabled", style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f))
                 Switch(
                     checked = passwordDisabled,
-                    onCheckedChange = onPasswordDisabledChange
+                    onCheckedChange = null
                 )
             }
         }

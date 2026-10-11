@@ -1,12 +1,17 @@
 package com.imnotndesh.truehub.ui.homepage.pools
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,6 +64,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -68,7 +76,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobState
 import com.imnotndesh.truehub.data.models.Storage
@@ -76,9 +86,10 @@ import com.imnotndesh.truehub.data.models.System.Pool
 import com.imnotndesh.truehub.data.models.System.PoolDevice
 import com.imnotndesh.truehub.data.models.System.PoolScan
 import com.imnotndesh.truehub.data.models.System.PoolTopology
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import java.text.DecimalFormat
 import java.time.Instant
 import java.time.LocalDateTime
@@ -91,9 +102,7 @@ fun PoolDetailsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToFiles: (String) -> Unit
 ) {
-    val viewModel: PoolDetailsViewModel = viewModel(
-        factory = PoolDetailsViewModel.PoolDetailsViewModelFactory(manager)
-    )
+    val viewModel: PoolDetailsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     var isLoading by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -119,41 +128,41 @@ fun PoolDetailsScreen(
         }
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            UnifiedScreenHeader(
-                title = "Pool Details",
-                subtitle = "${currentPool?.name ?: "Current"} Details",
-                isLoading = isLoading,
-                isRefreshing = isRefreshing,
-                error = error,
-                onRefresh = { viewModel.refresh() },
-                onDismissError = { error = null },
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-
-            when (val state = uiState) {
-                is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
-                is PoolDetailsUiState.Error -> {}
-                is PoolDetailsUiState.Success -> PoolDetailsContent(
-                    pool = state.pool,
-                    scrubTasks = state.scrubTasks,
-                    onCreateScrubTask = viewModel::createScrubTask,
-                    onUpdateScrubTask = viewModel::updateScrubTask,
-                    onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
-                    onRunScrubTask = viewModel::runScrubTask,
-                    onSwitchScrubState = viewModel::switchScrubTaskState,
-                    jobStates = state.jobStates,
-                    onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background
+        ) { _ ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                when (val state = uiState) {
+                    is PoolDetailsUiState.Loading -> LoadingScreen("Loading Pool Details...")
+                    is PoolDetailsUiState.Error ->
+                        ErrorState(state.message, onRetry = { viewModel.refresh() })
+                    is PoolDetailsUiState.Success -> PoolDetailsContent(
+                        pool = state.pool,
+                        scrubTasks = state.scrubTasks,
+                        onCreateScrubTask = viewModel::createScrubTask,
+                        onUpdateScrubTask = viewModel::updateScrubTask,
+                        onDeleteScrubTask = { id -> viewModel.deleteScrubTask(id) },
+                        onRunScrubTask = viewModel::runScrubTask,
+                        onSwitchScrubState = viewModel::switchScrubTaskState,
+                        jobStates = state.jobStates,
+                        onNavigateToFiles = { onNavigateToFiles(state.pool.name) }
+                    )
+                }
             }
         }
+
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            error = error,
+            onDismissError = { error = null },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        )
     }
 }
 
@@ -235,8 +244,13 @@ private fun PoolDetailsContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .padding(top = 88.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 32.dp)
     ) {
-        PoolInfoHeader(pool = pool)
+        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            PoolInfoHeader(pool = pool)
+        }
 
         Row(
             modifier = Modifier
@@ -295,52 +309,13 @@ private fun PoolDetailsContent(
 
 @Composable
 private fun PoolInfoHeader(pool: Pool) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .clip(
-                RoundedCornerShape(
-                    bottomStart = 24.dp,
-                    bottomEnd = 24.dp,
-                    topStart = 24.dp,
-                    topEnd = 24.dp
-                )
-            )
-            .padding(horizontal = 10.dp)
-    ) {
-        WavyGradientBackground {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Storage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(48.dp)
-                )
-
-                Text(
-                    text = pool.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = "${pool.status} • Total: ${pool.size!!.toGigabytesString()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    fontSize = 14.sp
-                )
-            }
+    DetailHeroCard(
+        title = pool.name,
+        subtitle = "${pool.status} • Total: ${pool.size!!.toGigabytesString()}",
+        leading = {
+            DetailHeroIcon(icon = Icons.Default.Storage)
         }
-    }
+    )
 }
 fun Long.toGigabytesString(): String {
     if (this == 0L) {
@@ -360,7 +335,7 @@ private fun PoolStorageUsageCard(pool: Pool) {
     val usedPercentage = pool.size?.let { if (it > 0) (pool.allocated!!.toFloat() / pool.size.toFloat()) else 0f }
     val progressColor = when {
         usedPercentage!! > 0.9f -> MaterialTheme.colorScheme.error
-        usedPercentage > 0.75f -> Color(0xFFF57C00) // Orange
+        usedPercentage > 0.75f -> StatusTone.WARNING.color()
         else -> MaterialTheme.colorScheme.primary
     }
 
@@ -377,8 +352,9 @@ private fun PoolStorageUsageCard(pool: Pool) {
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -455,7 +431,9 @@ private fun PoolInfoSection(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() }
             )
             action?.invoke()
         }
@@ -494,8 +472,8 @@ private fun PoolStatusSection(pool: Pool) {
     PoolInfoSection(title = "Status & Health", icon = Icons.Default.Info) {
         val statusColor = when {
             !pool.healthy -> MaterialTheme.colorScheme.error
-            pool.warning -> Color(0xFFF57C00)
-            else -> Color(0xFF2E7D32)
+            pool.warning -> StatusTone.WARNING.color()
+            else -> StatusTone.POSITIVE.color()
         }
         val statusIcon = when {
             !pool.healthy -> Icons.Default.Error
@@ -766,8 +744,15 @@ private fun CreateScrubTaskDialog(
                     OutlinedTextField(value = month, onValueChange = { month = it }, label = { Text("Month") }, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = dayOfWeek, onValueChange = { dayOfWeek = it }, label = { Text("Day (W)") }, modifier = Modifier.weight(1f))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+                Row(
+                    modifier = Modifier.toggleable(
+                        value = enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { enabled = it }
+                    ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = enabled, onCheckedChange = null)
                     Text("Enabled")
                 }
             }

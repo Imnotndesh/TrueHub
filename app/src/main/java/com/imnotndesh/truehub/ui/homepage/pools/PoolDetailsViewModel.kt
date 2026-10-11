@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.pools
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobState
@@ -27,7 +28,8 @@ sealed class PoolDetailsUiState {
     data class Error(val message: String) : PoolDetailsUiState()
 }
 
-class PoolDetailsViewModel(
+@HiltViewModel
+class PoolDetailsViewModel @Inject constructor(
     private val apiManager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -260,17 +262,4 @@ class PoolDetailsViewModel(
         }
     }
 
-
-
-    class PoolDetailsViewModelFactory(
-        private val apiManager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(PoolDetailsViewModel::class.java)) {
-                return PoolDetailsViewModel(apiManager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
 }

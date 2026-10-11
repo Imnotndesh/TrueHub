@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub
+import com.imnotndesh.truehub.data.models.LoginMethod
+import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 
 import android.Manifest
 import android.app.Application
@@ -6,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import dagger.hilt.android.AndroidEntryPoint
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -24,6 +27,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -47,6 +51,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
 import com.imnotndesh.truehub.ui.MainScreen
+import com.imnotndesh.truehub.ui.adaptive.ProvideTrueHubWindow
 import com.imnotndesh.truehub.ui.Screen
 import com.imnotndesh.truehub.ui.account.AccountSwitcherScreen
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -58,10 +63,13 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertSer
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertServiceDetailScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertServicesListScreen
 import com.imnotndesh.truehub.ui.login.LoginScreen
+import com.imnotndesh.truehub.ui.setup.ServerSetupScreen
+import com.imnotndesh.truehub.ui.setup.WelcomeScreen
 import com.imnotndesh.truehub.ui.settings.SettingsEvent
 import com.imnotndesh.truehub.ui.settings.SettingsScreen
 import com.imnotndesh.truehub.ui.settings.SettingsScreenViewModel
 import com.imnotndesh.truehub.ui.settings.screens.AboutScreen
+import com.imnotndesh.truehub.ui.settings.screens.AppUpdateScreen
 import com.imnotndesh.truehub.ui.settings.logging.AppLoggingScreen
 import com.imnotndesh.truehub.ui.settings.screens.LicensesScreen
 import com.imnotndesh.truehub.ui.settings.screens.ThemeScreen
@@ -69,6 +77,7 @@ import com.imnotndesh.truehub.ui.settings.sheets.ChangePasswordScreen
 import com.imnotndesh.truehub.ui.theme.TrueHubAppTheme
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
@@ -85,9 +94,11 @@ class MainActivity : ComponentActivity() {
                 darkTheme = systemDark || personalization.blackMode,
                 isBlackMode = personalization.blackMode
             ) {
-                MainActivityContent(
-                    viewModel = viewModel
-                )
+                ProvideTrueHubWindow {
+                    MainActivityContent(
+                        viewModel = viewModel
+                    )
+                }
             }
         }
     }
@@ -112,6 +123,8 @@ class MainActivity : ComponentActivity() {
                 viewModel.requestNavigateTo(Screen.InstanceConfigScreen.route)
             "com.imnotndesh.truehub.OPEN_UPDATE_INSTANCE" ->
                 viewModel.requestNavigateTo(Screen.SystemUpdateScreen.route)
+            "com.imnotndesh.truehub.OPEN_APP_UPDATE" ->
+                viewModel.requestNavigateTo(Screen.AppUpdate.route)
         }
     }
 
@@ -194,7 +207,7 @@ fun MainActivityContent(
                     NoInternetScreen(
                         message = "No internet connection.",
                         onRetry = {
-                            viewModel.initializeApp(context)
+                            viewModel.initializeApp(context, force = true)
                         }
                     )
                 }
@@ -229,13 +242,17 @@ private fun AppNavigation(
     totpUsername: String? = null
 ) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val pendingNav by viewModel.pendingNavigation.collectAsState()
     val personalization by PersonalizationManager.state.collectAsState()
     val userKey by viewModel.currentUserKey.collectAsState()
     val personalizationUserKey = userKey ?: PersonalizationManager.DEFAULT_USER_KEY
     LaunchedEffect(pendingNav) {
         val route = pendingNav ?: return@LaunchedEffect
-        if (navController.currentDestination?.route != Screen.Main.route) {
+        if (route == Screen.AppUpdate.route) {
+            navController.navigate(Screen.AppUpdate.route) { launchSingleTop = true }
+            viewModel.clearPendingNavigation()
+        } else if (navController.currentDestination?.route != Screen.Main.route) {
             navController.navigate(Screen.Main.route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
@@ -259,6 +276,32 @@ private fun AppNavigation(
             fadeOut(animationSpec = tween(300)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
         }
     ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onGetStarted = {
+                    navController.navigate(Screen.ServerSetup.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(Screen.ServerSetup.route) {
+            ServerSetupScreen(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Screen.Welcome.route)
+                    }
+                },
+                onConfigured = { _, _ ->
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.Login.route) {
             LoginScreen(
                 existingManager = manager,
@@ -267,14 +310,17 @@ private fun AppNavigation(
                     viewModel.updateManager(newManager)
                 },
                 onLoginSuccess = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                        launchSingleTop = true
-                        anim {
-                            enter = 0
-                            exit = 0
-                            popEnter = 0
-                            popExit = 0
+                    (context as? ComponentActivity)?.lifecycleScope?.launch {
+                        if (!viewModel.activateSession(context)) return@launch
+                        navController.navigate(Screen.Main.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                            anim {
+                                enter = 0
+                                exit = 0
+                                popEnter = 0
+                                popExit = 0
+                            }
                         }
                     }
                 },
@@ -289,9 +335,14 @@ private fun AppNavigation(
                     (context as? ComponentActivity)?.lifecycleScope?.launch {
                         val loginManager = viewModel.attemptLoginWithProfile(context, server, account)
                         if (loginManager != null) {
-                            viewModel.updateManager(loginManager)
+                            viewModel.replaceManager(
+                                loginManager,
+                                server.id,
+                                account.id,
+                                viewModel.isTokenPersisted(context, server.id, account.id)
+                            )
                             navController.navigate(Screen.Main.route) {
-                                popUpTo(Screen.AccountSwitcher.route) { inclusive = true }
+                                popUpTo(Screen.Main.route) { inclusive = true }
                             }
                         } else {
                             ToastManager.showError("Failed to login with saved account")
@@ -343,9 +394,18 @@ private fun AppNavigation(
                 onNavigateToLogging = {
                     navController.navigate(Screen.AppLogging.route)
                 },
+                onNavigateToAppUpdate = {
+                    navController.navigate(Screen.AppUpdate.route)
+                },
                 onNavigateToLogin = {
                     navController.navigate(Screen.AccountSwitcher.route) {
                         popUpTo(Screen.Settings.route) { inclusive = true }
+                    }
+                },
+                onSignOutComplete = {
+                    viewModel.clearSession()
+                    navController.navigate(Screen.AccountSwitcher.route) {
+                        popUpTo(Screen.Main.route) { inclusive = true }
                     }
                 },
                 onNavigateToChangePassword = {
@@ -354,6 +414,11 @@ private fun AppNavigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+        composable(Screen.AppUpdate.route) {
+            AppUpdateScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable(Screen.AppLogging.route) {

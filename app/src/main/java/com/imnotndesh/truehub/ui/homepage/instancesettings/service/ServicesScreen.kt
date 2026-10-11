@@ -1,4 +1,10 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.service
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import com.imnotndesh.truehub.ui.services.system.services.ServiceDetailScreen
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,15 +45,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 
@@ -66,11 +78,13 @@ fun ServicesScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToServiceDetail: (System.ServiceQueryResponse) -> Unit
 ) {
-    val viewModel: ServicesScreenViewModel = viewModel(
-        factory = ServicesScreenViewModel.ServicesScreenViewModelFactory(manager)
-    )
+    val viewModel: ServicesScreenViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val refreshState = rememberPullToRefreshState()
+
+    val window = LocalTrueHubWindow.current
+    var selectedService by remember { mutableStateOf<System.ServiceQueryResponse?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedService != null
 
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
@@ -84,36 +98,22 @@ fun ServicesScreen(
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { viewModel.refresh() },
             state = refreshState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 uiState.services.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     LoadingScreen("Loading Services")
                 }
-                uiState.services.isEmpty() && !uiState.isLoading && uiState.error != null -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Dns,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Couldn't load services",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                uiState.services.isEmpty() && !uiState.isLoading && uiState.error != null ->
+                    ErrorState(uiState.error ?: "Couldn't load services", onRetry = { viewModel.refresh() })
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -134,6 +134,17 @@ fun ServicesScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedService?.let { service ->
+                    ServiceDetailScreen(
+                        service = service,
+                        manager = manager,
+                        onNavigateBack = { selectedService = null }
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -171,7 +182,7 @@ private fun ServiceCard(
             ) {
                 Icon(
                     imageVector = getServiceStatusIcon(service.state),
-                    contentDescription = service.state,
+                    contentDescription = null,
                     tint = statusColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -209,6 +220,10 @@ private fun ServiceCard(
                 Switch(
                     checked = isRunning,
                     onCheckedChange = onToggleRunning,
+                    modifier = Modifier.semantics {
+                        contentDescription = service.service
+                        stateDescription = if (isRunning) "Running" else "Stopped"
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                         checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -229,11 +244,12 @@ private fun getServiceStatusIcon(state: String): ImageVector {
     }
 }
 
+@Composable
 private fun getServiceStatusColor(state: String): Color {
     return when (state.lowercase()) {
-        "running" -> Color(0xFF2E7D32)
-        "failed", "error" -> Color(0xFFD32F2F)
-        "paused" -> Color(0xFFF57C00)
-        else -> Color(0xFF757575)
+        "running" -> StatusTone.POSITIVE.color()
+        "failed", "error" -> StatusTone.NEGATIVE.color()
+        "paused" -> StatusTone.WARNING.color()
+        else -> StatusTone.NEUTRAL.color()
     }
 }

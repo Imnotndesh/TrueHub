@@ -1,12 +1,13 @@
 package com.imnotndesh.truehub.ui.services.vm
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.VirtualizationJobTracker
 import com.imnotndesh.truehub.ui.utils.AppCache
-import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.data.models.Vm
 import com.imnotndesh.truehub.ui.components.ToastManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,12 +20,13 @@ data class VmScreenUiState(
     val vms: List<Vm.VmQueryResponse> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val operationJobs : Map<Int, System.Job> = emptyMap(),
-    val error: String? = null
+    val error: String? = null,
+    val stale: Boolean = false
 )
 
 // TODO: In future maybe add the get memory usage api in the info sheet
-class VmsScreenViewModel(
+@HiltViewModel
+class VmsScreenViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -67,7 +69,8 @@ class VmsScreenViewModel(
                             vms = result.data,
                             isRefreshing = false,
                             isLoading = false,
-                            error = null
+                            error = null,
+                            stale = false
                         )
                     }
                 }
@@ -76,7 +79,8 @@ class VmsScreenViewModel(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = if (it.vms.isEmpty()) result.message else null
+                            error = if (it.vms.isEmpty()) result.message else null,
+                            stale = it.vms.isNotEmpty()
                         )
                     }
                 }
@@ -104,7 +108,8 @@ class VmsScreenViewModel(
                         it.copy(
                             vms = result.data,
                             isRefreshing = false,
-                            error = null
+                            error = null,
+                            stale = false
                         )
                     }
                 }
@@ -112,7 +117,8 @@ class VmsScreenViewModel(
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            error = if (it.vms.isEmpty()) result.message else null
+                            error = if (it.vms.isEmpty()) result.message else null,
+                            stale = it.vms.isNotEmpty()
                         )
                     }
                 }
@@ -135,8 +141,7 @@ class VmsScreenViewModel(
                 is ApiResult.Success -> {
                     jobId = result.data
                     ToastManager.showSuccess("Starting")
-                    trackContainerOperation(id,jobId,"STARTING")
-                    refresh()
+                    VirtualizationJobTracker.track(manager, id.toString(), jobId, "STARTING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -161,8 +166,7 @@ class VmsScreenViewModel(
                 is ApiResult.Success -> {
                     val jobID = result.data
                     ToastManager.showSuccess("Stopping")
-                    trackContainerOperation(id,jobID,"STOPPING")
-                    refresh()
+                    VirtualizationJobTracker.track(manager, id.toString(), jobID, "STOPPING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -187,8 +191,7 @@ class VmsScreenViewModel(
                 is ApiResult.Success -> {
                     val jobID = result.data
                     ToastManager.showSuccess("Restarting")
-                    trackContainerOperation(id,jobID,"RESTARTING")
-                    refresh()
+                    VirtualizationJobTracker.track(manager, id.toString(), jobID, "RESTARTING") { refresh() }
                 }
                 is ApiResult.Error -> {
                     _uiState.update {
@@ -305,69 +308,5 @@ class VmsScreenViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-    private fun trackContainerOperation(vmID: Int, jobId: Int, operation: String) {
-        viewModelScope.launch {
-            var pollAttempts = 0
-            val maxPollAttempts = 150
-
-            while (pollAttempts < maxPollAttempts) {
-                try {
-                    val jobResult = manager.system.getJobInfoJobWithResult(jobId)
-                    when (jobResult) {
-                        is ApiResult.Success -> {
-                            val job = jobResult.data
-
-                            // Update job state
-                            _uiState.update { state ->
-                                state.copy(
-                                    operationJobs = state.operationJobs + (vmID to job)
-                                )
-                            }
-
-                            // Check for terminal states
-                            if (job.state in listOf("SUCCESS", "FAILED", "ABORTED")) {
-                                kotlinx.coroutines.delay(2000)
-                                _uiState.update { state ->
-                                    state.copy(
-                                        operationJobs = state.operationJobs - vmID
-                                    )
-                                }
-                                refresh()
-                                break
-                            }
-                        }
-                        is ApiResult.Error -> {
-                            break
-                        }
-                        else -> {}
-                    }
-                } catch (e: Exception) {
-                    break
-                }
-
-                pollAttempts++
-                kotlinx.coroutines.delay(2000)
-            }
-
-            // Timeout cleanup
-            if (pollAttempts >= maxPollAttempts) {
-                _uiState.update { state ->
-                    state.copy(operationJobs = state.operationJobs - vmID)
-                }
-            }
-        }
-    }
-
-    class VmViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(VmsScreenViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return VmsScreenViewModel(manager) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

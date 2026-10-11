@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -30,7 +31,10 @@ data class BootEnvironmentsUiState(
  * `lastFetchedEnvironments` copy so detail screens can stay responsive when re-created
  * while also allowing a network refresh. Loading is debounced-free and cheap on entry.
  */
-class BootEnvironmentsViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class BootEnvironmentsViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BootEnvironmentsUiState())
     val uiState: StateFlow<BootEnvironmentsUiState> = _uiState.asStateFlow()
@@ -148,15 +152,6 @@ class BootEnvironmentsViewModel(private val manager: TrueNASApiManager) : ViewMo
         /** Clears cached environment data (e.g. after logout). */
         fun clearEnvironmentsCache() {
             cachedEnvironments = null
-        }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return BootEnvironmentsViewModel(manager) as T
         }
     }
 }

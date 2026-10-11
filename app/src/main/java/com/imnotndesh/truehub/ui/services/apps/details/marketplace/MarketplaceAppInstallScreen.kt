@@ -1,4 +1,12 @@
 package com.imnotndesh.truehub.ui.services.apps.details.marketplace
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveChoiceField
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -55,6 +63,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
@@ -111,6 +120,11 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerConfig
+import com.imnotndesh.truehub.ui.homepage.dataset.DatasetPickerSheet
+import com.imnotndesh.truehub.ui.homepage.dataset.toFullMountPath
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,16 +148,43 @@ fun MarketplaceAppInstallScreen(
     val activeJobsMap by JobRepository.activeJobs.collectAsStateWithLifecycle()
     val trackedJob = installJobId?.let { gid -> activeJobsMap[gid] }
 
+    val haptics = remember(context) {
+        VibrationFeedback(context)
+    }
+
+    // Fire-once per surfaced terminal event: clearInstallState() nulls installJobId so the
+    // effect below re-keys and re-enters; without a job-keyed guard it would re-fire.
+    val terminalHapticsFired = remember { mutableStateMapOf<Int, String>() }
+
     LaunchedEffect(trackedJob) {
-        if (trackedJob != null) {
-            when (trackedJob.state.uppercase()) {
-                "SUCCESS" -> {
+        val job = trackedJob ?: return@LaunchedEffect
+        when (job.state.uppercase()) {
+            "SUCCESS" -> {
+                // Fire BEFORE clearInstallState()/onInstallSuccess(): the latter pops the nav
+                // stack, so the haptic must start while still foreground (trigger-then-navigate).
+                if (terminalHapticsFired.put(job.jobId, "SUCCESS") == null) {
+                    haptics.play(VibratorMode.SUCCESS_TICK)
                     viewModel.clearInstallState()
                     onInstallSuccess()
                 }
-                "FAILED", "ABORTED" -> {
+            }
+            "FAILED", "ABORTED" -> {
+                if (terminalHapticsFired.put(job.jobId, "ERROR") == null) {
+                    haptics.play(VibratorMode.ERROR_ALERT)
                 }
             }
+        }
+    }
+
+    // Fire ERROR_ALERT exactly when the "Installation Failed" overlay first appears (null ->
+    // non-null transition), never on recomposition; re-arms naturally after a real retry.
+    var previousInstallError by remember(trackedJob) { mutableStateOf(installError) }
+    LaunchedEffect(installError, installJobId) {
+        val errorNow = installError
+        val firstAppearance = errorNow != null && previousInstallError == null && installJobId == null
+        previousInstallError = errorNow
+        if (firstAppearance) {
+            haptics.play(VibratorMode.ERROR_ALERT)
         }
     }
 
@@ -201,7 +242,7 @@ fun MarketplaceAppInstallScreen(
 
                 uiState.catalogAppDetails != null -> {
                     val details = uiState.catalogAppDetails!!
-                    var selectedVersionKey by remember(details) {
+                    var selectedVersionKey by rememberSaveable(details) {
                         mutableStateOf(details.versions?.keys?.firstOrNull() ?: "")
                     }
                     val versionData = details.versions?.get(selectedVersionKey)
@@ -210,8 +251,9 @@ fun MarketplaceAppInstallScreen(
                         details = details,
                         versionData = versionData,
                         versionsMap = details.versions ?: emptyMap(),
-                        selectedVersionKey = selectedVersionKey,
-                        onVersionSelected = { selectedVersionKey = it },
+                         selectedVersionKey = selectedVersionKey,
+                         manager = manager,
+                         onVersionSelected = { selectedVersionKey = it },
                         onBack = onBack,
                         onInstallAction = { targetedInstanceName, flatMapValues ->
                             viewModel.installMarketplaceApp(
@@ -249,6 +291,7 @@ private fun InstallOptionsContent(
     versionData: Apps.CatalogAppVersion?,
     versionsMap: Map<String, Apps.CatalogAppVersion>,
     selectedVersionKey: String,
+    manager: TrueNASApiManager,
     onVersionSelected: (String) -> Unit,
     onBack: () -> Unit,
     onInstallAction: (appName: String, values: Map<String, Any?>) -> Unit
@@ -262,7 +305,17 @@ private fun InstallOptionsContent(
         }
     }
 
-    var targetedAppNameInstance by remember(details) { mutableStateOf(details.name) }
+    var targetedAppNameInstance by rememberSaveable(details) { mutableStateOf(details.name) }
+
+    val requiredMissing = remember(schema, formState.toMap()) {
+        val questions = schema?.questions.orEmpty()
+        questions.filter { it.schema?.required == true }.any { q ->
+            val key = q.variable
+            val value = formState[key]
+                ?: formState.entries.firstOrNull { it.key == key || it.key.endsWith(".$key") }?.value
+            value == null || value.toString().isBlank()
+        }
+    }
 
     // Precompute questions-by-group ONCE per schema instead of filtering per group per recomposition
     val questionsByGroup = remember(schema) {
@@ -410,8 +463,9 @@ private fun InstallOptionsContent(
                         SchemaGroupSection(
                             group = group,
                             questions = groupQuestions,
-                            formState = formState,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                             formState = formState,
+                             manager = manager,
+                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                         Spacer(Modifier.height(8.dp))
                     }
@@ -423,6 +477,7 @@ private fun InstallOptionsContent(
             Spacer(Modifier.height(8.dp))
             InstallBottomAction(
                 title = details.title ?: details.name,
+                enabled = targetedAppNameInstance.isNotBlank() && !requiredMissing,
                 onInstall = { onInstallAction(targetedAppNameInstance, formState.toMap()) }
             )
         }
@@ -512,6 +567,7 @@ internal fun SchemaGroupSection(
     group: Apps.SchemaGroup,
     questions: List<Apps.SchemaQuestion>,
     formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager? = null,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(true) }
@@ -572,9 +628,10 @@ internal fun SchemaGroupSection(
                     } else {
                         Box(modifier = Modifier.padding(start = indent)) {
                             LeafQuestionField(
-                                question = fq.question,
-                                formState = formState,
-                                path = fq.path
+                                 question = fq.question,
+                                 formState = formState,
+                                 manager = manager,
+                                 path = fq.path
                             )
                         }
                     }
@@ -599,6 +656,7 @@ internal fun SchemaGroupSection(
 private fun LeafQuestionField(
     question: Apps.SchemaQuestion,
     formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager?,
     path: String
 ) {
     val schema = question.schema ?: return
@@ -639,7 +697,7 @@ private fun LeafQuestionField(
             "boolean"  -> BooleanField(schema = schema, path = path, formState = formState)
             "list"     -> ListFieldInfo()
             "path",
-            "hostpath" -> PathField(path = path, formState = formState)
+            "hostpath" -> PathField(path = path, formState = formState, manager = manager)
             else       -> DefaultField(type = schema.type, path = path, formState = formState)
         }
     }
@@ -691,21 +749,10 @@ private fun EnumPickerField(
         ?: schema.enum?.firstOrNull()?.value?.toString() ?: ""
     val displayText = schema.enum?.find { it.value?.toString() == currentVal }?.description ?: currentVal
 
-    OutlinedTextField(
+    ExpressiveChoiceField(
         value = displayText,
-        onValueChange = {},
-        readOnly = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { showSheet = true },
-        trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
-        shape = RoundedCornerShape(12.dp),
-        enabled = false,
-        colors = OutlinedTextFieldDefaults.colors(
-            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-            disabledBorderColor = MaterialTheme.colorScheme.outline,
-            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        placeholder = "Select option",
+        onClick = { showSheet = true }
     )
 
     if (showSheet) {
@@ -795,16 +842,27 @@ private fun BooleanField(schema: Apps.SchemaDefinition, path: String, formState:
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = { checked = it; formState[path] = it }
+            )
     ) {
-        Switch(checked = checked, onCheckedChange = { checked = it; formState[path] = it })
+        Switch(checked = checked, onCheckedChange = null)
         Text(if (checked) "Active" else "Inactive", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun PathField(path: String, formState: MutableMap<String, Any?>) {
+private fun PathField(
+    path: String,
+    formState: MutableMap<String, Any?>,
+    manager: TrueNASApiManager?
+) {
     var text by remember(path) { mutableStateOf(formState[path]?.toString() ?: "") }
+    var showDatasetPicker by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it; formState[path] = it },
@@ -812,8 +870,34 @@ private fun PathField(path: String, formState: MutableMap<String, Any?>) {
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
         placeholder = { Text("/mnt/dataset/appdata") },
-        leadingIcon = { Icon(Icons.Default.Folder, null, modifier = Modifier.size(18.dp)) }
+        leadingIcon = { Icon(Icons.Default.Folder, null, modifier = Modifier.size(18.dp)) },
+        trailingIcon = if (manager != null) {
+            {
+                IconButton(onClick = { showDatasetPicker = true }) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = "Choose dataset")
+                }
+            }
+        } else null
     )
+
+    if (showDatasetPicker && manager != null) {
+        DatasetPickerSheet(
+            manager = manager,
+            config = DatasetPickerConfig(
+                title = "Choose dataset",
+                confirmLabel = "Use dataset",
+                filterPredicate = { it.mountpoint != null }
+            ),
+            onConfirm = { selected ->
+                selected.firstOrNull()?.toFullMountPath()?.let { selectedPath ->
+                    text = selectedPath
+                    formState[path] = selectedPath
+                }
+                showDatasetPicker = false
+            },
+            onDismiss = { showDatasetPicker = false }
+        )
+    }
 }
 
 @Composable
@@ -829,7 +913,7 @@ private fun ListFieldInfo() {
         Icon(Icons.AutoMirrored.Filled.List, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         Column {
             Text("Collection Parameters Configuration", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Appends natively via backend blocks", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+            Text("Appends natively via backend blocks", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -848,9 +932,10 @@ private fun DefaultField(type: String?, path: String, formState: MutableMap<Stri
 }
 
 @Composable
-private fun InstallBottomAction(title: String, onInstall: () -> Unit) {
+private fun InstallBottomAction(title: String, enabled: Boolean = true, onInstall: () -> Unit) {
     Button(
         onClick = onInstall,
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -959,7 +1044,11 @@ private fun InstallProgressView(
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
+            .padding(24.dp)
+            .semantics {
+                liveRegion = if (isError) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                paneTitle = "Installing $appName"
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

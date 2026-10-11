@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import java.text.DecimalFormat
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -48,9 +49,7 @@ fun HardwareInformationScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToDisks: () -> Unit = {}
 ) {
-    val vm: HardwareInformationViewModel = viewModel(
-        factory = HardwareInformationViewModel.ViewModelFactory(manager)
-    )
+    val vm: HardwareInformationViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
 
     LaunchedEffect(Unit) { vm.refresh() }
@@ -77,12 +76,7 @@ fun HardwareInformationScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
+            InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                 val info = uiState.systemInfo
 
                 if (info != null) {
@@ -115,7 +109,7 @@ fun HardwareInformationScreen(
                 item {
                     ExpressiveSection(title = "Storage", icon = Icons.Default.Storage) {
                         InfoCard {
-                            InfoRow("Disks", uiState.diskCount.toString())
+                            InfoRow("Disks", if (uiState.isLoading) "—" else uiState.diskCount.toString())
                             HorizontalDivider(Modifier.padding(vertical = 12.dp))
                             InfoRow("Pools", if (uiState.poolsHealthy == null) "—" else if (uiState.poolsHealthy == true) "Healthy" else "Issues detected")
                             Spacer(Modifier.height(16.dp))

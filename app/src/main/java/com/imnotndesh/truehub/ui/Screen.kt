@@ -1,5 +1,7 @@
 package com.imnotndesh.truehub.ui
 
+import android.net.Uri
+
 sealed class Screen(val route:String, val title:String) {
     object Home : Screen("home", "Home")
     object Apps : Screen("apps","Apps")
@@ -8,21 +10,62 @@ sealed class Screen(val route:String, val title:String) {
     object Containers : Screen ("containers", "Containers")
     object Vms : Screen("vms","VMs")
     object Login : Screen("login","Login")
+    object Welcome : Screen("welcome", "Welcome")
+    object ServerSetup : Screen("server_setup", "Server Setup")
     object Main: Screen("main","Main")
     object Performance : Screen("performance", "Performance")
     object Settings : Screen("settings","Settings")
     object Licenses : Screen("licenses","Licenses")
     object ShareInfo : Screen ("share_info","Exposed shares details")
+    object CreateShare : Screen ("create_share","Create share")
     object About : Screen("about","About")
     object AppLogging : Screen("app_logging","App Logging")
     object Theme : Screen("theme","Theme")
+    object AppUpdate : Screen("app_update", "App Updates")
     object AccountSwitcher : Screen("account_switcher","account_switcher")
     object PoolDetails : Screen("pool_details", "Pool Details")
     object Files : Screen("file_explorer","file_explorer")
     object Marketplace : Screen("marketplace", "Marketplace")
     object MarketplaceAppDetails : Screen("marketplace_app_details", "Marketplace App Details")
-    object ContainerInfo : Screen("container_info", "Container Info")
-    object VmDetails : Screen("vm_details", "VM Details")
+    object CreateContainer : Screen("create_container", "Create Container")
+    object ContainerEdit : Screen("container_edit/{containerId}", "Edit Container") {
+        fun createRoute(containerId: String): String = "container_edit/$containerId"
+    }
+    object ContainerDevices : Screen("container_devices/{containerId}", "Container Devices") {
+        fun createRoute(containerId: String): String = "container_devices/$containerId"
+    }
+    object ContainerDeviceAdd : Screen("container_devices/{containerId}/add?deviceName={deviceName}", "Add Container Device") {
+        fun createRoute(containerId: String, deviceName: String? = null): String {
+            return if (deviceName.isNullOrBlank()) {
+                "container_devices/$containerId/add"
+            } else {
+                "container_devices/$containerId/add?deviceName=${Uri.encode(deviceName)}"
+            }
+        }
+    }
+    object ContainerVolumes : Screen("container_volumes/{containerId}", "Container Volumes") {
+        fun createRoute(containerId: String): String = "container_volumes/$containerId"
+    }
+    object ContainerInfo : Screen("container_info/{containerId}", "Container Info") {
+        fun createRoute(containerId: String): String = "container_info/$containerId"
+    }
+    object VmDetails : Screen("vm_details/{vmId}", "VM Details") {
+        fun createRoute(vmId: Int) = "vm_details/$vmId"
+    }
+    object VmCreate : Screen("vm_create", "Create VM")
+    object VmEdit : Screen("vm_edit/{vmId}", "Edit VM") {
+        fun createRoute(vmId: Int) = "vm_edit/$vmId"
+    }
+    object VmDevices : Screen("vm_devices/{vmId}", "VM Devices") {
+        fun createRoute(vmId: Int) = "vm_devices/$vmId"
+    }
+    object VmConsole : Screen("vm_console/{vmId}", "VM Console") {
+        fun createRoute(vmId: Int) = "vm_console/$vmId"
+    }
+    object VmDeviceAdd : Screen("vm_devices/{vmId}/add?deviceId={deviceId}", "Add VM Device") {
+        fun createRoute(vmId: Int, deviceId: Int? = null) =
+            if (deviceId == null) "vm_devices/$vmId/add" else "vm_devices/$vmId/add?deviceId=$deviceId"
+    }
     object ChangePassword : Screen("change_password", "Change Password")
     object DiskInfo : Screen("disk_info", "Disk information")
     object AppConfigScreen : Screen("app_config", "Application config")
@@ -31,6 +74,11 @@ sealed class Screen(val route:String, val title:String) {
     object AppAdvancedInfoScreen : Screen("app_advanced_info/{appId}", "Advanced Application Information") {
         fun createRoute(appId: String): String {
             return "app_advanced_info/$appId"
+        }
+    }
+    object AppResourceUsage : Screen("app_resource_usage/{appId}", "App Resource Usage") {
+        fun createRoute(appId: String): String {
+            return "app_resource_usage/$appId"
         }
     }
     object SystemUpdateScreen : Screen("system_update", "TrueNAS Version Update")
@@ -95,11 +143,19 @@ sealed class Screen(val route:String, val title:String) {
         fun createRoute(environmentId: String) = "boot_environment/$environmentId"
     }
     object SystemInformationScreen : Screen("system_information", "System Information")
+    object CloudSync : Screen("cloud_sync", "Cloud Sync")
+    object CloudSyncDetail : Screen("cloud_sync_detail/{taskId}", "Cloud Sync Task") {
+        fun createRoute(taskId: Int) = "cloud_sync_detail/$taskId"
+    }
+    object CloudSyncForm : Screen("cloud_sync_form/{taskId}", "Cloud Sync Task") {
+        fun createRoute(taskId: Int = -1) = "cloud_sync_form/$taskId"
+    }
     object SoftwareInformationScreen : Screen("software_information", "Software Information")
     object HardwareInformationScreen : Screen("hardware_information", "Hardware Information")
     object TrueNasConnectScreen : Screen("truenas_connect", "TrueNAS Connect")
     object TrueCommandScreen : Screen("truecommand", "TrueCommand")
     object AppImageManagementScreen : Screen("app_image_management", "App Image Management")
+    object GlobalVirtSettings : Screen("global_virt_settings", "Global Virt Settings")
     object IxVolumeListScreen : Screen("ix_volume_list", "iX Volumes")
     object DockerImageListScreen : Screen("docker_image_list", "Docker Images")
 

@@ -1094,3 +1094,17 @@ local.properties
 
 # --- Local-only developer workflow rules (never commit/push) ---
 DEV-RULES.md
+rules.md
+api-map.md
+
+# --- LLM / agent tooling (local only) ---
+.pi/
+.claude/
+.cursor/
+.codex/
+.windsurf/
+.continue/
+.agents/
+.aider*
+.llm/
+

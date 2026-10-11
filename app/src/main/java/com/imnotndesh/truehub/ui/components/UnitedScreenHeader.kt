@@ -34,8 +34,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -60,6 +58,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,14 +77,12 @@ fun UnifiedScreenHeader(
     isLoading: Boolean,
     isRefreshing: Boolean,
     error: String? = null,
-    onRefresh: (() -> Unit)? = null,
     onDismissError: () -> Unit,
     manager: TrueNASApiManager ? = null,
     onBackPressed: (() -> Unit)? = null,
     onNavigateToSettings: (() -> Unit)? = null,
     onShutdownInvoke: (() -> Unit)? = null,
     trailingActions: @Composable RowScope.() -> Unit = {},
-    onSearchClick: (() -> Unit)? = null
 ) {
     var isSubtitleVisible by remember { mutableStateOf(true) }
 
@@ -117,7 +117,7 @@ fun UnifiedScreenHeader(
                             onClick = onBackPressed,
                             icon = Icons.Default.ArrowBackIosNew,
                             contentDescription = "Back",
-                            enabled = !isLoading && !isRefreshing,
+                            enabled = true,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -135,6 +135,7 @@ fun UnifiedScreenHeader(
                         ) { targetTitle ->
                             Text(
                                 text = targetTitle,
+                                modifier = Modifier.semantics { heading() },
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -165,26 +166,8 @@ fun UnifiedScreenHeader(
                 ) {
                     trailingActions()
 
-                    if (onSearchClick != null) {
-                        ExpressiveIconButton(
-                            onClick = onSearchClick,
-                            icon = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
                     manager?.let{
                         AlertsBellButton(manager = manager)
-                    }
-
-                    onRefresh?.let{ onRefresh ->
-                        ExpressiveIconButton(
-                            onClick = onRefresh,
-                            icon = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                            enabled = !isLoading && !isRefreshing,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                     }
 
                     onNavigateToSettings?.let { settingsCallback ->
@@ -234,7 +217,9 @@ fun UnifiedScreenHeader(
                 if (error != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { liveRegion = LiveRegionMode.Polite },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer
                         ),
@@ -339,6 +324,7 @@ fun MinimalBackHeader(
             Column {
                 Spacer(modifier = Modifier.height(12.dp))
                 Card(
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f)
                     ),

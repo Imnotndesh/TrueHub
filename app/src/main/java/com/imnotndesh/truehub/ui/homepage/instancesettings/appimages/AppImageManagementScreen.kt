@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.appimages
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -61,10 +63,15 @@ fun AppImageManagementScreen(
             )
         }
     ) { innerPadding ->
+        Box(
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -82,6 +89,7 @@ fun AppImageManagementScreen(
                 onClick = onNavigateToDockerImages
             )
             Spacer(Modifier.height(8.dp))
+        }
         }
     }
 }

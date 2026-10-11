@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
@@ -30,7 +31,10 @@ data class AlertClassesConfigUiState(
     val saveSuccess: Boolean = false
 )
 
-class AlertClassesConfigViewModel(private val manager: TrueNASApiManager) : ViewModel() {
+@HiltViewModel
+class AlertClassesConfigViewModel @Inject constructor(
+    private val manager: TrueNASApiManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AlertClassesConfigUiState())
     val uiState: StateFlow<AlertClassesConfigUiState> = _uiState.asStateFlow()
@@ -139,13 +143,5 @@ class AlertClassesConfigViewModel(private val manager: TrueNASApiManager) : View
 
     fun clearSaveSuccess() {
         _uiState.update { it.copy(saveSuccess = false) }
-    }
-
-    class AlertClassesConfigViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            AlertClassesConfigViewModel(manager) as T
     }
 }

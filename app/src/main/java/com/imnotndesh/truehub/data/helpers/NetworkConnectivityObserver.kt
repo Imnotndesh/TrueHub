@@ -27,8 +27,7 @@ class NetworkConnectivityObserver(private val context: Context) {
     fun isNetworkAvailable(): Boolean {
         val activeNetwork = connectivityManager.activeNetwork
         val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-                networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) // Crucial for actual internet
+        return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 
     @RequiresPermission(android.Manifest.permission.ACCESS_NETWORK_STATE)
@@ -36,11 +35,8 @@ class NetworkConnectivityObserver(private val context: Context) {
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 val capabilities = connectivityManager.getNetworkCapabilities(network)
-                if (capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true) {
                     trySend(ConnectionState.Connected)
-                } else if (capabilities != null && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                    trySend(ConnectionState.Connecting) // Has internet, but not validated yet
                 } else {
                     trySend(ConnectionState.Disconnected)
                 }
@@ -53,11 +49,8 @@ class NetworkConnectivityObserver(private val context: Context) {
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-                if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) {
+                if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
                     trySend(ConnectionState.Connected)
-                } else if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                    trySend(ConnectionState.Connecting)
                 } else {
                     trySend(ConnectionState.Disconnected)
                 }

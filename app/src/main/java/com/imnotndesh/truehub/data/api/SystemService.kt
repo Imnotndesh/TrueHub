@@ -891,11 +891,11 @@ class SystemService(val manager: TrueNASApiManager){
     suspend fun updateApiKeyWithResult(
         id: Int,
         update: System.ApiKeyUpdate
-    ): ApiResult<Any> {
+    ): ApiResult<System.ApiKeyEntryWithKey> {
         return manager.callWithResult(
             method = ApiMethods.System.API_KEY_UPDATE,
             params = listOf(id, update),
-            resultType = Any::class.java
+            resultType = System.ApiKeyEntryWithKey::class.java
         )
     }
 
@@ -1543,5 +1543,52 @@ class SystemService(val manager: TrueNASApiManager){
             resultType = Any::class.java
         )
     }
+
+
+    private suspend fun serviceCall(method: String, service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        manager.callWithResult(method, listOf(service, options), Any::class.java)
+
+    suspend fun serviceReloadWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_RELOAD, service, options)
+
+    suspend fun serviceRestartWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_RESTART, service, options)
+
+    suspend fun serviceStartWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_START, service, options)
+
+    suspend fun serviceStopWithResult(service: String, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        serviceCall(ApiMethods.System.SERVICE_STOP, service, options)
+
+
+    suspend fun globalIdWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_GLOBAL_ID, listOf(), Any::class.java)
+
+    suspend fun ntpserverCreateWithResult(ntpServerCreate: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_NTPSERVER_CREATE, listOf(ntpServerCreate), Any::class.java)
+
+    suspend fun ntpserverDeleteWithResult(id: Any?): ApiResult<Unit> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_NTPSERVER_DELETE, listOf(id), Unit::class.java)
+
+    suspend fun ntpserverGetInstanceWithResult(id: Any?, options: Map<String, Any?> = emptyMap()): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_NTPSERVER_GET_INSTANCE, listOf(id, options), Any::class.java)
+
+    suspend fun ntpserverQueryWithResult(filters: List<Any> = emptyList(), options: Map<String, Any?> = emptyMap()): ApiResult<List<Any?>> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_NTPSERVER_QUERY, listOf(filters, options), Types.newParameterizedType(List::class.java, Any::class.java))
+
+    suspend fun ntpserverUpdateWithResult(id: Any?, ntpServerUpdate: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_NTPSERVER_UPDATE, listOf(id, ntpServerUpdate), Any::class.java)
+
+    suspend fun securityConfigWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_SECURITY_CONFIG, listOf(), Any::class.java)
+
+    suspend fun securityInfoFipsAvailableWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_SECURITY_INFO_FIPS_AVAILABLE, listOf(), Any::class.java)
+
+    suspend fun securityInfoFipsEnabledWithResult(): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_SECURITY_INFO_FIPS_ENABLED, listOf(), Any::class.java)
+
+    suspend fun securityUpdateWithResult(systemSecurityUpdate: Any?): ApiResult<Any?> =
+        manager.callWithResult(ApiMethods.System.SYSTEM_SECURITY_UPDATE, listOf(systemSecurityUpdate), Any::class.java)
 
 }

@@ -7,16 +7,49 @@ import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.ConnectionState
 import com.imnotndesh.truehub.data.TrueNASClient
 import com.imnotndesh.truehub.data.TrueNASRpcException
+import com.imnotndesh.truehub.data.helpers.SessionProvider
+import com.imnotndesh.truehub.data.helpers.SessionHolder
 import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
-import com.imnotndesh.truehub.data.models.LoginExResult
-import com.imnotndesh.truehub.data.models.LoginMechanisms
+import com.imnotndesh.truehub.data.models.Auth
+import com.imnotndesh.truehub.data.models.JsonRpcEvent
 import com.imnotndesh.truehub.data.models.LoginMethod
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.OutputStream
 import java.lang.reflect.Type
-import kotlin.time.Duration.Companion.milliseconds
+
+internal fun isAuthenticationError(result: ApiResult<*>): Boolean {
+    if (result !is ApiResult.Error) return false
+    if (result.throwable is TrueNASRpcException) {
+        val code = result.throwable.code
+        if (code == 207) return true
+    }
+    val msg = result.message.lowercase()
+    return msg.contains("enotauthenticated") || msg.contains("invalid session")
+}
+
+internal fun shouldAttemptRecovery(
+    result: ApiResult<*>,
+    connectionState: ConnectionState
+): Boolean {
+    if (isAuthenticationError(result)) return true
+    if (result !is ApiResult.Error || result.throwable is TrueNASRpcException) return false
+    return connectionState !is ConnectionState.Connected
+}
+
+internal fun allowsRequestRetry(result: SessionProvider.RecoveryResult): Boolean {
+    return when (result) {
+        SessionProvider.RecoveryResult.Recovered,
+        SessionProvider.RecoveryResult.AuthenticatedTemporary -> true
+        is SessionProvider.RecoveryResult.OtpRequired,
+        SessionProvider.RecoveryResult.CredentialsRejected,
+        SessionProvider.RecoveryResult.Unauthenticated,
+        SessionProvider.RecoveryResult.Retryable -> false
+    }
+}
 
 class TrueNASApiManager(
     private val client: TrueNASClient,
@@ -24,13 +57,66 @@ class TrueNASApiManager(
 ) {
     private val connectivityObserver = NetworkConnectivityObserver(applicationContext)
     private val recoveryMutex = Mutex()
-    private val MAX_RETRY_ATTEMPTS = 3
-    private var isRecovering = false
+    private data class BoundSessionProfile(
+        val serverId: String,
+        val accountId: String
+    )
+
+    private var boundSessionProfile: BoundSessionProfile? = null
 
     val auth: AuthService by lazy { AuthService(this) }
     val system: SystemService by lazy { SystemService(this) }
     val vmService: VmService by lazy { VmService(this) }
     val apps: AppsService by lazy { AppsService(this) }
+    val docker: DockerService by lazy { DockerService(this) }
+    val core: CoreService by lazy { CoreService(this) }
+    val cloudsync: CloudsyncService by lazy { CloudsyncService(this) }
+    val pool: PoolService by lazy { PoolService(this) }
+    val interfaceService: InterfaceService by lazy { InterfaceService(this) }
+    val replication: ReplicationService by lazy { ReplicationService(this) }
+    val cloudBackup: CloudBackupService by lazy { CloudBackupService(this) }
+    val nvmet: NvmetService by lazy { NvmetService(this) }
+    val certificate: CertificateService by lazy { CertificateService(this) }
+    val group: GroupService by lazy { GroupService(this) }
+    val keychaincredential: KeychaincredentialService by lazy { KeychaincredentialService(this) }
+    val support: SupportService by lazy { SupportService(this) }
+    val vmware: VmwareService by lazy { VmwareService(this) }
+    val acme: AcmeService by lazy { AcmeService(this) }
+    val config: ConfigService by lazy { ConfigService(this) }
+    val cronjob: CronjobService by lazy { CronjobService(this) }
+    val device: DeviceService by lazy { DeviceService(this) }
+    val directoryservices: DirectoryservicesService by lazy { DirectoryservicesService(this) }
+    val dns: DnsService by lazy { DnsService(this) }
+    val enclosure: EnclosureService by lazy { EnclosureService(this) }
+    val failover: FailoverService by lazy { FailoverService(this) }
+    val fc: FcService by lazy { FcService(this) }
+    val fcport: FcportService by lazy { FcportService(this) }
+    val ftp: FtpService by lazy { FtpService(this) }
+    val hardware: HardwareService by lazy { HardwareService(this) }
+    val idmap: IdmapService by lazy { IdmapService(this) }
+    val initshutdownscript: InitshutdownscriptService by lazy { InitshutdownscriptService(this) }
+    val jbof: JbofService by lazy { JbofService(this) }
+    val kmip: KmipService by lazy { KmipService(this) }
+    val mail: MailService by lazy { MailService(this) }
+    val nfs: NfsService by lazy { NfsService(this) }
+    val privilege: PrivilegeService by lazy { PrivilegeService(this) }
+    val route: RouteService by lazy { RouteService(this) }
+    val rsynctask: RsynctaskService by lazy { RsynctaskService(this) }
+    val smb: SmbService by lazy { SmbService(this) }
+    val snmp: SnmpService by lazy { SnmpService(this) }
+    val ssh: SshService by lazy { SshService(this) }
+    val staticroute: StaticrouteService by lazy { StaticrouteService(this) }
+    val systemdataset: SystemdatasetService by lazy { SystemdatasetService(this) }
+    val tunable: TunableService by lazy { TunableService(this) }
+    val update: UpdateService by lazy { UpdateService(this) }
+    val ups: UpsService by lazy { UpsService(this) }
+    val zfs: ZfsService by lazy { ZfsService(this) }
+    val disk: DiskService by lazy { DiskService(this) }
+    val reporting: ReportingService by lazy { ReportingService(this) }
+    val filesystem: FilesystemService by lazy { FilesystemService(this) }
+    val ipmi: IpmiService by lazy { IpmiService(this) }
+    val iscsi: IscsiService by lazy { IscsiService(this) }
+    val kerberos: KerberosService by lazy { KerberosService(this) }
     val virtService: VirtService by lazy { VirtService(this) }
     val sharing: SharingService by lazy { SharingService(this) }
     val connection : ConnectionService by lazy { ConnectionService(this) }
@@ -38,205 +124,132 @@ class TrueNASApiManager(
     val storage : StorageService by lazy { StorageService(this) }
     val alertsService : AlertsService by lazy { AlertsService(this) }
 
-    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    suspend fun <T> callWithResult(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
-        var result = client.callWithResult<T>(method, params, resultType)
-        if (isAuthError(result)) {
-            result = attemptRetryLogic(method, params, resultType)
-        }
+    val events: SharedFlow<JsonRpcEvent> get() = client.events
 
+    val connectionState: StateFlow<ConnectionState> get() = client.connectionState
+
+    suspend fun ensureConnected(): Boolean {
+        return if (isStaleBoundSession()) false else client.connect()
+    }
+
+    fun bindSessionProfile(serverId: String, accountId: String) {
+        boundSessionProfile = BoundSessionProfile(serverId, accountId)
+    }
+
+    fun boundProfileKey(): String? = boundSessionProfile?.let { "${it.serverId}:${it.accountId}" }
+
+    private fun isStaleBoundSession(): Boolean {
+        return boundSessionProfile != null && SessionHolder.current !== this
+    }
+
+    suspend fun recoverAfterDisconnect(): SessionProvider.RecoveryResult = recoveryMutex.withLock {
+        val boundProfile = boundSessionProfile
+        if (isStaleBoundSession()) {
+            return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        }
+        val snapshot = MultiAccountPrefs.getSessionSnapshot(applicationContext)
+            ?: return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        if (boundProfile != null &&
+            (boundProfile.serverId != snapshot.serverId || boundProfile.accountId != snapshot.accountId)
+        ) {
+            return@withLock SessionProvider.RecoveryResult.Unauthenticated
+        }
+        SessionProvider.recoverAfterDisconnect(
+            applicationContext,
+            this,
+            snapshot.serverId,
+            snapshot.accountId
+        )
+    }
+
+    suspend fun subscribe(event: String): String = client.subscribe(event)
+
+    suspend fun unsubscribe(subscriptionId: String) = client.unsubscribe(subscriptionId)
+
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
+    suspend fun <T> callWithResult(
+        method: String,
+        params: List<Any?>,
+        resultType: Type,
+        retryOnRecovery: Boolean = true
+    ): ApiResult<T> {
+        if (isStaleBoundSession()) {
+            return ApiResult.Error("Session is no longer active")
+        }
+        ensureFreshSession()
+        var result = client.callWithResult<T>(method, params, resultType)
+        if (retryOnRecovery &&
+            shouldAttemptRecovery(result, client.getCurrentConnectionState()) &&
+            allowsRequestRetry(recoverAfterDisconnect())
+        ) {
+            result = client.callWithResult<T>(method, params, resultType)
+        }
         return result
     }
-    private suspend fun <T> attemptRetryLogic(method: String, params: List<Any?>, resultType: Type): ApiResult<T> {
+
+    internal suspend fun <T> callWithResultWithoutRecovery(
+        method: String,
+        params: List<Any?>,
+        resultType: Type
+    ): ApiResult<T> {
+        if (isStaleBoundSession()) {
+            return ApiResult.Error("Session is no longer active")
+        }
+        return client.callWithResult(method, params, resultType)
+    }
+
+    /** Proactively refreshes a near-expiry token so most calls never hit a 401. */
+    private suspend fun ensureFreshSession() {
+        val snapshot = runCatching { MultiAccountPrefs.getSessionSnapshot(applicationContext) }.getOrNull()
+            ?: return
+        if (!snapshot.isExpiringSoon()) return
         recoveryMutex.withLock {
-            var attempts = 0
-            while (attempts < MAX_RETRY_ATTEMPTS) {
-                attempts++
-                if (performSessionRecovery()) {
-                    val retryResult = client.callWithResult<T>(method, params, resultType)
-                    if (!isAuthError(retryResult)) {
-                        return retryResult
-                    }
-                }
-                kotlinx.coroutines.delay(500.milliseconds)
-            }
-        }
-        return ApiResult.Error("Session expired. Please login again.")
-    }
-    private suspend fun performSessionRecovery(): Boolean {
-        try {
-            val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(applicationContext)
-                ?: run {
-                    return false
-                }
-            val account = MultiAccountPrefs.getAccount(applicationContext, accountId)
-                ?: run {
-                    return false
-                }
-            val (credentialPrimary, credentialSecondary) = MultiAccountPrefs.getAccountCredentials(
-                applicationContext,
-                accountId,
-                account.loginMethod
-            )
-            val loginSuccess = when (account.loginMethod) {
-                LoginMethod.API_KEY -> {
-                    if (credentialPrimary.isNullOrBlank()) {
-                        return false
-                    }
-                    val result = auth.loginWithApiKeyWithResult(credentialPrimary)
-                    result is ApiResult.Success && result.data == true
-                }
-
-                LoginMethod.PASSWORD, LoginMethod.TOTP -> {
-                    if (credentialPrimary.isNullOrBlank() || credentialSecondary.isNullOrBlank()) {
-                        android.util.Log.e("TrueNASApiManager", "❌ Recovery failed: Username or Password missing")
-                        return false
-                    }
-
-                    val result = auth.loginUserWithResult(AuthService.DefaultAuth(credentialPrimary, credentialSecondary))
-                    result is ApiResult.Success && result.data == true
-                }
-            }
-
-            if (!loginSuccess) {
-                return false
-            }
-            val tokenResult = auth.generateTokenWithResult()
-            if (tokenResult is ApiResult.Success) {
-                MultiAccountPrefs.saveCurrentSession(
-                    applicationContext,
-                    serverId,
-                    accountId,
-                    tokenResult.data
-                )
-                return true
-            } else {
-                return true
-            }
-
-        } catch (e: Exception) {
-            return false
+            val current = MultiAccountPrefs.getSessionSnapshot(applicationContext) ?: return
+            if (current.isExpiringSoon()) recoverSessionLocked(current)
         }
     }
 
-    private fun isAuthError(result: ApiResult<*>): Boolean {
-        if (result !is ApiResult.Error) return false
-        if (result.throwable is TrueNASRpcException) {
-            val code = (result.throwable as TrueNASRpcException).code
-            if (code == 207 || code == -32001) return true
-        }
-        val msg = result.message.lowercase()
-        return msg.contains("enotauthenticated") || msg.contains("invalid session")
-    }
+    private suspend fun recoverSessionLocked(
+        snapshot: MultiAccountPrefs.SessionSnapshot
+    ): SessionProvider.RecoveryResult =
+        SessionProvider.recover(applicationContext, this, snapshot.serverId, snapshot.accountId)
+
     suspend fun downloadFile(urlPath: String, outputStream: OutputStream): Boolean {
         return client.downloadFile(urlPath, outputStream)
     }
 
-    private suspend fun attemptRecovery() {
-        recoveryMutex.withLock {
-            if (isRecovering) return
-            isRecovering = true
-
-            try {
-                android.util.Log.d("TrueNASApiManager", "🔄 Attempting session recovery...")
-
-                val (serverId, accountId) = MultiAccountPrefs.getLastUsedProfile(applicationContext)
-                    ?: throw Exception("No active session found")
-
-                val account = MultiAccountPrefs.getAccount(applicationContext, accountId)
-                    ?: throw Exception("Account not found")
-
-                if (account.loginMethod != LoginMethod.API_KEY) {
-                    // Try password-based recovery via loginEx
-                    val (username, password) = MultiAccountPrefs.getAccountCredentials(
-                        applicationContext, accountId, account.loginMethod
-                    )
-                    if (username == null || password == null) {
-                        throw Exception("Saved credentials not found for recovery")
-                    }
-                    val mechanism = LoginMechanisms.AuthPasswordPlain(
-                        username = username,
-                        password = password,
-                        login_options = LoginMechanisms.LoginOptions(user_info = true)
-                    )
-                    val recoveryResult = auth.loginEx(mechanism, includeUserInfo = true)
-                    if (recoveryResult is ApiResult.Success) {
-                        when (recoveryResult.data) {
-                            is LoginExResult.AuthRespSuccess -> {
-                                val tokenResult = auth.generateTokenWithResult()
-                                if (tokenResult is ApiResult.Success) {
-                                    MultiAccountPrefs.saveCurrentSession(
-                                        applicationContext, serverId, accountId, tokenResult.data
-                                    )
-                                    android.util.Log.d("TrueNASApiManager", "Recovery success via loginEx")
-                                    return
-                                }
-                            }
-                            is LoginExResult.AuthRespOTPRequired -> {
-                                // TOTP required — can't silently recover, need user interaction
-                                android.util.Log.d("TrueNASApiManager", "Recovery requires TOTP — will fall through to re-login")
-                            }
-                            else -> {}
-                        }
-                    }
-                    throw Exception("Password-based recovery failed")
-                }
-
-                val (apiKey, _) = MultiAccountPrefs.getAccountCredentials(
-                    applicationContext,
-                    accountId,
-                    LoginMethod.API_KEY
-                )
-
-                if (apiKey == null) {
-                    throw Exception("API key not found for recovery")
-                }
-
-                android.util.Log.d("TrueNASApiManager", "🔑 Re-authenticating with API key...")
-
-                val loginResult = auth.loginWithApiKeyWithResult(apiKey)
-                if (loginResult !is ApiResult.Success || loginResult.data != true) {
-                    throw Exception("Re-authentication failed")
-                }
-
-                android.util.Log.d("TrueNASApiManager", "🎫 Generating new token...")
-
-                val tokenResult = auth.generateTokenWithResult()
-                if (tokenResult is ApiResult.Success) {
-                    MultiAccountPrefs.saveCurrentSession(
-                        applicationContext,
-                        serverId,
-                        accountId,
-                        tokenResult.data
-                    )
-                    android.util.Log.d("TrueNASApiManager", "Recovery success")
-                } else {
-                    throw Exception("Token generation failed")
-                }
-
-            } catch (e: Exception) {
-                android.util.Log.e("TrueNASApiManager", "Recovery failed: ${e.message}")
-                throw e
-            } finally {
-                isRecovering = false
-            }
-        }
+    suspend fun uploadFile(
+        serverPath: String,
+        fileName: String,
+        contentType: String?,
+        contentLength: Long,
+        openStream: () -> java.io.InputStream,
+        onProgress: (Long, Long) -> Unit
+    ): ApiResult<Int> {
+        val authHeader = runCatching {
+            MultiAccountPrefs.getCurrentHttpAuthHeader(applicationContext)
+        }.getOrNull() ?: return ApiResult.Error("No stored credentials available for upload")
+        val safePath = serverPath.replace("\\", "\\\\").replace("\"", "\\\"")
+        val dataJson = """{"method":"filesystem.put","params":["$safePath",{"append":false,"mode":null}]}"""
+        val (jobId, error) = client.uploadMultipart(
+            urlPath = "/_upload/",
+            dataJson = dataJson,
+            fileName = fileName,
+            contentType = contentType,
+            contentLength = contentLength,
+            openStream = openStream,
+            authHeader = authHeader,
+            onProgress = onProgress
+        )
+        return if (jobId != null) ApiResult.Success(jobId) else ApiResult.Error(error ?: "Upload failed")
     }
 
-    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-    private suspend fun checkAndRecoverConnection(): Boolean {
-        if (!connectivityObserver.isNetworkAvailable()) {
-            return true
-        }
-
-        if (client.getCurrentConnectionState() is ConnectionState.Disconnected) {
-            return !client.connect()
-        }
-        return false
+    suspend fun connect(): Boolean {
+        return if (isStaleBoundSession()) false else client.connect()
     }
-
-    suspend fun connect(): Boolean = client.connect()
-    suspend fun disconnect() = client.disconnect()
+    fun disconnect() = client.disconnect()
     fun isConnected(): Boolean = client.getCurrentConnectionState() == ConnectionState.Connected
 
+    /** HTTP(S) base of the server this manager is connected to, e.g. "http://192.168.1.100:80". */
+    val serverBaseHttpUrl: String get() = client.baseHttpUrl
 }

@@ -1,4 +1,13 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.data.models.canRollbackNow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.components.HtmlDescription
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
@@ -9,7 +18,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +40,9 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -84,20 +95,30 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.text.HtmlCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.R
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
+import com.imnotndesh.truehub.data.helpers.TrueHubLogger
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.Apps
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
-import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveBadge
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveEntryCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveSection
+import com.imnotndesh.truehub.ui.components.expressive.InfoRow
+import com.imnotndesh.truehub.ui.utils.appStateContainerColor
+import com.imnotndesh.truehub.ui.utils.withRoutableServerHost
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
@@ -109,20 +130,39 @@ fun AppInfoScreen(
     onEditClick: (String,String) -> Unit,
     onNavigateToMarketplaceCategory: (String) -> Unit = {},
     onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
-    onOpenAdvanced: (String) -> Unit = {}
+    onOpenAdvanced: (String) -> Unit = {},
+    onOpenResourceUsage: (String) -> Unit = {},
+    onRollbackClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val viewModel: AppDetailsViewModel = viewModel(
-        factory = AppDetailsViewModel.provideFactory(manager),
-        key = app.name
-    )
+    val viewModel: AppDetailsViewModel = hiltViewModel(key = app.name)
+    val remoteState by viewModel.appState.collectAsState()
+    val displayState = remoteState ?: app.state
+    val isRunning = displayState.equals("running", ignoreCase = true)
+    val isTransitioning = displayState.equals("starting", true) || displayState.equals("stopping", true) || displayState.equals("deploying", true)
     var showDeleteConfigDialog by remember { mutableStateOf(false) }
     val deletionJobId by viewModel.deletionJobId.collectAsState()
     val activeJobs by JobRepository.activeJobs.collectAsState()
     val currentDeletionJob = deletionJobId?.let { activeJobs[it] }
+    val deletionError by viewModel.deletionError.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = remember(context) { VibrationFeedback(context) }
     LaunchedEffect(currentDeletionJob?.state) {
-        if (currentDeletionJob?.state == "SUCCESS") {
-            onDeleteSuccess()
+        when (currentDeletionJob?.state) {
+            "SUCCESS" -> {
+                haptics.play(VibratorMode.SUCCESS_TICK)
+                onDeleteSuccess()
+            }
+            "FAILED", "ABORTED" -> {
+                haptics.play(VibratorMode.ERROR_ALERT)
+                viewModel.reportDeletionFailure("Uninstall failed. Please try again.")
+            }
+        }
+    }
+    LaunchedEffect(deletionError) {
+        deletionError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearDeletionError()
         }
     }
 
@@ -146,109 +186,54 @@ fun AppInfoScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            UnifiedScreenHeader(
-                title = app.metadata?.title ?: app.name,
-                subtitle = "App Details",
-                isLoading = false,
-                isRefreshing = false,
-                error = null,
-                onDismissError = {},
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { innerPadding ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { _ ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            DetailHeroCard(
+                title = app.metadata?.title ?: app.name,
+                subtitle = "Version: ${app.humanVersion ?: app.version ?: "Unknown"}",
+                onClick = { onNavigateToMarketplaceAppDetails(app.name) },
+                leading = {
                     Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .clickable { onNavigateToMarketplaceAppDetails(app.name) },
+                        modifier = Modifier.size(76.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (!app.metadata?.icon.isNullOrBlank()) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(app.metadata.icon)
-                                    .decoderFactory(SvgDecoder.Factory())
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "${app.metadata.title ?: app.name} icon",
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Fit,
-                                placeholder = rememberVectorPainter(Icons.Default.Apps),
-                                error = rememberVectorPainter(Icons.Default.Apps)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Apps,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
+                        AppIcon(app = app, size = 52.dp)
                     }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = app.metadata?.title ?: app.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.clickable { onNavigateToMarketplaceAppDetails(app.name) }
+                },
+                badge = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ExpressiveBadge(
+                            label = displayState,
+                            containerColor = appStateContainerColor(displayState),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Version: ${app.humanVersion ?: app.version ?: "Unknown"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (app.customApp) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "Custom",
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                             if (app.migrated) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "Migrated",
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
                             }
                             if (app.migratedFromKubernetes) {
-                                AppBadge(
+                                ExpressiveBadge(
                                     label = "From K8s",
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -256,11 +241,26 @@ fun AppInfoScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-
+                },
+                trailing = {
                     ExpressiveIconButton(
                         onClick = {
-                            onEditClick(app.name,app.metadata!!.train ?: "stable")
+                            if (isRunning) viewModel.stopApp(app.name) else viewModel.startApp(app.name)
+                        },
+                        icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = if (isRunning) {
+                            "Stop ${app.metadata?.title ?: app.name}"
+                        } else {
+                            "Start ${app.metadata?.title ?: app.name}"
+                        },
+                        enabled = !isTransitioning,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    ExpressiveIconButton(
+                        onClick = {
+                            onEditClick(app.name, app.metadata?.train ?: "stable")
                         },
                         icon = Icons.Default.Edit,
                         contentDescription = "Edit ${app.metadata?.title ?: app.name} Configuration",
@@ -268,67 +268,50 @@ fun AppInfoScreen(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                 }
-            }
+            )
 
-            // Advanced info entry (opens the get_instance-driven deep-dive screen).
-            Card(
-                onClick = { onOpenAdvanced(app.id) },
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Build,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(22.dp)
+            BoxWithConstraints {
+                val twoColumns = maxWidth >= 600.dp
+                if (twoColumns) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.Build,
+                            title = "Advanced Information",
+                            subtitle = "Workloads, ports, storage, notes and screenshots",
+                            onClick = { onOpenAdvanced(app.id) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.MonitorHeart,
+                            title = "App Resource Usage",
+                            subtitle = "Live CPU, memory, network and disk I/O",
+                            onClick = { onOpenResourceUsage(app.id) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Advanced Information",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.Build,
+                            title = "Advanced Information",
+                            subtitle = "Workloads, ports, storage, notes and screenshots",
+                            onClick = { onOpenAdvanced(app.id) }
                         )
-                        Text(
-                            text = "Workloads, ports, storage, notes and screenshots",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.MonitorHeart,
+                            title = "App Resource Usage",
+                            subtitle = "Live CPU, memory, network and disk I/O",
+                            onClick = { onOpenResourceUsage(app.id) }
                         )
                     }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "Open advanced information",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
 
             ExpressiveSection(title = "Basic Information", icon = Icons.Default.Info) {
                 ExpressiveInfoCard {
                     InfoRow(label = "App Name", value = app.metadata?.title ?: app.name)
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     InfoRow(label = "ID", value = app.id)
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    InfoRow(label = "Version", value = app.humanVersion ?: app.version ?: "Unknown")
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     InfoRow(label = "Status", value = app.state.replaceFirstChar { it.uppercase() })
                     HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -359,7 +342,8 @@ fun AppInfoScreen(
                         versionInfo.changelog?.let { changelog ->
                             if (changelog.isNotBlank()) {
                                 Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                                     shape = RoundedCornerShape(20.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -412,27 +396,16 @@ fun AppInfoScreen(
             app.metadata?.description?.let { description ->
                 ExpressiveSection(title = "Description", icon = Icons.Default.Description) {
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val textColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        val linkColor = MaterialTheme.colorScheme.primary
-                        AndroidView(
+                        HtmlDescription(
+                            html = description,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            factory = { ctx ->
-                                TextView(ctx).apply {
-                                    movementMethod = LinkMovementMethod.getInstance()
-                                    textSize = 14f
-                                }
-                            },
-                            update = { textView ->
-                                textView.setTextColor(textColor.hashCode())
-                                textView.setLinkTextColor(linkColor.hashCode())
-                                textView.text = HtmlCompat.fromHtml(description, HtmlCompat.FROM_HTML_MODE_LEGACY)
-                            }
+                                .padding(16.dp)
                         )
                     }
                 }
@@ -447,56 +420,13 @@ fun AppInfoScreen(
                 )
             }
 
-            if (!app.metadata?.categories.isNullOrEmpty() || !app.metadata?.keywords.isNullOrEmpty()) {
-                ExpressiveSection(title = "Categories & Tags", icon = Icons.Default.Tag) {
-                    app.metadata.categories?.let { categories ->
-                        ServiceInfoChipGroup(
-                            title = "Categories",
-                            items = categories,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            onChipClick = { onNavigateToMarketplaceCategory(it) }
-                        )
-                    }
-                    app.metadata.keywords?.let { keywords ->
-                        if (keywords.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            ServiceInfoChipGroup(
-                                title = "Keywords",
-                                items = keywords,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                onChipClick = {}
-                            )
-                        }
-                    }
-                }
-            }
-
-            app.metadata?.maintainers?.let { maintainers ->
-                if (maintainers.isNotEmpty()) {
-                    ExpressiveSection(title = "Maintainers", icon = Icons.Default.Person) {
-                        maintainers.forEach { maintainer ->
-                            ServiceMaintainerCard(maintainer = maintainer)
+            app.portals?.let { portals ->
+                if (portals.isNotEmpty()) {
+                    ExpressiveSection(title = "Web Portals", icon = Icons.AutoMirrored.Filled.Launch) {
+                        portals.forEach { (name, url) ->
+                            ServicePortalCard(name = name, url = url.withRoutableServerHost(manager.serverBaseHttpUrl))
                             Spacer(modifier = Modifier.height(8.dp))
                         }
-                    }
-                }
-            }
-
-            if (app.metadata?.home != null || !app.metadata?.sources.isNullOrEmpty() || app.metadata?.changelogUrl != null) {
-                ExpressiveSection(title = "Resources", icon = Icons.Default.Link) {
-                    app.metadata.home?.let { home ->
-                        LinkButton(name = "Homepage", url = home, icon = Icons.Default.Home)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    app.metadata.sources?.forEach { source ->
-                        LinkButton(name = "Source Code", url = source, icon = Icons.Default.Code)
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-                    app.metadata.changelogUrl?.let { changelog ->
-                        LinkButton(name = "Changelog", url = changelog, icon = Icons.Default.Description)
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -521,6 +451,39 @@ fun AppInfoScreen(
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             textAlign = TextAlign.Center
                         )
+
+                        // Rollback lives here, away from the primary actions, and uses a mustard
+                        // tone so it reads as "caution" rather than the red of deletion.
+                        val canRollback = app.canRollbackNow()
+                        Button(
+                            onClick = { onRollbackClick(app.name) },
+                            enabled = canRollback,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RollbackMustard,
+                                contentColor = RollbackMustardOn,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Rollback app", fontWeight = FontWeight.Bold)
+                        }
+                        if (!canRollback) {
+                            Text(
+                                text = "Start the app to roll back to a previous version.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
                         Button(
                             onClick = { showDeleteConfigDialog = true },
                             enabled = currentDeletionJob == null,
@@ -565,25 +528,40 @@ fun AppInfoScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+        }
+        MinimalBackHeader(
+            onBackPressed = onNavigateBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 16.dp)
+        )
     }
 }
 
 @Composable
-private fun AppBadge(
-    label: String,
-    containerColor: Color,
-    contentColor: Color
-) {
-    Surface(
-        color = containerColor,
-        shape = RoundedCornerShape(100.dp)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+private fun AppIcon(app: Apps.AppQueryResponse, size: Dp, modifier: Modifier = Modifier) {
+    val iconUrl = app.metadata?.icon
+    if (!iconUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(iconUrl)
+                .crossfade(true)
+                .build(),
+            contentDescription = "${app.metadata?.title ?: app.name} icon",
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(size * 0.22f)),
+            contentScale = ContentScale.Fit,
+            placeholder = rememberVectorPainter(Icons.Default.Apps),
+            error = rememberVectorPainter(Icons.Default.Apps),
+            onError = { state -> TrueHubLogger.e("AppIcon", "image failed: ${state.result.throwable.message}") }
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.Apps,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = modifier.size(size)
         )
     }
 }
@@ -591,7 +569,8 @@ private fun AppBadge(
 @Composable
 fun ServiceNetworkCard(network: Apps.Network) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -706,7 +685,8 @@ private fun NetworkInfoChip(label: String, value: String) {
 @Composable
 fun ServiceImagesCard(images: List<String>) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -740,83 +720,6 @@ fun ServiceImagesCard(images: List<String>) {
                 }
             }
         }
-    }
-}
-
-@Composable
-fun ExpressiveSection(
-    title: String,
-    icon: ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Column(content = content)
-    }
-}
-
-@Composable
-fun ExpressiveInfoCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
-fun InfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(0.6f)
-        )
     }
 }
 
@@ -864,7 +767,8 @@ private fun ServiceInfoChipGroup(
 @Composable
 private fun ServicePortCard(port: Apps.UsedPort) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -943,7 +847,8 @@ private fun ServicePortalCard(name: String, url: String) {
 @Composable
 private fun ServiceContainerCard(container: Apps.ContainerDetail) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1033,7 +938,8 @@ private fun ServiceContainerCard(container: Apps.ContainerDetail) {
 @Composable
 private fun ServiceVolumeCard(volume: Apps.Volume) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1117,7 +1023,8 @@ private fun ServiceHostMountCard(mount: Apps.HostMount) {
 @Composable
 private fun ServiceRunAsContextCard(context: Apps.RunAsContext) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1184,7 +1091,8 @@ private fun ServiceRunAsContextCard(context: Apps.RunAsContext) {
 @Composable
 private fun ServiceCapabilityCard(capability: Apps.Capability) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1210,7 +1118,8 @@ private fun ServiceCapabilityCard(capability: Apps.Capability) {
 private fun ServiceMaintainerCard(maintainer: Apps.Maintainer) {
     val uriHandler = LocalUriHandler.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -1331,17 +1240,19 @@ fun SimilarAppsSection(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     val cornerRadius = (60 * 0.22f).dp
-                    if (!appItem.iconUrl.isNullOrBlank()) {
+                    val iconUrl = appItem.iconUrl?.takeIf { it.isNotBlank() }
+                        ?: "https://media.sys.truenas.net/apps/${appItem.name}/icons/icon.svg"
+                    if (!iconUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(appItem.iconUrl)
-                                .decoderFactory(SvgDecoder.Factory())
+                                .data(iconUrl)
                                 .crossfade(true)
                                 .build(),
                             contentDescription = "${appItem.title ?: appItem.name} icon",
                             contentScale = ContentScale.Fit,
                             placeholder = painterResource(id = R.drawable.missing_app_icon),
                             error = painterResource(id = R.drawable.missing_app_icon),
+                            onError = { state -> TrueHubLogger.e("SimilarApps", "image failed: ${state.result.throwable.message}") },
                             modifier = Modifier
                                 .size(60.dp)
                                 .clip(RoundedCornerShape(cornerRadius))
@@ -1509,7 +1420,7 @@ private fun DeleteOptionToggle(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -1529,7 +1440,7 @@ private fun DeleteOptionToggle(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onError,
                 checkedTrackColor = MaterialTheme.colorScheme.error
@@ -1537,3 +1448,6 @@ private fun DeleteOptionToggle(
         )
     }
 }
+
+private val RollbackMustard = Color(0xFFD9A521)
+private val RollbackMustardOn = Color(0xFF2B2100)

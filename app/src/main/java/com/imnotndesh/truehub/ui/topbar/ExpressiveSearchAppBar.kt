@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,7 +98,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
 import coil.request.ImageRequest
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
@@ -137,6 +137,8 @@ fun ExpressiveSearchAppBar(
             searchViewModel.clearSearch()
             onCloseSearch?.let { it() }
         }
+
+        BackHandler { handleClose() }
 
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -752,7 +754,6 @@ private fun SearchResultItem(
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(iconUrl)
-                            .decoderFactory(SvgDecoder.Factory())
                             .crossfade(true)
                             .build(),
                         contentDescription = "${result.title} icon",
@@ -802,6 +803,7 @@ private fun AppFallbackIcon(result: SearchResult) {
         is SearchResult.DiskResult -> Icons.Default.Storage
         is SearchResult.ServiceResult -> Icons.Default.PlayArrow
         is SearchResult.ShareResult -> Icons.Default.FolderShared
+        is SearchResult.NfsShareResult -> Icons.Default.FolderShared
         is SearchResult.SystemInfoResult -> Icons.Default.Info
         is SearchResult.ActionResult -> Icons.Default.TouchApp
         is SearchResult.InstalledAppResult -> Icons.Default.Apps

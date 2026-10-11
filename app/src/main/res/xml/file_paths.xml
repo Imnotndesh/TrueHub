@@ -2,4 +2,5 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Internal app-logging files (attachments for the share sheet). -->
     <files-path name="logs" path="logs/" />
+    <files-path name="updates" path="updates/" />
 </paths>

@@ -11,6 +11,8 @@ class DismissAlertReceiver : BroadcastReceiver() {
         const val ACTION_DISMISS_ALERT = "com.imnotndesh.truehub.ACTION_DISMISS_ALERT"
         const val EXTRA_ALERT_UUID = "extra_alert_uuid"
         const val EXTRA_NOTIFICATION_ID = "extra_notification_id"
+        const val EXTRA_SERVER_ID = "extra_server_id"
+        const val EXTRA_ACCOUNT_ID = "extra_account_id"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -22,6 +24,11 @@ class DismissAlertReceiver : BroadcastReceiver() {
             NotificationManagerCompat.from(context).cancel(notificationId)
         }
 
-        DismissAlertWorker.enqueue(context, alertUuid)
+        DismissAlertWorker.enqueue(
+            context,
+            alertUuid,
+            intent.getStringExtra(EXTRA_SERVER_ID),
+            intent.getStringExtra(EXTRA_ACCOUNT_ID)
+        )
     }
 }

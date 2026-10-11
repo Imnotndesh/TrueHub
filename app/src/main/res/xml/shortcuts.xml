@@ -4,7 +4,7 @@
     <shortcut
         android:shortcutId="install_app"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher_monochrome"
+        android:icon="@drawable/ic_shortcut_install_app"
         android:shortcutShortLabel="@string/shortcut_install_app_short"
         android:shortcutLongLabel="@string/shortcut_install_app_long"
         android:shortcutDisabledMessage="@string/shortcut_disabled">
@@ -17,7 +17,7 @@
     <shortcut
         android:shortcutId="update_apps"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher_monochrome"
+        android:icon="@drawable/ic_shortcut_update_apps"
         android:shortcutShortLabel="@string/shortcut_update_apps_short"
         android:shortcutLongLabel="@string/shortcut_update_apps_long"
         android:shortcutDisabledMessage="@string/shortcut_disabled">
@@ -30,7 +30,7 @@
     <shortcut
         android:shortcutId="configure_instance"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher_monochrome"
+        android:icon="@drawable/ic_shortcut_configure_instance"
         android:shortcutShortLabel="@string/shortcut_configure_instance_short"
         android:shortcutLongLabel="@string/shortcut_configure_instance_long"
         android:shortcutDisabledMessage="@string/shortcut_disabled">
@@ -43,7 +43,7 @@
     <shortcut
         android:shortcutId="update_instance"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher_monochrome"
+        android:icon="@drawable/ic_shortcut_update_instance"
         android:shortcutShortLabel="@string/shortcut_update_instance_short"
         android:shortcutLongLabel="@string/shortcut_update_instance_long"
         android:shortcutDisabledMessage="@string/shortcut_disabled">

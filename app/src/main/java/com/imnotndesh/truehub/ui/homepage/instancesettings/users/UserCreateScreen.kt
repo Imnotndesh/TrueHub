@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,11 +40,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.LoadingScreen
@@ -54,9 +59,7 @@ fun UserCreateScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: UserSettingsViewModel = viewModel(
-        factory = UserSettingsViewModel.UserSettingsViewModelFactory(manager)
-    )
+    val viewModel: UserSettingsViewModel = hiltViewModel()
     val uiState by viewModel.createState.collectAsState()
 
     var username by remember { mutableStateOf("") }
@@ -75,7 +78,10 @@ fun UserCreateScreen(
 
     LaunchedEffect(Unit) { viewModel.loadCreateFormData() }
     LaunchedEffect(uiState.createResult) {
-        if (uiState.createResult != null) onNavigateBack()
+        if (uiState.createResult != null) {
+            ToastManager.showSuccess("User created")
+            onNavigateBack()
+        }
     }
 
     Column(
@@ -263,6 +269,7 @@ private fun SectionCard(
                 )
                 Text(
                     title,
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
@@ -284,7 +291,13 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -299,6 +312,6 @@ private fun ToggleRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }

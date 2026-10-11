@@ -1,8 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.network
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.imnotndesh.truehub.data.ApiResult
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
@@ -18,7 +19,8 @@ data class NetworkSummaryUiState(
     val error: String? = null
 )
 
-class NetworkSummaryViewModel(
+@HiltViewModel
+class NetworkSummaryViewModel @Inject constructor(
     private val manager: TrueNASApiManager
 ) : ViewModel() {
 
@@ -42,14 +44,5 @@ class NetworkSummaryViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
-    }
-
-    class ViewModelFactory(
-        private val manager: TrueNASApiManager
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return NetworkSummaryViewModel(manager) as T
-        }
     }
 }

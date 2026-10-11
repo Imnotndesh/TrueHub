@@ -53,9 +53,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -70,12 +73,16 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.ApiResult
+import com.imnotndesh.truehub.ui.components.ErrorState
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.GlobalJobTracker
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.data.models.System
+import com.imnotndesh.truehub.ui.components.PullToRefreshContent
 import com.imnotndesh.truehub.ui.components.ToastManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.utils.AppCache
 import kotlinx.coroutines.launch
 
 /**
@@ -93,7 +100,23 @@ fun SystemUpdateScreen(
 ) {
     val context = LocalContext.current
     val activeJobs by JobRepository.activeJobs.collectAsState()
+    val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
     var selectedVersionForNotes by remember { mutableStateOf<System.UpdateAvailableVersionsResponse?>(null) }
+
+    suspend fun refreshVersions() {
+        isRefreshing = true
+        when (val result = manager.system.getSystemUpdateVersions()) {
+            is ApiResult.Success -> {
+                AppCache.updateSystemUpdateVersions(result.data)
+                loadError = null
+            }
+            is ApiResult.Error -> loadError = result.message
+            is ApiResult.Loading -> {}
+        }
+        isRefreshing = false
+    }
 
     val activeUpdateJob = remember(activeJobs) {
         activeJobs.values.find { it.type == "SYSTEM_UPDATE" && it.state !in listOf("SUCCESS", "FAILED", "ABORTED") }
@@ -102,24 +125,34 @@ fun SystemUpdateScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "System Updates",
-            subtitle = if (versions.isEmpty()) "No updates available" else "${versions.size} available",
+            subtitle = when {
+                loadError != null && versions.isEmpty() -> "Couldn't check for updates"
+                versions.isEmpty() -> "No updates available"
+                else -> "${versions.size} available"
+            },
             isLoading = false,
             isRefreshing = false,
-            error = null,
-            onRefresh = {},
-            onDismissError = {},
+            error = loadError,
+            onDismissError = { loadError = null },
             manager = manager,
             onBackPressed = onNavigateBack
         )
 
-        if (versions.isEmpty()) {
-            EmptyUpdatesState()
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+        PullToRefreshContent(
+            isRefreshing = isRefreshing,
+            onRefresh = { scope.launch { refreshVersions() } },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (versions.isEmpty() && loadError != null) {
+                ErrorState(loadError!!, onRetry = { scope.launch { refreshVersions() } })
+            } else if (versions.isEmpty()) {
+                EmptyUpdatesState()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + floatingNavBottomClearance()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                 item {
                     UpdateHeaderCard(currentVersion = currentVersion)
                 }
@@ -142,6 +175,7 @@ fun SystemUpdateScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(24.dp)) }
+                }
             }
         }
     }
@@ -610,6 +644,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("### "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -620,6 +655,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(14.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("## "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -630,6 +666,7 @@ private fun MarkdownContent(markdown: String) {
                     Spacer(Modifier.height(16.dp))
                     Text(
                         text = inlineStyled(trimmed.removePrefix("# "), uriHandler),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface

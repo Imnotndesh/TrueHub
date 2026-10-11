@@ -36,6 +36,9 @@ object PersonalizationManager {
     // Default user key used when no account is active yet.
     const val DEFAULT_USER_KEY = "default"
 
+    /** Hard cap on how many destinations can appear on the bottom navigation bar. */
+    const val MAX_NAVBAR_ITEMS = 4
+
     /** Best-effort synchronous lookup of the current user key. */
     fun currentUserKey(context: Context): String {
         // Prefer the last-used profile synchronously via the SharedPreferences-backed
@@ -85,11 +88,12 @@ object PersonalizationManager {
     }
 
     fun saveNavbar(context: Context, userKey: String, destinations: List<NavbarDestination>) {
+        val effective = effectiveDestinations(destinations)
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit {
-                putString(key(userKey, "navbar"), destinations.joinToString(",") { it.name })
+                putString(key(userKey, "navbar"), effective.joinToString(",") { it.name })
             }
-        _state.value = _state.value.copy(navbarDestinations = effectiveDestinations(destinations))
+        _state.value = _state.value.copy(navbarDestinations = effective)
     }
 
     fun saveSearchBarBottom(context: Context, userKey: String, bottom: Boolean) {
@@ -131,18 +135,13 @@ object PersonalizationManager {
             NavbarDestination.MARKETPLACE
         )
 
-    /** Resolve the effective/ordered list: HOME always first, then user-selected optional ones. */
+    /** Resolve the effective/ordered list: HOME always first, capped at [MAX_NAVBAR_ITEMS]. */
     fun effectiveDestinations(selected: List<NavbarDestination>): List<NavbarDestination> {
-        val selectedSet = selected.toSet()
-        val ordered = mutableListOf<NavbarDestination>()
-        // Home is always first and always present.
-        ordered.add(NavbarDestination.HOME)
-        // Preserve user's chosen order for the optional items, only including enabled ones.
-        for (dest in availableDestinations) {
-            if (dest.isRequired) continue
-            if (selectedSet.contains(dest) && dest !in ordered) {
-                ordered.add(dest)
-            }
+        val ordered = mutableListOf(NavbarDestination.HOME)
+        for (dest in selected) {
+            if (ordered.size >= MAX_NAVBAR_ITEMS) break
+            if (dest.isRequired || dest in ordered) continue
+            ordered.add(dest)
         }
         return ordered
     }

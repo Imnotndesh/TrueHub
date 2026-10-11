@@ -1,6 +1,9 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material.icons.filled.Image
@@ -45,12 +49,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
 
 /**
  * Lists TrueNAS-instance-specific settings and configuration, separate from
@@ -77,9 +84,11 @@ fun InstanceConfigScreen(
     onNavigateToAuditLogs: () -> Unit = {},
     onNavigateToNetwork: () -> Unit = {},
     onNavigateToSystemInformation: () -> Unit = {},
+    onNavigateToCloudSync: () -> Unit = {},
     onNavigateToTrueNasConnect: () -> Unit = {},
     onNavigateToTrueCommand: () -> Unit = {},
     onNavigateToAppImageManagement: () -> Unit = {},
+    onNavigateToGlobalVirtSettings: () -> Unit = {},
 
 ) {
     Column(
@@ -101,11 +110,14 @@ fun InstanceConfigScreen(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(WindowInsets.systemBars.asPaddingValues())
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp)
+                .padding(bottom = 16.dp + floatingNavBottomClearance())
         ) {
             InstanceConfigSection(
                 title = "Core configuration",
@@ -173,6 +185,20 @@ fun InstanceConfigScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             InstanceConfigSection(
+                title = "Virtualization",
+                items = listOf(
+                    InstanceConfigItem(
+                        icon = Icons.Default.DeveloperBoard,
+                        name = "Global Virt settings",
+                        description = "Default pool, storage pools and network bridge",
+                        onClick = onNavigateToGlobalVirtSettings
+                    )
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            InstanceConfigSection(
                 title = "Monitoring & compliance",
                 items = listOf(
                     InstanceConfigItem(
@@ -218,6 +244,12 @@ fun InstanceConfigScreen(
                         name = "System information",
                         description = "Version, identifiers, state and features",
                         onClick = onNavigateToSystemInformation
+                    ),
+                    InstanceConfigItem(
+                        icon = Icons.Default.Cloud,
+                        name = "Cloud Sync",
+                        description = "Backup and sync tasks to cloud providers",
+                        onClick = onNavigateToCloudSync
                     )
                 )
             )
@@ -239,6 +271,7 @@ private fun InstanceConfigSection(
         ) {
             Text(
                 text = title,
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
@@ -256,8 +289,8 @@ private fun InstanceConfigCard(item: InstanceConfigItem) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
@@ -285,7 +318,7 @@ private fun InstanceConfigCard(item: InstanceConfigItem) {
                 } else {
                     Icon(
                         imageVector = item.icon,
-                        contentDescription = item.name,
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(24.dp)
                     )

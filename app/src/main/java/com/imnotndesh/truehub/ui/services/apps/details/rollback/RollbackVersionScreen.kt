@@ -1,4 +1,14 @@
 package com.imnotndesh.truehub.ui.services.apps.details.rollback
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -69,9 +79,13 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableStateOf
 import com.imnotndesh.truehub.data.helpers.JobRepository
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.ServerRackAnimation
+import com.imnotndesh.truehub.ui.haptics.VibrationFeedback
+import com.imnotndesh.truehub.ui.haptics.VibratorMode
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
@@ -93,15 +107,20 @@ fun RollbackVersionScreen(
     val isDone = liveJob?.state == "SUCCESS"
     val isFailed = liveJob?.state in listOf("FAILED", "ABORTED")
 
-    var selectedVersion by remember { mutableStateOf<String?>(null) }
-    var rollbackSnapshot by remember { mutableStateOf(true) }
-
-    LaunchedEffect(isDone) {
-        if (isDone) {
-            kotlinx.coroutines.delay(1800.milliseconds)
-            onNavigateBack()
+    val context = LocalContext.current
+    val haptics = remember(context) { VibrationFeedback(context) }
+    var terminalFeedbackPlayed by remember { mutableStateOf(false) }
+    LaunchedEffect(isDone, isFailed) {
+        if (!terminalFeedbackPlayed) {
+            when {
+                isDone -> { haptics.play(VibratorMode.SUCCESS_TICK); terminalFeedbackPlayed = true }
+                isFailed -> { haptics.play(VibratorMode.ERROR_ALERT); terminalFeedbackPlayed = true }
+            }
         }
     }
+
+    var selectedVersion by remember { mutableStateOf<String?>(null) }
+    var rollbackSnapshot by remember { mutableStateOf(true) }
 
     Box(
         modifier = Modifier
@@ -170,6 +189,7 @@ private fun VersionSelectionView(
     onConfirm: () -> Unit,
     onNavigateBack: () -> Unit,
 ) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
     Column(modifier = modifier.padding(16.dp)) {
         Spacer(modifier = Modifier.height(72.dp))
 
@@ -222,7 +242,11 @@ private fun VersionSelectionView(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onVersionSelected(version) },
+                                .selectable(
+                                    selected = isSelected,
+                                    role = Role.RadioButton,
+                                    onClick = { onVersionSelected(version) }
+                                ),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected)
@@ -277,7 +301,12 @@ private fun VersionSelectionView(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .toggleable(
+                                value = rollbackSnapshot,
+                                role = Role.Switch,
+                                onValueChange = onRollbackSnapshotChange
+                            ),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -301,7 +330,7 @@ private fun VersionSelectionView(
                         Spacer(modifier = Modifier.width(12.dp))
                         Switch(
                             checked = rollbackSnapshot,
-                            onCheckedChange = onRollbackSnapshotChange
+                            onCheckedChange = null
                         )
                     }
                 }
@@ -327,7 +356,7 @@ private fun VersionSelectionView(
                 Text("Cancel")
             }
             Button(
-                onClick = onConfirm,
+                onClick = { showConfirmDialog = true },
                 enabled = selectedVersion != null && !isLoading && error == null,
                 modifier = Modifier
                     .weight(1f)
@@ -342,6 +371,29 @@ private fun VersionSelectionView(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Rollback")
             }
+        }
+
+        if (showConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showConfirmDialog = false },
+                title = { Text("Roll back to ${selectedVersion ?: "this version"}?") },
+                text = {
+                    Text(
+                        "The app will be restored to this version. Changes made since then will be discarded."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showConfirmDialog = false
+                            onConfirm()
+                        }
+                    ) { Text("Rollback") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmDialog = false }) { Text("Cancel") }
+                }
+            )
         }
     }
 }
@@ -368,12 +420,14 @@ private fun RollingBackView(
     )
 
     Column(
-        modifier = modifier.padding(24.dp),
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         ServerRackAnimation(
-            size = 400f,
+            size = 240f,
             modifier = Modifier
         )
 
@@ -390,7 +444,12 @@ private fun RollingBackView(
             },
             label = "status_text"
         ) { state ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.semantics {
+                    liveRegion = if (isFailed) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                }
+            ) {
                 Text(
                     text = when (state) {
                         "done" -> "Rollback Complete"
@@ -450,7 +509,7 @@ private fun RollingBackView(
         }
 
         AnimatedVisibility(
-            visible = isFailed,
+            visible = isFailed || isDone,
             enter = fadeIn(tween(400)),
             exit = fadeOut(tween(300))
         ) {
@@ -460,7 +519,7 @@ private fun RollingBackView(
                     onClick = onNavigateBack,
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text("Go Back")
+                    Text(if (isDone) "Done" else "Go Back")
                 }
             }
         }

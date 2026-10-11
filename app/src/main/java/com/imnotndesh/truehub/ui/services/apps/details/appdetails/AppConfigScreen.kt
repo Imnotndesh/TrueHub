@@ -1,5 +1,9 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.ui.components.ErrorState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,12 +14,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cancel
@@ -40,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,12 +55,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.JobRepository
+import com.imnotndesh.truehub.ui.components.MinimalBackHeader
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.services.apps.AppsScreenViewModel
 import com.imnotndesh.truehub.ui.services.apps.details.marketplace.SchemaGroupSection
@@ -82,9 +89,7 @@ fun AppConfigScreen(
     appValues: AppConfigPageValues,
     onNavigateBack: () -> Unit
 ) {
-    val viewModel: AppsScreenViewModel = viewModel(
-        factory = AppsScreenViewModel.AppsScreenViewModelFactory(manager)
-    )
+    val viewModel: AppsScreenViewModel = hiltViewModel()
     val configState by viewModel.appConfigState.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -93,6 +98,9 @@ fun AppConfigScreen(
     val context = LocalContext.current
     val activeJobsMap by JobRepository.activeJobs.collectAsState()
     val trackedJob = configState.saveJobId?.let { gid -> activeJobsMap[gid] }
+    val editCacheKey = remember(appValues.appName, manager) {
+        "${manager.boundProfileKey() ?: "unknown"}|${appValues.appName}"
+    }
 
     LaunchedEffect(appValues.appName) {
         formReady = false
@@ -105,19 +113,22 @@ fun AppConfigScreen(
         snapshotFlow { formState.toMap() }
             .debounce(500)
             .collect { snapshot ->
-                AppConfigEditCache.save(appValues.appName, snapshot)
+                AppConfigEditCache.save(editCacheKey, snapshot)
             }
     }
     LaunchedEffect(trackedJob) {
         if (trackedJob != null) {
             when (trackedJob.state.uppercase()) {
                 "SUCCESS" -> {
-                    AppConfigEditCache.clear(appValues.appName)
+                    AppConfigEditCache.clear(editCacheKey)
                     viewModel.clearAppConfigError()
                     onNavigateBack()
                 }
                 "FAILED", "ABORTED" -> {
-
+                    viewModel.reportConfigSaveFailure(
+                        trackedJob.description?.takeIf { it.isNotBlank() }
+                            ?: "The update job failed."
+                    )
                 }
             }
         }
@@ -132,7 +143,7 @@ fun AppConfigScreen(
         formState.clear()
         flattenDefaults(versionData?.values ?: emptyMap(), formState)
         flattenDefaults(liveConfig, formState)
-        AppConfigEditCache.load(appValues.appName)?.forEach { (k, v) ->
+        AppConfigEditCache.load(editCacheKey)?.forEach { (k, v) ->
             formState[k] = v
         }
         formReady = true
@@ -153,13 +164,12 @@ fun AppConfigScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                            .navigationBarsPadding(),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedButton(
                             onClick = {
-                                AppConfigEditCache.clear(appValues.appName)
+                                AppConfigEditCache.clear(editCacheKey)
                                 val details = uiState.catalogAppDetails
                                 val versionKey = details?.versions?.keys?.firstOrNull()
                                 val versionData = details?.versions?.get(versionKey)
@@ -193,7 +203,7 @@ fun AppConfigScreen(
                                 .weight(1f)
                                 .height(56.dp),
                             shape = RoundedCornerShape(20.dp),
-                            enabled = !configState.isSaving,
+                            enabled = !configState.isSaving && configState.config != null && configState.error == null,
                             colors = when {
                                 configState.saveSuccess -> ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary
@@ -248,17 +258,42 @@ fun AppConfigScreen(
             }
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())) {
-            UnifiedScreenHeader(
-                title = "App Configuration",
-                subtitle = appValues.appName,
-                isLoading = configState.isLoading,
-                isRefreshing = false,
-                error = configState.error,
-                onDismissError = { viewModel.clearAppConfigError() },
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
+        val listState = rememberLazyListState()
+        val density = LocalDensity.current
+        val collapseThreshold = remember(density) { with(density) { 32.dp.roundToPx() } }
+        val collapsed by remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseThreshold
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding())
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+            AnimatedContent(targetState = collapsed, label = "configHeader") { isCollapsed ->
+                if (isCollapsed) {
+                    MinimalBackHeader(
+                        onBackPressed = onNavigateBack,
+                        error = configState.error,
+                        onDismissError = { viewModel.clearAppConfigError() },
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                } else {
+                    UnifiedScreenHeader(
+                        title = "App Configuration",
+                        subtitle = appValues.appName,
+                        isLoading = configState.isLoading,
+                        isRefreshing = false,
+                        error = configState.error,
+                        onDismissError = { viewModel.clearAppConfigError() },
+                        manager = manager,
+                        onBackPressed = onNavigateBack
+                    )
+                }
+            }
+            Box(modifier = Modifier.weight(1f)) {
             when {
                 configState.isLoading || uiState.isLoadingCatalogDetails || !formReady -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -272,11 +307,22 @@ fun AppConfigScreen(
                     }
                 }
 
+                configState.config == null && configState.error != null -> {
+                    ErrorState(
+                        message = configState.error ?: "Failed to load configuration",
+                        onRetry = {
+                            viewModel.clearAppConfigError()
+                            viewModel.loadAppConfig(appValues.appName)
+                        }
+                    )
+                }
+
                 else -> {
                     val schema = uiState.catalogAppDetails?.versions
                         ?.get(uiState.catalogAppDetails?.versions?.keys?.firstOrNull())?.schema
 
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -289,9 +335,10 @@ fun AppConfigScreen(
                                     item(key = group.name) {
                                         SchemaGroupSection(
                                             group = group,
-                                            questions = groupQuestions,
-                                            formState = formState,
-                                            modifier = Modifier.padding(horizontal = 0.dp)
+                                             questions = groupQuestions,
+                                             formState = formState,
+                                             manager = manager,
+                                             modifier = Modifier.padding(horizontal = 0.dp)
                                         )
                                     }
                                 }
@@ -299,6 +346,8 @@ fun AppConfigScreen(
                         }
                     }
                 }
+            }
+            }
             }
             if (configState.isSaving || configState.saveFailed || configState.saveJobId != null) {
                 Box(
@@ -461,14 +510,16 @@ private fun ConfigEditorRow(
                 }
                 is Boolean -> {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = value, role = Role.Switch, onValueChange = onValueChange),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Enabled", style = MaterialTheme.typography.bodyMedium)
                         Switch(
                             checked = value,
-                            onCheckedChange = onValueChange
+                            onCheckedChange = null
                         )
                     }
                 }

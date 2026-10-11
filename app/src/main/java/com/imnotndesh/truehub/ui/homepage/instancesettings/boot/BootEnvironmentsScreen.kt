@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
+import androidx.compose.runtime.saveable.rememberSaveable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -6,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,11 +50,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.System
 import com.imnotndesh.truehub.ui.components.ExpressiveFAB
@@ -71,14 +76,15 @@ fun BootEnvironmentsScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {}
 ) {
-    val vm: BootEnvironmentsViewModel = viewModel(
-        factory = BootEnvironmentsViewModel.ViewModelFactory(manager)
-    )
+    val vm: BootEnvironmentsViewModel = hiltViewModel()
     val uiState by vm.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     var cloneSourceId by remember { mutableStateOf<String?>(null) }
     var destroyTargetId by remember { mutableStateOf<String?>(null) }
+    val window = LocalTrueHubWindow.current
+    var selectedEnvId by rememberSaveable { mutableStateOf<String?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedEnvId != null
 
     LaunchedEffect(Unit) { vm.loadEnvironments() }
 
@@ -104,17 +110,12 @@ fun BootEnvironmentsScreen(
                 onBackPressed = onNavigateBack
             )
         },
-        floatingActionButton = {
-            ExpressiveFAB(
-                onClick = { cloneSourceId = uiState.environments.firstOrNull()?.id },
-                icon = Icons.Default.Add,
-                text = "Clone",
-                visible = uiState.environments.isNotEmpty(),
-                initiallyExpanded = true,
-                expandedDurationMillis = 2500
-            )
-        }
     ) { innerPadding ->
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            list = {
+                Box(modifier = Modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.environments.isEmpty() ->
                 LoadingScreen("Loading boot environments...")
@@ -176,6 +177,27 @@ fun BootEnvironmentsScreen(
                 }
                     }
         }
+                    ExpressiveFAB(
+                        onClick = { cloneSourceId = uiState.environments.firstOrNull()?.id },
+                        icon = Icons.Default.Add,
+                        text = "Clone",
+                        visible = uiState.environments.isNotEmpty(),
+                        initiallyExpanded = true,
+                        expandedDurationMillis = 2500,
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                    )
+                }
+            },
+            detail = {
+                selectedEnvId?.let { envId ->
+                    BootEnvironmentDetailScreen(
+                        manager = manager,
+                        environmentId = envId,
+                        onNavigateBack = { selectedEnvId = null }
+                    )
+                }
+            }
+        )
     }
 
     cloneSourceId?.let { source ->
@@ -297,7 +319,14 @@ private fun BootEnvironmentCard(
                 ) { Text("Activate") }
 
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .toggleable(
+                            value = keep,
+                            enabled = !isActing,
+                            role = Role.Switch,
+                            onValueChange = onKeepChange
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -309,7 +338,7 @@ private fun BootEnvironmentCard(
                     Switch(
                         checked = keep,
                         enabled = !isActing,
-                        onCheckedChange = onKeepChange
+                        onCheckedChange = null
                     )
                 }
 

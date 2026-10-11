@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
+import androidx.compose.ui.graphics.Color
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalSize
@@ -16,6 +17,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.background
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.itemsIndexed
@@ -90,7 +92,7 @@ private fun SmallWidget(upgradableApps: List<Apps.AppQueryResponse>, context: Co
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(Color(0xD9FFFFFF), Color(0xD91C1B1F))
             .cornerRadius(20.dp)
             .clickable(actionStartActivity(openAppsIntent(context))),
         contentAlignment = Alignment.Center
@@ -129,7 +131,7 @@ private fun MediumWidget(upgradableApps: List<Apps.AppQueryResponse>, context: C
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(Color(0xD9FFFFFF), Color(0xD91C1B1F))
             .cornerRadius(20.dp)
             .padding(start = 10.dp, end = 10.dp, top = 10.dp, bottom = 8.dp)
     ) {
@@ -189,7 +191,7 @@ private fun LargeWidget(upgradableApps: List<Apps.AppQueryResponse>, context: Co
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.widgetBackground)
+            .background(Color(0xD9FFFFFF), Color(0xD91C1B1F))
             .cornerRadius(20.dp)
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp)
     ) {

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +71,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
@@ -77,7 +79,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Alerts
 import com.imnotndesh.truehub.data.models.System
@@ -90,9 +94,7 @@ fun AlertClassesConfigScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {}
 ) {
-    val viewModel: AlertClassesConfigViewModel = viewModel(
-        factory = AlertClassesConfigViewModel.AlertClassesConfigViewModelFactory(manager)
-    )
+    val viewModel: AlertClassesConfigViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -215,14 +217,15 @@ private fun iconForCategory(categoryId: String): ImageVector = when (categoryId)
     else -> Icons.Default.NotificationsActive
 }
 
+@Composable
 private fun colorForLevel(level: Alerts.AlertLevels): Color = when (level) {
-    Alerts.AlertLevels.INFO -> Color(0xFF1976D2)
-    Alerts.AlertLevels.NOTICE -> Color(0xFF00897B)
-    Alerts.AlertLevels.WARNING -> Color(0xFFF57C00)
-    Alerts.AlertLevels.ERROR -> Color(0xFFD84315)
-    Alerts.AlertLevels.CRITICAL -> Color(0xFFC62828)
-    Alerts.AlertLevels.ALERT -> Color(0xFFAD1457)
-    Alerts.AlertLevels.EMERGENCY -> Color(0xFF6A1B9A)
+    Alerts.AlertLevels.INFO -> StatusTone.INFO.color()
+    Alerts.AlertLevels.NOTICE -> StatusTone.INFO.color()
+    Alerts.AlertLevels.WARNING -> StatusTone.WARNING.color()
+    Alerts.AlertLevels.ERROR -> StatusTone.NEGATIVE.color()
+    Alerts.AlertLevels.CRITICAL -> StatusTone.NEGATIVE.color()
+    Alerts.AlertLevels.ALERT -> MaterialTheme.colorScheme.tertiary
+    Alerts.AlertLevels.EMERGENCY -> MaterialTheme.colorScheme.tertiary
 }
 
 @Composable
@@ -396,14 +399,23 @@ private fun AlertClassRow(
                         )
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = edit.proactiveSupport,
+                                role = Role.Switch,
+                                onValueChange = onProactiveChanged
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             text = "Proactive Support",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
-                        Switch(checked = edit.proactiveSupport, onCheckedChange = onProactiveChanged)
+                        Switch(checked = edit.proactiveSupport, onCheckedChange = null)
                     }
                 }
             }

@@ -1,15 +1,23 @@
 package com.imnotndesh.truehub.data
 
 import com.imnotndesh.truehub.data.helpers.TrueHubLogger
+import com.imnotndesh.truehub.data.api.ApiMethods
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
+import com.imnotndesh.truehub.data.models.JsonRpcEvent
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.io.OutputStream
@@ -60,6 +68,9 @@ class TrueNASClient(private val config: ClientConfig) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _events = MutableSharedFlow<JsonRpcEvent>(extraBufferCapacity = 64)
+    val events: SharedFlow<JsonRpcEvent> = _events.asSharedFlow()
+
     suspend fun connect(): Boolean {
         if (_connectionState.value is ConnectionState.Connected) {
             return true
@@ -81,7 +92,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     super.onMessage(webSocket, text)
-                    TrueHubLogger.e(logName,"Received message: $text")
+                    TrueHubLogger.e(logName, "Received message")
                     handleMessage(text)
                 }
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
@@ -102,6 +113,10 @@ class TrueNASClient(private val config: ClientConfig) {
                     super.onClosed(webSocket, code, reason)
                     _connectionState.value = ConnectionState.Disconnected
                     TrueHubLogger.e(logName,"Connection closed: $code - $reason")
+
+                    val error = RuntimeException("Connection closed: $code - $reason")
+                    pendingRequests.values.forEach { it.completeExceptionally(error) }
+                    pendingRequests.clear()
                 }
             })
 
@@ -154,6 +169,59 @@ class TrueNASClient(private val config: ClientConfig) {
             false
         }
     }
+    suspend fun uploadMultipart(
+        urlPath: String,
+        dataJson: String,
+        fileName: String,
+        contentType: String?,
+        contentLength: Long,
+        openStream: () -> java.io.InputStream,
+        authHeader: String?,
+        onProgress: (Long, Long) -> Unit
+    ): Pair<Int?, String?> = withContext(Dispatchers.IO) {
+        val url = baseHttpUrl + urlPath
+        val fileBody = object : okhttp3.RequestBody() {
+            override fun contentType(): okhttp3.MediaType =
+                (contentType ?: "application/octet-stream").toMediaType()
+
+            override fun contentLength(): Long = contentLength
+
+            override fun writeTo(sink: okio.BufferedSink) {
+                openStream().use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var sent = 0L
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        sink.write(buffer, 0, read)
+                        sent += read
+                        onProgress(sent, contentLength)
+                    }
+                }
+            }
+        }
+        val body = okhttp3.MultipartBody.Builder()
+            .setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart("data", dataJson)
+            .addFormDataPart("file", fileName, fileBody)
+            .build()
+        val builder = okhttp3.Request.Builder().url(url).post(body)
+        if (!authHeader.isNullOrBlank()) builder.header("Authorization", authHeader)
+        try {
+            downloadClient.newCall(builder.build()).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    null to "Upload failed (${response.code}): ${text.take(200)}"
+                } else {
+                    val jobId = Regex("\"job_id\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toIntOrNull()
+                    if (jobId != null) jobId to null else null to "Unexpected upload response: ${text.take(200)}"
+                }
+            }
+        } catch (e: Exception) {
+            null to (e.message ?: "Upload failed")
+        }
+    }
+
     private fun handleMessage(text: String) {
         try {
             val resp = responseAdapter.fromJson(text)
@@ -162,7 +230,8 @@ class TrueNASClient(private val config: ClientConfig) {
                 resp == null -> TrueHubLogger.e(logName,"Null response from server")
 
                 resp.id == null && resp.method != null -> {
-                    TrueHubLogger.e(logName,"Notification: ${resp.method} ${resp.params}")
+                        TrueHubLogger.e(logName, "Notification: ${resp.method}")
+                    _events.tryEmit(JsonRpcEvent(resp.method, resp.params))
                 }
                 resp.error != null -> {
                     val deferred = pendingRequests[resp.id]
@@ -201,6 +270,13 @@ class TrueNASClient(private val config: ClientConfig) {
             false
         }
     }
+
+    suspend fun subscribe(event: String): String =
+        call(ApiMethods.Core.SUBSCRIBE, listOf(event), String::class.java)
+
+    suspend fun unsubscribe(subscriptionId: String) {
+        call<Unit>(ApiMethods.Core.UNSUBSCRIBE, listOf(subscriptionId), Unit::class.java)
+    }
     suspend fun <T> call(method: String, params: List<Any?>, resultType: Type): T {
         if (method.startsWith("auth.login") || method == "auth.generate_token") {
             return performRpcCall(method, params, resultType)
@@ -223,7 +299,7 @@ class TrueNASClient(private val config: ClientConfig) {
 
         return try {
             val json = requestAdapter.toJson(request)
-            TrueHubLogger.e(logName,"Sending: $json")
+            TrueHubLogger.e(logName, "Sending request id=$id method=$method")
 
             webSocket?.send(json) ?: throw RuntimeException("WebSocket not connected")
 

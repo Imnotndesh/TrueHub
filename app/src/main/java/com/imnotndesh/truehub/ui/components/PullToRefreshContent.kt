@@ -1,36 +1,29 @@
 package com.imnotndesh.truehub.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 
-/**
- * A pull-to-refresh wrapper around Material3's [PullToRefreshBox] that swaps in the
- * Material3 expressive [LoadingIndicator] (the shape-morphing indicator) as the refresh
- * indicator.
- *
- * The [LoadingIndicator] is only composed while a refresh is actually in flight
- * ([isRefreshing] == true), so it does not animate on top of idle content.
- *
- * @param isRefreshing Whether a refresh operation is being triggered.
- * @param onRefresh Callback invoked when the user pulls down far enough.
- * @param content The scrollable content to wrap.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PullToRefreshContent(
@@ -46,7 +39,8 @@ fun PullToRefreshContent(
         state = refreshState,
         modifier = modifier,
         indicator = {
-            ShapesRefreshIndicator(
+            MorphingRefreshIndicator(
+                state = refreshState,
                 isRefreshing = isRefreshing,
                 modifier = Modifier.align(Alignment.TopCenter)
             )
@@ -55,24 +49,46 @@ fun PullToRefreshContent(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapesRefreshIndicator(isRefreshing: Boolean, modifier: Modifier = Modifier) {
-    // Only show the loading indicator while a refresh is actually happening, so it
-    // does not animate on top of idle content.
-    if (isRefreshing) {
-        Box(
+private fun MorphingRefreshIndicator(
+    state: PullToRefreshState,
+    isRefreshing: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scale = if (isRefreshing) 1f else state.distanceFraction.coerceIn(0f, 1f)
+    val cornerSize = (16 + (34 * scale)).dp
+    val rotation = state.distanceFraction * 180f
+
+    if (state.distanceFraction > 0.1f || isRefreshing) {
+        Surface(
             modifier = modifier
-                .offset(y = 16.dp)
-                .zIndex(1f)
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surface)
+                .padding(top = 16.dp)
+                .size(48.dp)
+                .scale(scale)
+                .graphicsLayer {
+                    rotationZ = if (isRefreshing) 0f else rotation
+                }
+                .zIndex(1f),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(cornerSize),
+            shadowElevation = 4.dp
         ) {
-            LoadingIndicator(
-                modifier = Modifier.size(36.dp).align(Alignment.Center),
-                color = MaterialTheme.colorScheme.primary
-            )
+            Box(contentAlignment = Alignment.Center) {
+                if (isRefreshing) {
+                    LoadingIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
         }
     }
 }
