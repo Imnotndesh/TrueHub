@@ -146,7 +146,7 @@ fun ContainerVolumesScreen(
                                         }
                                     }
                                 } else {
-                                    items(state.volumes, key = { it.id }) { volume ->
+                                    items(state.volumes, key = { it.id!! }) { volume ->
                                         VolumeRow(
                                             volume = volume,
                                             onEdit = { viewModel.beginEdit(volume) },
@@ -187,7 +187,7 @@ fun ContainerVolumesScreen(
             volume = volume,
             isSaving = state.isSaving,
             onDismiss = viewModel::cancelEdit,
-            onSave = { size -> viewModel.resize(volume.id, size) }
+            onSave = { size -> viewModel.resize(volume.id!!, size) }
         )
     }
 
@@ -259,7 +259,7 @@ private fun VolumeRow(
                     .padding(horizontal = 14.dp)
             ) {
                 Text(
-                    text = volume.name,
+                    text = volume.name!!,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -407,7 +407,7 @@ private fun VolumeEditSheet(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = volume.name,
+                text = volume.name ?: "Not Configured",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

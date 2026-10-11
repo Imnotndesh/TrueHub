@@ -620,7 +620,7 @@ private fun VmDiagnosticsSection(
                     ) {
                         if (isDownloadingLog) {
                             androidx.compose.material3.CircularProgressIndicator(
-                                modifier = Modifier.height(18.dp),
+                                modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary
                             )

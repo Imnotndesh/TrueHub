@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync
+import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
 import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
@@ -105,7 +108,9 @@ fun CloudSyncScreen(
                         onRefresh = { viewModel.loadTasks() },
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        if (state.tasks.isEmpty() && !state.isLoading) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            CloudSyncBetaBanner()
+                            if (state.tasks.isEmpty() && !state.isLoading) {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
@@ -129,7 +134,12 @@ fun CloudSyncScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                contentPadding = PaddingValues(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = 8.dp,
+                                    bottom = 96.dp + floatingNavBottomClearance()
+                                ),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(state.tasks, key = { it.id ?: it.hashCode() }) { task ->
@@ -141,6 +151,7 @@ fun CloudSyncScreen(
                                 }
                             }
                         }
+                        }
                     }
                     ExtendedFloatingActionButton(
                         onClick = onNavigateToCreate,
@@ -148,7 +159,9 @@ fun CloudSyncScreen(
                         text = { Text("New Task") },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
+                            .navigationBarsPadding()
                             .padding(16.dp)
+                            .padding(bottom = floatingNavBottomClearance())
                     )
                 }
             },
@@ -261,6 +274,35 @@ private fun CloudSyncTaskRow(
                     tint = MaterialTheme.colorScheme.error
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CloudSyncBetaBanner() {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Science,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = "Cloud Sync is in beta. Some providers and options may be incomplete.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
         }
     }
 }

@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.services.containers.devices
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.imePadding
@@ -151,6 +152,7 @@ fun ContainerDeviceAddScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {

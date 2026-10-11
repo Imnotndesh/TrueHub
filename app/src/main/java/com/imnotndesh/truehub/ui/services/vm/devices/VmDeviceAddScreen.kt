@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.services.vm.devices
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -171,6 +173,7 @@ fun VmDeviceAddScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -199,7 +202,7 @@ fun VmDeviceAddScreen(
                     ) {
                         if (state.isSaving) {
                             CircularProgressIndicator(
-                                modifier = Modifier.height(18.dp),
+                                modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary
                             )

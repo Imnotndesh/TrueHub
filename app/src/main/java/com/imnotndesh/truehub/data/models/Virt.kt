@@ -288,19 +288,19 @@ object Virt {
 
     @JsonClass(generateAdapter = true)
     data class VolumeEntry(
-        val id: String,
-        val name: String,
-        @field:Json("storage_pool") val storagePool: String,
-        @field:Json("content_type") val contentType: String,
-        @field:Json("created_at") val createdAt: String,
-        val type: String,
+        val id: String ?= null,
+        val name: String ?= null,
+        @field:Json("storage_pool") val storagePool: String ? = null,
+        @field:Json("content_type") val contentType: String ?= null,
+        @field:Json("created_at") val createdAt: String ?= null,
+        val type: String ?= null,
         val config: Map<String, Any?> = emptyMap(),
         @field:Json("used_by") val usedBy: List<String> = emptyList()
     )
 
     @JsonClass(generateAdapter = true)
     data class VolumeCreate(
-        val name: String,
+        val name: String ?= null,
         @field:Json("storage_pool") val storagePool: String ?= "Not Configured",
         @field:Json("content_type") val contentType: String = "BLOCK",
         val size: Int = 1024

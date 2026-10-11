@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.services.vm.devices
+import com.imnotndesh.truehub.ui.utils.friendlyApiError
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -98,7 +99,7 @@ class VmDeviceAddViewModel @Inject constructor(
                 is ApiResult.Success -> _uiState.update {
                     it.copy(editingDevice = result.data, editingDeviceId = result.data.id ?: deviceId)
                 }
-                is ApiResult.Error -> _uiState.update { it.copy(error = result.message) }
+                is ApiResult.Error -> _uiState.update { it.copy(error = friendlyApiError(result.message)) }
                 ApiResult.Loading -> Unit
             }
         }
@@ -121,7 +122,7 @@ class VmDeviceAddViewModel @Inject constructor(
             }
             when (result) {
                 is ApiResult.Success -> _uiState.update { it.copy(isSaving = false, saved = true) }
-                is ApiResult.Error -> _uiState.update { it.copy(isSaving = false, error = result.message) }
+                is ApiResult.Error -> _uiState.update { it.copy(isSaving = false, error = friendlyApiError(result.message)) }
                 ApiResult.Loading -> _uiState.update { it.copy(isSaving = false) }
             }
         }

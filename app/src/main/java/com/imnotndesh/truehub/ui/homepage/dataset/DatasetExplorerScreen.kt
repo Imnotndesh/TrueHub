@@ -617,6 +617,7 @@ private fun GridView(
     onSelect: (Storage.ZfsDataset) -> Unit,
     extraBottomPadding: Dp = 96.dp
 ) {
+    val minDepth = remember(nodes) { nodes.minOfOrNull { ds -> ds.name.count { it == '/' } } ?: 0 }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 140.dp),
         contentPadding = PaddingValues(
@@ -628,6 +629,16 @@ private fun GridView(
     ) {
         items(nodes, key = { it.id }) { ds ->
             val isSelected = ds.id == selectedId
+            // Depth relative to the shallowest dataset on screen drives icon size/shape, so a
+            // root dataset reads clearly bigger than the subdirectories beneath it.
+            val depth = ds.name.count { c -> c == '/' } - minDepth
+            val iconSize = (34 - depth * 5).coerceIn(18, 34).dp
+            val containerSize = (60 - depth * 6).coerceIn(40, 60).dp
+            val icon = when {
+                depth <= 0 -> Icons.Default.Storage
+                ds.children.isEmpty() -> Icons.Default.Folder
+                else -> Icons.Default.FolderOpen
+            }
             val elevation by animateDpAsState(
                 targetValue = if (isSelected) 6.dp else 1.dp,
                 label = "gridElevation"
@@ -648,7 +659,7 @@ private fun GridView(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
+                            .size(containerSize)
                             .clip(RoundedCornerShape(14.dp))
                             .background(
                                 if (isSelected) MaterialTheme.colorScheme.primary.copy(0.15f)
@@ -657,11 +668,11 @@ private fun GridView(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (ds.children.isEmpty()) Icons.Default.Folder else Icons.Default.Storage,
+                            imageVector = icon,
                             contentDescription = null,
                             tint = if (isSelected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(iconSize)
                         )
                     }
                     Spacer(Modifier.height(10.dp))
@@ -1044,30 +1055,31 @@ fun DatasetSpaceDonutChart(
         horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Box(
-            modifier = Modifier.size(100.dp),
+            modifier = Modifier.size(128.dp),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(90.dp)) {
+            Canvas(modifier = Modifier.size(116.dp)) {
                 drawArc(
                     color = trackColor,
                     startAngle = 0f,
                     sweepAngle = 360f,
                     useCenter = false,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                 )
                 drawArc(
                     color = primaryColor,
                     startAngle = -90f,
                     sweepAngle = sweptAngle,
                     useCenter = false,
-                    style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = usedStr,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
                 )
                 Text(
                     text = "Used",

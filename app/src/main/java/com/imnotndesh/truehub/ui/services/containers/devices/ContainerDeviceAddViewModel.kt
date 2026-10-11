@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.services.containers.devices
+import com.imnotndesh.truehub.ui.utils.friendlyApiError
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -128,7 +129,7 @@ class ContainerDeviceAddViewModel @Inject constructor(
                 }
                 is ApiResult.Error -> _uiState.value = _uiState.value.copy(
                     isLoadingChoices = false,
-                    error = result.message
+                    error = friendlyApiError(result.message)
                 )
                 ApiResult.Loading -> Unit
             }
@@ -161,7 +162,7 @@ class ContainerDeviceAddViewModel @Inject constructor(
                     if (_uiState.value.gpuType == gpuType) {
                         _uiState.value = _uiState.value.copy(
                             isLoadingGpuChoices = false,
-                            error = result.message
+                            error = friendlyApiError(result.message)
                         )
                     }
                 }
@@ -196,7 +197,7 @@ class ContainerDeviceAddViewModel @Inject constructor(
                     if (_uiState.value.nicType == nicType) {
                         _uiState.value = _uiState.value.copy(
                             isLoadingNicChoices = false,
-                            error = result.message
+                            error = friendlyApiError(result.message)
                         )
                     }
                 }
@@ -280,7 +281,7 @@ class ContainerDeviceAddViewModel @Inject constructor(
                         )
                     }
                 }
-                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isSaving = false, error = result.message)
+                is ApiResult.Error -> _uiState.value = _uiState.value.copy(isSaving = false, error = friendlyApiError(result.message))
                 ApiResult.Loading -> Unit
             }
         }

@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.services.vm.form
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -123,7 +124,7 @@ fun VmFormScreen(
                     ) {
                         if (state.isSaving) {
                             CircularProgressIndicator(
-                                modifier = Modifier.height(18.dp),
+                                modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
