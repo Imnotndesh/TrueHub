@@ -146,7 +146,7 @@ fun ContainerVolumesScreen(
                                         }
                                     }
                                 } else {
-                                    items(state.volumes, key = { it.id!! }) { volume ->
+                                    items(state.volumes, key = { it.id ?: it.hashCode() }) { volume ->
                                         VolumeRow(
                                             volume = volume,
                                             onEdit = { viewModel.beginEdit(volume) },
@@ -187,7 +187,7 @@ fun ContainerVolumesScreen(
             volume = volume,
             isSaving = state.isSaving,
             onDismiss = viewModel::cancelEdit,
-            onSave = { size -> viewModel.resize(volume.id!!, size) }
+            onSave = { size -> volume.id?.let { viewModel.resize(it, size) } }
         )
     }
 
@@ -259,7 +259,7 @@ private fun VolumeRow(
                     .padding(horizontal = 14.dp)
             ) {
                 Text(
-                    text = volume.name!!,
+                    text = volume.name ?: "Not configured",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -281,14 +281,14 @@ private fun VolumeRow(
             IconButton(onClick = onEdit, enabled = volume.usedBy.isEmpty()) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit ${volume.name}",
+                    contentDescription = "Edit ${volume.name ?: "volume"}",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onDelete, enabled = volume.usedBy.isEmpty()) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete ${volume.name}",
+                    contentDescription = "Delete ${volume.name ?: "volume"}",
                     tint = MaterialTheme.colorScheme.error
                 )
             }
