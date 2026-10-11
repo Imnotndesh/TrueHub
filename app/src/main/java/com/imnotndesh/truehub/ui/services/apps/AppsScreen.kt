@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.apps
+import kotlin.time.Duration.Companion.seconds
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material.icons.filled.CloudDownload
 import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoScreen
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
@@ -552,30 +555,41 @@ fun AppsScreen(
                                     )
                                 }
                             } else if (upgradableAppsCount > 0) {
-                                FloatingActionButton(
+                                // Show the label briefly, then collapse to an icon-only FAB.
+                                var updateFabExpanded by remember { mutableStateOf(true) }
+                                LaunchedEffect(upgradableAppsCount) {
+                                    updateFabExpanded = true
+                                    delay(4.seconds)
+                                    updateFabExpanded = false
+                                }
+                                ExtendedFloatingActionButton(
                                     onClick = { showUpdateAllDialog = true },
+                                    expanded = updateFabExpanded,
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = floatingNavBottomClearance()),
-                                    containerColor = MaterialTheme.colorScheme.primary
-                                ) {
-                                    Box {
-                                        Icon(
-                                            imageVector = Icons.Default.SystemUpdate,
-                                            contentDescription = "Update All Apps"
-                                        )
-                                        Badge(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            contentColor = MaterialTheme.colorScheme.onError,
-                                            modifier = Modifier.align(Alignment.TopEnd)
-                                        ) {
-                                            Text(
-                                                text = if (upgradableAppsCount > 99) "99+" else upgradableAppsCount.toString(),
-                                                fontSize = 10.sp
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    icon = {
+                                        Box {
+                                            Icon(
+                                                imageVector = Icons.Default.CloudDownload,
+                                                contentDescription = null
                                             )
+                                            Badge(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                                contentColor = MaterialTheme.colorScheme.onError,
+                                                modifier = Modifier.align(Alignment.TopEnd)
+                                            ) {
+                                                Text(
+                                                    text = if (upgradableAppsCount > 99) "99+" else upgradableAppsCount.toString(),
+                                                    fontSize = 10.sp
+                                                )
+                                            }
                                         }
-                                    }
-                                }
+                                    },
+                                    text = { Text("Updates") }
+                                )
                             }
                         }
                     }
