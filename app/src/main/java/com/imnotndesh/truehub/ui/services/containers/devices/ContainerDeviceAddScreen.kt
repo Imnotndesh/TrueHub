@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.containers.devices
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,6 +78,20 @@ fun ContainerDeviceAddScreen(
     var destinationPort by rememberSaveable { mutableStateOf("") }
     var choicePicker by remember { mutableStateOf<DeviceChoicePicker?>(null) }
 
+    val portValid: (String) -> Boolean = { value ->
+        value.isBlank() || value.trim().toIntOrNull()?.let { it in 1..65535 } == true
+    }
+    val isValid = when (type) {
+        ContainerDeviceType.Disk -> diskSource.isNotBlank() && destination.isNotBlank()
+        ContainerDeviceType.Cdrom -> cdromSource.isNotBlank()
+        ContainerDeviceType.Nic -> network.isNotBlank()
+        ContainerDeviceType.Gpu -> gpu.isNotBlank()
+        ContainerDeviceType.Usb -> usb.isNotBlank()
+        ContainerDeviceType.Pci -> pci.isNotBlank()
+        ContainerDeviceType.Tpm -> tpmPath.isNotBlank()
+        ContainerDeviceType.Proxy -> portValid(sourcePort) && portValid(destinationPort)
+    }
+
     LaunchedEffect(state.editingDevice) {
         val device = state.editingDevice ?: return@LaunchedEffect
         val deviceType = device["dev_type"]?.toString()?.uppercase()
@@ -148,7 +165,7 @@ fun ContainerDeviceAddScreen(
                     }
                     Button(
                         onClick = { submit() },
-                        enabled = !state.isSaving,
+                        enabled = !state.isSaving && isValid,
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
@@ -161,7 +178,11 @@ fun ContainerDeviceAddScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .imePadding()
+        ) {
             when {
                 state.isSaving -> JobProgressView(
                     title = if (state.editingDeviceName == null) "Adding device" else "Saving device",
@@ -185,7 +206,12 @@ fun ContainerDeviceAddScreen(
                         items = ContainerDeviceType.entries,
                         selected = type,
                         label = { it.label },
-                        onSelect = { type = it }
+                        onSelect = {
+                            type = it
+                            if (it != ContainerDeviceType.Gpu) gpu = ""
+                            if (it != ContainerDeviceType.Usb) usb = ""
+                            if (it != ContainerDeviceType.Pci) pci = ""
+                        }
                     )
 
                     ExpressiveSection(title = "Configuration", icon = Icons.Default.Devices) {
@@ -293,6 +319,7 @@ fun ContainerDeviceAddScreen(
                                                 value = sourcePort,
                                                 onValueChange = { sourcePort = it },
                                                 label = "Source port",
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                                 modifier = Modifier.weight(1f)
                                             )
                                         }
@@ -307,6 +334,7 @@ fun ContainerDeviceAddScreen(
                                                 value = destinationPort,
                                                 onValueChange = { destinationPort = it },
                                                 label = "Dest port",
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                                 modifier = Modifier.weight(1f)
                                             )
                                         }

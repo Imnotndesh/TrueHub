@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -126,11 +128,7 @@ fun AlertServiceDetailScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer)
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = current?.name ?: "Alert Service",
@@ -155,38 +153,31 @@ fun AlertServiceDetailScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Status header card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier.size(56.dp).clip(CircleShape)
-                                    .background(statusColor.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.NotificationsActive, null, tint = statusColor, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(current.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                Text(current.type__title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                    DetailHeroCard(
+                        title = current.name,
+                        subtitle = current.type__title,
+                        leading = {
+                            DetailHeroIcon(
+                                icon = Icons.Default.NotificationsActive,
+                                containerColor = statusColor.copy(alpha = 0.12f),
+                                contentColor = statusColor
+                            )
+                        },
+                        badge = {
                             Surface(color = statusColor.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                                 Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(statusColor))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(if (current.enabled) "Enabled" else "Disabled", style = MaterialTheme.typography.labelMedium, color = statusColor, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        if (current.enabled) "Enabled" else "Disabled",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
-                    }
+                    )
 
                     if (isEditing) {
                         EditServiceForm(

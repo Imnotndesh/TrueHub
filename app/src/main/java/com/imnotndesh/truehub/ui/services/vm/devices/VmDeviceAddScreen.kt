@@ -5,11 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
@@ -36,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
@@ -97,17 +102,32 @@ fun VmDeviceAddScreen(
     }
     LaunchedEffect(state.editingDeviceId) {
         val device = state.editingDevice ?: return@LaunchedEffect
+        val restored = VmDeviceType.entries.firstOrNull {
+            it.wireName.equals(device.dtype, ignoreCase = true)
+        }
+        if (restored != null) type = restored
         device.attributes?.let { attrs ->
-            attrs["path"]?.toString()?.let {
-                when (device.dtype) {
-                    "CDROM" -> isoPath = it
-                    "RAW" -> rawPath = it
-                    else -> zvolPath = it
+            attrs["create_zvol"]?.let { createZvol = it == true || it.toString().equals("true", true) }
+            attrs["zvol_name"]?.toString()?.takeIf { it.isNotBlank() }?.let {
+                zvolName = it
+                createZvol = true
+            }
+            attrs["path"]?.toString()?.let { path ->
+                when (restored) {
+                    VmDeviceType.Cdrom -> isoPath = path
+                    VmDeviceType.Raw -> rawPath = path
+                    VmDeviceType.Disk -> {
+                        zvolPath = path
+                        if (attrs["zvol_name"] == null) createZvol = false
+                    }
+                    else -> Unit
                 }
             }
-            attrs["zvol_name"]?.toString()?.let { zvolName = it }
             attrs["iotype"]?.toString()?.let { iotype = it }
             attrs["nic_attach"]?.toString()?.let { nicAttach = it }
+            if (restored == VmDeviceType.Nic) {
+                attrs["type"]?.toString()?.takeIf { it.isNotBlank() }?.let { nicType = it }
+            }
             attrs["mac"]?.toString()?.let { mac = it }
             attrs["resolution"]?.toString()?.let { resolution = it }
             attrs["port"]?.toString()?.let { displayPort = it }
@@ -115,9 +135,22 @@ fun VmDeviceAddScreen(
             attrs["pptdev"]?.toString()?.let { pptdev = it }
             attrs["controller_type"]?.toString()?.let { usbController = it }
             attrs["device"]?.toString()?.let { usbDevice = it }
-            if (attrs["create_zvol"] == true) createZvol = true
         }
         device.order?.let { order = it.toString() }
+    }
+
+    val isValid = when (type) {
+        VmDeviceType.Disk -> if (createZvol) {
+            zvolName.isNotBlank() && (zvolSizeGb.trim().toLongOrNull() ?: 0L) > 0L
+        } else {
+            zvolPath.isNotBlank()
+        }
+        VmDeviceType.Cdrom -> isoPath.isNotBlank()
+        VmDeviceType.Raw -> rawPath.isNotBlank()
+        VmDeviceType.Nic -> nicAttach.isNotBlank()
+        VmDeviceType.Display -> true
+        VmDeviceType.Pci -> pptdev.isNotBlank()
+        VmDeviceType.Usb -> usbController.isNotBlank() && usbDevice.isNotBlank()
     }
 
     Scaffold(
@@ -158,7 +191,7 @@ fun VmDeviceAddScreen(
                             )
                             viewModel.save(type.wireName, attributes, order.trim().toIntOrNull())
                         },
-                        enabled = !state.isSaving,
+                        enabled = !state.isSaving && isValid,
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
@@ -183,13 +216,16 @@ fun VmDeviceAddScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             if (state.isLoading) {
                 LoadingScreen("Loading device options")
             } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .align(Alignment.TopCenter)
+                        .fillMaxHeight()
+                        .widthIn(max = 640.dp)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -198,6 +234,7 @@ fun VmDeviceAddScreen(
                         items = VmDeviceType.entries,
                         selected = type,
                         label = { it.label },
+                        enabled = state.editingDeviceId == null,
                         onSelect = { type = it }
                     )
 
@@ -221,7 +258,8 @@ fun VmDeviceAddScreen(
                                             ExpressiveTextField(
                                                 value = zvolSizeGb,
                                                 onValueChange = { zvolSizeGb = it },
-                                                label = "Size (GB)"
+                                                label = "Size (GB)",
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                             )
                                         } else {
                                             ExpressiveChoiceField(
@@ -315,6 +353,7 @@ fun VmDeviceAddScreen(
                                             value = displayPort,
                                             onValueChange = { displayPort = it },
                                             label = "Port",
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             supportingText = state.portWizard["port"]?.let { p -> { Text("Suggested: $p") } }
                                         )
                                         ExpressiveChoiceField(

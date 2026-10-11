@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.vm.details
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +38,6 @@ import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.helpers.VirtualizationOperation
 import com.imnotndesh.truehub.data.helpers.virtualizationOperationLabel
 import com.imnotndesh.truehub.data.models.Vm
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveBadge
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveDivider
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
@@ -99,7 +101,9 @@ fun VmInfoPane(
                             operation?.let { current ->
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .semantics { liveRegion = LiveRegionMode.Polite },
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
@@ -203,56 +207,47 @@ fun VmInfoPane(
 
 @Composable
 private fun VmPaneHeader(vm: Vm.VmQueryResponse, onClose: () -> Unit) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .padding(start = 24.dp, end = 8.dp, top = 24.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        WavyGradientBackground {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ExpressiveShapeBox(
-                    shape = vmShape(),
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Computer,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                Text(
-                    text = vm.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                ExpressiveBadge(
-                    label = vmStatusLabel(vm.status.state),
-                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+        ExpressiveShapeBox(
+            shape = vmShape(),
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Computer,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(Modifier.size(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = vm.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(6.dp))
+            ExpressiveStatusChip(
+                label = vmStatusLabel(vm.status.state),
+                tone = vmStatusTone(vm.status.state),
+                icon = vmStatusIcon(vm.status.state)
+            )
+        }
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

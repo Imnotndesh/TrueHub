@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -99,19 +101,15 @@ fun BootScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp)
-                            .padding(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
+                    InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     uiState.actionMessage?.let { msg ->
-                        ActionBanner(text = msg, onDismiss = { vm.clearActionMessage() }, isError = false)
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ActionBanner(text = msg, onDismiss = { vm.clearActionMessage() }, isError = false)
+                        }
                     }
 
 
+                    item {
                     ExpressiveSection(title = "Boot Pool", icon = Icons.Default.SdStorage) {
                         uiState.bootState?.let { state ->
                             PoolHealthCard(state = state)
@@ -133,8 +131,10 @@ fun BootScreen(
                             )
                         }
                     }
+                    }
 
 
+                    item {
                     ExpressiveSection(title = "Boot Environments", icon = Icons.Default.PowerSettingsNew) {
                         ClickableEntryCard(
                             icon = Icons.Default.PowerSettingsNew,
@@ -150,8 +150,10 @@ fun BootScreen(
                             }
                         }
                     }
+                    }
 
 
+                    item {
                     ExpressiveSection(title = "Maintenance", icon = Icons.Default.Refresh) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -174,6 +176,7 @@ fun BootScreen(
                                 onClick = { vm.refresh() }
                             )
                         }
+                    }
                     }
                     }
                 }

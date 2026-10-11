@@ -1,4 +1,13 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.data.models.canRollbackNow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.components.HtmlDescription
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
@@ -122,7 +131,8 @@ fun AppInfoScreen(
     onNavigateToMarketplaceCategory: (String) -> Unit = {},
     onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
     onOpenAdvanced: (String) -> Unit = {},
-    onOpenResourceUsage: (String) -> Unit = {}
+    onOpenResourceUsage: (String) -> Unit = {},
+    onRollbackClick: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: AppDetailsViewModel = hiltViewModel(key = app.name)
@@ -134,6 +144,8 @@ fun AppInfoScreen(
     val deletionJobId by viewModel.deletionJobId.collectAsState()
     val activeJobs by JobRepository.activeJobs.collectAsState()
     val currentDeletionJob = deletionJobId?.let { activeJobs[it] }
+    val deletionError by viewModel.deletionError.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     val haptics = remember(context) { VibrationFeedback(context) }
     LaunchedEffect(currentDeletionJob?.state) {
         when (currentDeletionJob?.state) {
@@ -141,7 +153,16 @@ fun AppInfoScreen(
                 haptics.play(VibratorMode.SUCCESS_TICK)
                 onDeleteSuccess()
             }
-            "FAILED", "ABORTED" -> haptics.play(VibratorMode.ERROR_ALERT)
+            "FAILED", "ABORTED" -> {
+                haptics.play(VibratorMode.ERROR_ALERT)
+                viewModel.reportDeletionFailure("Uninstall failed. Please try again.")
+            }
+        }
+    }
+    LaunchedEffect(deletionError) {
+        deletionError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearDeletionError()
         }
     }
 
@@ -167,7 +188,8 @@ fun AppInfoScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { _ ->
         Column(
             modifier = Modifier
@@ -176,52 +198,25 @@ fun AppInfoScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            DetailHeroCard(
+                title = app.metadata?.title ?: app.name,
+                subtitle = "Version: ${app.humanVersion ?: app.version ?: "Unknown"}",
+                onClick = { onNavigateToMarketplaceAppDetails(app.name) },
+                leading = {
                     Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clickable { onNavigateToMarketplaceAppDetails(app.name) },
+                        modifier = Modifier.size(76.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         AppIcon(app = app, size = 52.dp)
                     }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = app.metadata?.title ?: app.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.clickable { onNavigateToMarketplaceAppDetails(app.name) }
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Version: ${app.humanVersion ?: app.version ?: "Unknown"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
+                },
+                badge = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         ExpressiveBadge(
                             label = displayState,
                             containerColor = appStateContainerColor(displayState),
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (app.customApp) {
                                 ExpressiveBadge(
@@ -246,8 +241,8 @@ fun AppInfoScreen(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-
+                },
+                trailing = {
                     ExpressiveIconButton(
                         onClick = {
                             if (isRunning) viewModel.stopApp(app.name) else viewModel.startApp(app.name)
@@ -263,10 +258,9 @@ fun AppInfoScreen(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-
                     ExpressiveIconButton(
                         onClick = {
-                            onEditClick(app.name,app.metadata!!.train ?: "stable")
+                            onEditClick(app.name, app.metadata?.train ?: "stable")
                         },
                         icon = Icons.Default.Edit,
                         contentDescription = "Edit ${app.metadata?.title ?: app.name} Configuration",
@@ -274,21 +268,43 @@ fun AppInfoScreen(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                 }
-            }
+            )
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExpressiveEntryCard(
-                    icon = Icons.Default.Build,
-                    title = "Advanced Information",
-                    subtitle = "Workloads, ports, storage, notes and screenshots",
-                    onClick = { onOpenAdvanced(app.id) }
-                )
-                ExpressiveEntryCard(
-                    icon = Icons.Default.MonitorHeart,
-                    title = "App Resource Usage",
-                    subtitle = "Live CPU, memory, network and disk I/O",
-                    onClick = { onOpenResourceUsage(app.id) }
-                )
+            BoxWithConstraints {
+                val twoColumns = maxWidth >= 600.dp
+                if (twoColumns) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.Build,
+                            title = "Advanced Information",
+                            subtitle = "Workloads, ports, storage, notes and screenshots",
+                            onClick = { onOpenAdvanced(app.id) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.MonitorHeart,
+                            title = "App Resource Usage",
+                            subtitle = "Live CPU, memory, network and disk I/O",
+                            onClick = { onOpenResourceUsage(app.id) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.Build,
+                            title = "Advanced Information",
+                            subtitle = "Workloads, ports, storage, notes and screenshots",
+                            onClick = { onOpenAdvanced(app.id) }
+                        )
+                        ExpressiveEntryCard(
+                            icon = Icons.Default.MonitorHeart,
+                            title = "App Resource Usage",
+                            subtitle = "Live CPU, memory, network and disk I/O",
+                            onClick = { onOpenResourceUsage(app.id) }
+                        )
+                    }
+                }
             }
 
             ExpressiveSection(title = "Basic Information", icon = Icons.Default.Info) {
@@ -385,23 +401,11 @@ fun AppInfoScreen(
                         shape = RoundedCornerShape(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val textColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        val linkColor = MaterialTheme.colorScheme.primary
-                        AndroidView(
+                        HtmlDescription(
+                            html = description,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            factory = { ctx ->
-                                TextView(ctx).apply {
-                                    movementMethod = LinkMovementMethod.getInstance()
-                                    textSize = 14f
-                                }
-                            },
-                            update = { textView ->
-                                textView.setTextColor(textColor.hashCode())
-                                textView.setLinkTextColor(linkColor.hashCode())
-                                textView.text = HtmlCompat.fromHtml(description, HtmlCompat.FROM_HTML_MODE_LEGACY)
-                            }
+                                .padding(16.dp)
                         )
                     }
                 }
@@ -447,6 +451,39 @@ fun AppInfoScreen(
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             textAlign = TextAlign.Center
                         )
+
+                        // Rollback lives here, away from the primary actions, and uses a mustard
+                        // tone so it reads as "caution" rather than the red of deletion.
+                        val canRollback = app.canRollbackNow()
+                        Button(
+                            onClick = { onRollbackClick(app.name) },
+                            enabled = canRollback,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RollbackMustard,
+                                contentColor = RollbackMustardOn,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Rollback app", fontWeight = FontWeight.Bold)
+                        }
+                        if (!canRollback) {
+                            Text(
+                                text = "Start the app to roll back to a previous version.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
                         Button(
                             onClick = { showDeleteConfigDialog = true },
                             enabled = currentDeletionJob == null,
@@ -1383,7 +1420,7 @@ private fun DeleteOptionToggle(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -1403,7 +1440,7 @@ private fun DeleteOptionToggle(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onError,
                 checkedTrackColor = MaterialTheme.colorScheme.error
@@ -1411,3 +1448,6 @@ private fun DeleteOptionToggle(
         )
     }
 }
+
+private val RollbackMustard = Color(0xFFD9A521)
+private val RollbackMustardOn = Color(0xFF2B2100)

@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -98,6 +100,9 @@ fun AlertServicesListScreen(
     val viewModel: AlertServicesListViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val window = LocalTrueHubWindow.current
+    var selectedServiceId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedServiceId != null
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -109,11 +114,7 @@ fun AlertServicesListScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(colorScheme.surface, colorScheme.surfaceContainer)
-                )
-            )
+            .background(colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = "Alert Services",
@@ -126,6 +127,10 @@ fun AlertServicesListScreen(
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             floatingActionButton = {
@@ -166,6 +171,17 @@ fun AlertServicesListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedServiceId?.let { serviceId ->
+                    AlertServiceDetailScreen(
+                        serviceId = serviceId,
+                        manager = manager,
+                        onNavigateBack = { selectedServiceId = null }
+                    )
+                }
+            }
+        )
     }
 }
 

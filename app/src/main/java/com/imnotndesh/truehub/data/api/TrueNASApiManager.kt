@@ -136,6 +136,8 @@ class TrueNASApiManager(
         boundSessionProfile = BoundSessionProfile(serverId, accountId)
     }
 
+    fun boundProfileKey(): String? = boundSessionProfile?.let { "${it.serverId}:${it.accountId}" }
+
     private fun isStaleBoundSession(): Boolean {
         return boundSessionProfile != null && SessionHolder.current !== this
     }

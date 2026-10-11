@@ -20,7 +20,8 @@ data class VmScreenUiState(
     val vms: List<Vm.VmQueryResponse> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val stale: Boolean = false
 )
 
 // TODO: In future maybe add the get memory usage api in the info sheet
@@ -68,7 +69,8 @@ class VmsScreenViewModel @Inject constructor(
                             vms = result.data,
                             isRefreshing = false,
                             isLoading = false,
-                            error = null
+                            error = null,
+                            stale = false
                         )
                     }
                 }
@@ -77,7 +79,8 @@ class VmsScreenViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
-                            error = if (it.vms.isEmpty()) result.message else null
+                            error = if (it.vms.isEmpty()) result.message else null,
+                            stale = it.vms.isNotEmpty()
                         )
                     }
                 }
@@ -105,7 +108,8 @@ class VmsScreenViewModel @Inject constructor(
                         it.copy(
                             vms = result.data,
                             isRefreshing = false,
-                            error = null
+                            error = null,
+                            stale = false
                         )
                     }
                 }
@@ -113,7 +117,8 @@ class VmsScreenViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isRefreshing = false,
-                            error = if (it.vms.isEmpty()) result.message else null
+                            error = if (it.vms.isEmpty()) result.message else null,
+                            stale = it.vms.isNotEmpty()
                         )
                     }
                 }

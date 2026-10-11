@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -169,15 +170,22 @@ fun ContainersScreen(
         }
     }
 
-    if (showDeleteSelectedDialog && selectedContainers.isNotEmpty()) {
+    val deletableContainers = remember(selectedContainers) {
+        selectedContainers.filter { it.status == Virt.Status.STOPPED }
+    }
+
+    if (showDeleteSelectedDialog && deletableContainers.isNotEmpty()) {
+        val skipped = selectedContainers.size - deletableContainers.size
         DeleteConfirmationDialog(
-            containerName = "${selectedContainers.size} container(s)",
-            message = "Are you sure you want to delete the selected containers? This action cannot be undone.",
+            containerName = "${deletableContainers.size} stopped container(s)",
+            message = if (skipped > 0) {
+                "$skipped running container(s) will be skipped. Delete the ${deletableContainers.size} stopped container(s)? This action cannot be undone."
+            } else {
+                "Are you sure you want to delete the selected containers? This action cannot be undone."
+            },
             onConfirm = {
                 showDeleteSelectedDialog = false
-                selectedContainers
-                    .filter { it.status == Virt.Status.STOPPED }
-                    .forEach { viewModel.deleteContainer(it.id) }
+                deletableContainers.forEach { viewModel.deleteContainer(it.id) }
                 exitSelectionMode()
             },
             onDismiss = { showDeleteSelectedDialog = false }
@@ -224,49 +232,25 @@ fun ContainersScreen(
                         EmptyFilterContent()
                     }
                     else -> {
-                        if (isCompact) {
-                            ContainersContent(
-                                containers = filteredContainers,
-                                isRefreshing = uiState.isRefreshing,
-                                onStartContainer = { id -> viewModel.startContainer(id) },
-                                onStopContainer = { id -> viewModel.stopContainer(id) },
-                                onRestartContainer = { id -> viewModel.restartContainer(id) },
-                                operations = operations,
-                                onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
-                                selectedContainer = null,
-                                isSelectionMode = isSelectionMode,
-                                selectedContainerIds = selectedContainerIds,
-                                onToggleSelection = ::toggleSelection,
-                                onLongPress = { id ->
-                                    if (!isSelectionMode) {
-                                        isSelectionMode = true
-                                        selectedContainerIds = setOf(id)
-                                    }
+                        ContainersContent(
+                            containers = filteredContainers,
+                            isRefreshing = uiState.isRefreshing,
+                            onStartContainer = { id -> viewModel.startContainer(id) },
+                            onStopContainer = { id -> viewModel.stopContainer(id) },
+                            onRestartContainer = { id -> viewModel.restartContainer(id) },
+                            operations = operations,
+                            onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
+                            selectedContainer = null,
+                            isSelectionMode = isSelectionMode,
+                            selectedContainerIds = selectedContainerIds,
+                            onToggleSelection = ::toggleSelection,
+                            onLongPress = { id ->
+                                if (!isSelectionMode) {
+                                    isSelectionMode = true
+                                    selectedContainerIds = setOf(id)
                                 }
-                            )
-                        } else {
-                            ContainersSplitPaneContent(
-                                containers = filteredContainers,
-                                selectedContainer = selectedContainerForPane,
-                                isRefreshing = uiState.isRefreshing,
-                                onStartContainer = { id -> viewModel.startContainer(id) },
-                                onStopContainer = { id -> viewModel.stopContainer(id) },
-                                onRestartContainer = { id -> viewModel.restartContainer(id) },
-                                operations = operations,
-                                onContainerInfoClick = { container -> onNavigateToContainerInfo(container) },
-                                onContainerPaneSelected = { container -> selectedContainerForPane = container },
-                                onClosePane = { selectedContainerForPane = null },
-                                isSelectionMode = isSelectionMode,
-                                selectedContainerIds = selectedContainerIds,
-                                onToggleSelection = ::toggleSelection,
-                                onLongPress = { id ->
-                                    if (!isSelectionMode) {
-                                        isSelectionMode = true
-                                        selectedContainerIds = setOf(id)
-                                    }
-                                }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
             }
@@ -422,7 +406,14 @@ private fun ContainersSplitPaneContent(
                 ) {
                     ContainerInfoPane(
                         container = container,
-                        onClose = onClosePane
+                        onClose = onClosePane,
+                        bottomActions = {
+                            Button(
+                                onClick = { onContainerInfoClick(container) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MaterialTheme.shapes.large
+                            ) { Text("Open full details") }
+                        }
                     )
                 }
             }
@@ -692,7 +683,7 @@ private fun ContainerCard(
                                 modifier = Modifier.size(32.dp)
                             )
                         }
-                        ExpressiveStatusDot(tone = tone)
+                        ExpressiveStatusDot(tone = tone, label = containerStatusLabel(container.status))
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(

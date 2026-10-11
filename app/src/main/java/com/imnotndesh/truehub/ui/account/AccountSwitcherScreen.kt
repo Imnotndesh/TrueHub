@@ -24,7 +24,7 @@ import com.imnotndesh.truehub.data.models.AccountProfile
 import com.imnotndesh.truehub.data.models.LoginMethod
 import com.imnotndesh.truehub.data.models.SavedAccount
 import com.imnotndesh.truehub.data.models.SavedServer
-import com.imnotndesh.truehub.ui.background.AnimatedWavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.setup.ServerConfigBottomSheet
 
 @Composable
@@ -44,7 +44,7 @@ fun AccountSwitcherScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        AnimatedWavyGradientBackground {
+        ExpressiveScreenBackground {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -409,6 +409,7 @@ private fun AccountProfileCard(
                     imageVector = when (profile.account.loginMethod) {
                         LoginMethod.PASSWORD, LoginMethod.TOTP -> Icons.Default.Person
                         LoginMethod.API_KEY -> Icons.Default.Key
+                        LoginMethod.PAIRED -> Icons.Default.Devices
                     },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,

@@ -73,6 +73,10 @@ class ContainerDetailViewModel @Inject constructor(
         }
     }
 
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     fun start() = runOperation("STARTING") {
         manager.virtService.startVirtInstanceWithResult(containerId)
     }

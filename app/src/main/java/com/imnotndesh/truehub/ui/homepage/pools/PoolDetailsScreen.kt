@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.pools
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -83,7 +86,7 @@ import com.imnotndesh.truehub.data.models.System.Pool
 import com.imnotndesh.truehub.data.models.System.PoolDevice
 import com.imnotndesh.truehub.data.models.System.PoolScan
 import com.imnotndesh.truehub.data.models.System.PoolTopology
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.components.ErrorState
 import com.imnotndesh.truehub.ui.components.LoadingScreen
 import com.imnotndesh.truehub.ui.components.MinimalBackHeader
@@ -241,9 +244,13 @@ private fun PoolDetailsContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(top = 72.dp)
+            .padding(top = 88.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 32.dp)
     ) {
-        PoolInfoHeader(pool = pool)
+        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            PoolInfoHeader(pool = pool)
+        }
 
         Row(
             modifier = Modifier
@@ -302,52 +309,13 @@ private fun PoolDetailsContent(
 
 @Composable
 private fun PoolInfoHeader(pool: Pool) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .clip(
-                RoundedCornerShape(
-                    bottomStart = 24.dp,
-                    bottomEnd = 24.dp,
-                    topStart = 24.dp,
-                    topEnd = 24.dp
-                )
-            )
-            .padding(horizontal = 10.dp)
-    ) {
-        WavyGradientBackground {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Storage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(48.dp)
-                )
-
-                Text(
-                    text = pool.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = "${pool.status} • Total: ${pool.size!!.toGigabytesString()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                    fontSize = 14.sp
-                )
-            }
+    DetailHeroCard(
+        title = pool.name,
+        subtitle = "${pool.status} • Total: ${pool.size!!.toGigabytesString()}",
+        leading = {
+            DetailHeroIcon(icon = Icons.Default.Storage)
         }
-    }
+    )
 }
 fun Long.toGigabytesString(): String {
     if (this == 0L) {

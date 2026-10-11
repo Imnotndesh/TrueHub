@@ -81,7 +81,7 @@ import com.imnotndesh.truehub.ui.components.expressive.color
 import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.models.Shares
 import com.imnotndesh.truehub.data.models.System
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.components.ExpressiveIconButton
 import com.imnotndesh.truehub.ui.components.UnifiedScreenHeader
 import com.imnotndesh.truehub.ui.components.floatingNavBottomClearance
@@ -420,7 +420,7 @@ private fun SystemOverviewCard(
         )
     )
 
-    WavyGradientBackground {
+    ExpressiveScreenBackground {
         Card(
             modifier = modifier
                 .fillMaxWidth()

@@ -10,6 +10,8 @@ sealed class Screen(val route:String, val title:String) {
     object Containers : Screen ("containers", "Containers")
     object Vms : Screen("vms","VMs")
     object Login : Screen("login","Login")
+    object Welcome : Screen("welcome", "Welcome")
+    object ServerSetup : Screen("server_setup", "Server Setup")
     object Main: Screen("main","Main")
     object Performance : Screen("performance", "Performance")
     object Settings : Screen("settings","Settings")

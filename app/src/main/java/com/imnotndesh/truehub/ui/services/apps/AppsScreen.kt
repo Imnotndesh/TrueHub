@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.apps
+import com.imnotndesh.truehub.ui.services.apps.details.appdetails.AppInfoScreen
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -42,6 +45,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
@@ -104,6 +109,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -141,6 +147,9 @@ fun AppsScreen(
     onNavigateToUpgrade: (String) -> Unit,
     onNavigateToRollback: (String) -> Unit = {},
     onNavigateToMarketplace: () -> Unit = {},
+    onEditAppConfig: (String, String) -> Unit = { _, _ -> },
+    onOpenResourceUsage: (String) -> Unit = {},
+    onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
 ) {
     val appsScreenViewModel: AppsScreenViewModel = hiltViewModel()
     val uiState by appsScreenViewModel.uiState.collectAsState()
@@ -270,13 +279,17 @@ fun AppsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { wakeStoppedBeforeUpdate = !wakeStoppedBeforeUpdate }
+                                .toggleable(
+                                    value = wakeStoppedBeforeUpdate,
+                                    role = Role.Checkbox,
+                                    onValueChange = { wakeStoppedBeforeUpdate = it }
+                                )
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
                                 checked = wakeStoppedBeforeUpdate,
-                                onCheckedChange = { wakeStoppedBeforeUpdate = it }
+                                onCheckedChange = null
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
@@ -390,8 +403,8 @@ fun AppsScreen(
                 uiState.apps.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
                     ServiceListSkeleton()
                 }
-                uiState.apps.isEmpty() && !uiState.isLoading && uiState.error != null -> {
-                    EmptyContent()
+                uiState.apps.isEmpty() && !uiState.isLoading -> {
+                    EmptyContent(onBrowse = onNavigateToMarketplace)
                 }
                 filteredApps.isEmpty() && !uiState.isLoading && uiState.apps.isNotEmpty() -> {
                     Column(
@@ -415,72 +428,31 @@ fun AppsScreen(
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        if (isCompact) {
-                            AppsContent(
-                                apps = filteredApps,
-                                onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
-                                onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
-                                onShowUpgradeSummary = { appName -> onNavigateToUpgrade(appName) },
-                                onRollbackClick = { onNavigateToRollback(it) },
-                                onAppInfoClick = { app -> onNavigateToAppInfo(app) },
-                                selectedApp = null,
-                                loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                                isSelectionMode = isSelectionMode,
-                                selectedAppIds = selectedAppIds,
-                                onToggleSelection = { appId ->
-                                    selectedAppIds = if (selectedAppIds.contains(appId)) {
-                                        selectedAppIds - appId
-                                    } else {
-                                        selectedAppIds + appId
-                                    }
-                                },
-                                onLongPress = { appId ->
-                                    if (!isSelectionMode) {
-                                        isSelectionMode = true
-                                        selectedAppIds = setOf(appId)
-                                    }
+                        AppsContent(
+                            apps = filteredApps,
+                            onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
+                            onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
+                            onShowUpgradeSummary = { appName -> onNavigateToUpgrade(appName) },
+                            onRollbackClick = { onNavigateToRollback(it) },
+                            onAppInfoClick = { app -> onNavigateToAppInfo(app) },
+                            selectedApp = null,
+                            loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
+                            isSelectionMode = isSelectionMode,
+                            selectedAppIds = selectedAppIds,
+                            onToggleSelection = { appId ->
+                                selectedAppIds = if (selectedAppIds.contains(appId)) {
+                                    selectedAppIds - appId
+                                } else {
+                                    selectedAppIds + appId
                                 }
-                            )
-                        } else {
-                            AppsSplitPaneContent(
-                                apps = filteredApps,
-                                selectedApp = selectedAppForInfo,
-                                onStartApp = { appName -> appsScreenViewModel.startApp(appName) },
-                                loadingSummaryForApp = uiState.isLoadingUpgradeSummaryForApp,
-                                onStopApp = { appName -> appsScreenViewModel.stopApp(appName) },
-                                onShowUpgradeSummary = { appName -> onNavigateToUpgrade(appName) },
-                                onShowRollbackDialog = { appName -> onNavigateToRollback(appName) },
-                                onAppInfoClick = { app ->
-                                    if (isSelectionMode) {
-                                        selectedAppIds = if (selectedAppIds.contains(app.id)) {
-                                            selectedAppIds - app.id
-                                        } else {
-                                            selectedAppIds + app.id
-                                        }
-                                    } else {
-                                        selectedAppForInfo = app
-                                    }
-                                },
-                                onCloseInfoPane = { selectedAppForInfo = null },
-                                onOpenAdvanced = onOpenAdvanced,
-                                serverBaseHttpUrl = manager.serverBaseHttpUrl,
-                                isSelectionMode = isSelectionMode,
-                                selectedAppIds = selectedAppIds,
-                                onToggleSelection = { appId ->
-                                    selectedAppIds = if (selectedAppIds.contains(appId)) {
-                                        selectedAppIds - appId
-                                    } else {
-                                        selectedAppIds + appId
-                                    }
-                                },
-                                onLongPress = { appId ->
-                                    if (!isSelectionMode) {
-                                        isSelectionMode = true
-                                        selectedAppIds = setOf(appId)
-                                    }
+                            },
+                            onLongPress = { appId ->
+                                if (!isSelectionMode) {
+                                    isSelectionMode = true
+                                    selectedAppIds = setOf(appId)
                                 }
-                            )
-                        }
+                            }
+                        )
 
                         if (isSelectionMode) {
                             Box(
@@ -625,6 +597,11 @@ private fun AppsSplitPaneContent(
     onAppInfoClick: (Apps.AppQueryResponse) -> Unit,
     onCloseInfoPane: () -> Unit,
     onOpenAdvanced: (String) -> Unit = {},
+    manager: TrueNASApiManager,
+    onEditAppConfig: (String, String) -> Unit = { _, _ -> },
+    onOpenResourceUsage: (String) -> Unit = {},
+    onNavigateToMarketplace: () -> Unit = {},
+    onNavigateToMarketplaceAppDetails: (String) -> Unit = {},
     serverBaseHttpUrl: String = "",
     isSelectionMode: Boolean = false,
     selectedAppIds: Set<String> = emptySet(),
@@ -669,11 +646,16 @@ private fun AppsSplitPaneContent(
                         .weight(0.45f)
                         .fillMaxHeight()
                 ) {
-                    AppInfoPane(
+                    AppInfoScreen(
                         app = app,
-                        onClose = onCloseInfoPane,
+                        manager = manager,
+                        onNavigateBack = onCloseInfoPane,
+                        onDeleteSuccess = onCloseInfoPane,
+                        onEditClick = onEditAppConfig,
+                        onNavigateToMarketplaceCategory = { onNavigateToMarketplace() },
+                        onNavigateToMarketplaceAppDetails = onNavigateToMarketplaceAppDetails,
                         onOpenAdvanced = onOpenAdvanced,
-                        serverBaseHttpUrl = serverBaseHttpUrl
+                        onOpenResourceUsage = onOpenResourceUsage
                     )
                 }
             }
@@ -682,7 +664,7 @@ private fun AppsSplitPaneContent(
 }
 
 @Composable
-private fun EmptyContent() {
+private fun EmptyContent(onBrowse: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -703,8 +685,14 @@ private fun EmptyContent() {
         Text(
             text = "Install apps from the catalog to see them here",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.height(20.dp))
+        Button(
+            onClick = onBrowse,
+            shape = MaterialTheme.shapes.large
+        ) { Text("Browse catalog") }
     }
 }
 
@@ -867,7 +855,7 @@ private fun ServiceCard(
                     horizontalArrangement = Arrangement.End
                 ) {
                     Icon(
-                        imageVector = if (isChecked) Icons.Default.Check else Icons.Default.Check,
+                        imageVector = if (isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                         contentDescription = if (isChecked) "Selected" else "Not selected",
                         tint = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(24.dp)
@@ -962,7 +950,10 @@ private fun ServiceCard(
                                 )
                             }
                         }
-                        ExpressiveStatusDot(tone = serviceStatusTone(app.state))
+                        ExpressiveStatusDot(
+                            tone = serviceStatusTone(app.state),
+                            label = app.state.lowercase().replaceFirstChar { it.uppercase() }
+                        )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
@@ -1076,7 +1067,7 @@ private fun ServiceCard(
                         icon = primaryActionIcon,
                         isPrimary = true,
                         onClick = { if (isRunning) onStopApp(app.name) else onStartApp(app.name) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1.5f),
                         enabled = true
                     )
                     ExpressiveActionButton(
@@ -1093,7 +1084,7 @@ private fun ServiceCard(
                         contentDescription = primaryActionLabel,
                         isPrimary = true,
                         onClick = { if (isRunning) onStopApp(app.name) else onStartApp(app.name) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1.7f)
                     )
                     ExpressiveIconActionButton(
                         icon = Icons.Default.Info,
@@ -1102,65 +1093,6 @@ private fun ServiceCard(
                         onClick = { onAppInfoClick(app) },
                         modifier = Modifier.weight(1f)
                     )
-                    ExpressiveIconActionButton(
-                        icon = Icons.Default.Settings,
-                        contentDescription = "More",
-                        isPrimary = false,
-                        onClick = { showMoreOptions = !showMoreOptions },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            if (isCompact) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    onClick = { showMoreOptions = !showMoreOptions },
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Settings, null, Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("More Options", style = MaterialTheme.typography.labelLarge)
-                        }
-                        Icon(
-                            imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = null
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = showMoreOptions,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                val canRollback = app.canRollbackNow()
-                Column(modifier = Modifier.padding(top = 8.dp)) {
-                    ExpressiveActionButton(
-                        text = "Rollback Version",
-                        icon = Icons.Default.Refresh,
-                        isPrimary = false,
-                        onClick = { onRollbackClick(app.name) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = canRollback
-                    )
-                    if (!canRollback) {
-                        Text(
-                            text = "Start the app to rollback",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 6.dp, start = 4.dp)
-                        )
-                    }
                 }
             }
         }
@@ -1329,7 +1261,7 @@ private fun DeleteOptionToggle(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1347,7 +1279,7 @@ private fun DeleteOptionToggle(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.onError,
                 checkedTrackColor = MaterialTheme.colorScheme.error

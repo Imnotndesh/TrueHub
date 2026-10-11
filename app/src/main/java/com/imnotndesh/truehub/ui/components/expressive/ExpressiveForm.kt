@@ -1,14 +1,19 @@
 package com.imnotndesh.truehub.ui.components.expressive
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ExpandMore
@@ -31,6 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +60,8 @@ fun ExpressiveTextField(
     singleLine: Boolean = true,
     readOnly: Boolean = false,
     enabled: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
     trailingIcon: (@Composable () -> Unit)? = null,
     supportingText: (@Composable () -> Unit)? = null
 ) {
@@ -63,37 +74,71 @@ fun ExpressiveTextField(
         singleLine = singleLine,
         readOnly = readOnly,
         enabled = enabled,
+        keyboardOptions = keyboardOptions,
+        visualTransformation = visualTransformation,
         trailingIcon = trailingIcon,
         supportingText = supportingText,
         shape = MaterialTheme.shapes.large
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpressiveChoiceField(
-    label: String,
+    label: String = "",
     value: String,
     placeholder: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = {},
-        modifier = modifier.fillMaxWidth(),
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        readOnly = true,
+    val hasValue = value.isNotBlank()
+    val display = if (hasValue) value else placeholder
+    Surface(
+        onClick = onClick,
         enabled = enabled,
-        singleLine = true,
-        trailingIcon = {
-            IconButton(onClick = onClick, enabled = enabled) {
-                Icon(Icons.Default.ExpandMore, contentDescription = "Choose $label")
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                stateDescription = display
             }
-        },
-        shape = MaterialTheme.shapes.large
-    )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                if (label.isNotBlank()) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = display,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (hasValue || enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
@@ -161,7 +206,8 @@ fun ExpressiveChoiceSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        modifier = modifier.semantics { paneTitle = title }
     ) {
         Column(
             modifier = Modifier
@@ -192,14 +238,19 @@ fun ExpressiveChoiceSheet(
                 items(filtered, key = { it.key }) { choice ->
                     val isSelected = choice.key == selectedKey
                     Surface(
-                        onClick = { onSelect(choice.key) },
                         shape = MaterialTheme.shapes.large,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.primaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceContainerLow
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(choice.key) }
+                            )
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),

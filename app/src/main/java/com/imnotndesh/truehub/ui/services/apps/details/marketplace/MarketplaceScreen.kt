@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.apps.details.marketplace
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import android.provider.Settings
 
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -470,12 +473,17 @@ fun RecommendedCarousel(
     onAppClick: (Apps.AppAvailableItem) -> Unit
 ) {
     val pagerState = rememberPagerState(pageCount = { apps.size })
+    var autoAdvance by remember { mutableStateOf(true) }
+    val reducedMotion = rememberReducedMotion()
 
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, autoAdvance, reducedMotion, apps.size) {
+        if (!autoAdvance || reducedMotion || apps.size <= 1) return@LaunchedEffect
         while (true) {
             delay(4_000)
-            val next = (pagerState.currentPage + 1) % apps.size
-            pagerState.animateScrollToPage(next, animationSpec = tween(durationMillis = 500))
+            if (!pagerState.isScrollInProgress) {
+                val next = (pagerState.currentPage + 1) % apps.size
+                pagerState.animateScrollToPage(next, animationSpec = tween(durationMillis = 500))
+            }
         }
     }
 
@@ -484,7 +492,14 @@ fun RecommendedCarousel(
             state = pagerState,
             contentPadding = PaddingValues(horizontal = 20.dp),
             pageSpacing = 12.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { autoAdvance = false },
+                        onHorizontalDrag = { _, _ -> }
+                    )
+                }
         ) { page ->
             val app = apps[page]
             HeroCarouselCard(app = app, onClick = { onAppClick(app) })
@@ -745,7 +760,7 @@ fun SearchResultRow(
                 } else {
                     ButtonDefaults.filledTonalButtonColors()
                 },
-                modifier = Modifier.height(38.dp)
+                modifier = Modifier.heightIn(min = 48.dp)
             ) {
                 Icon(
                     imageVector = if (app.installed) Icons.Default.Add else Icons.Default.Download,
@@ -805,5 +820,16 @@ fun AppIcon(iconUrl: String?, title: String, size: Int) {
                 modifier = Modifier.size((size * 0.7f).dp)
             )
         }
+    }
+}
+@Composable
+private fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        ) == 0f
     }
 }

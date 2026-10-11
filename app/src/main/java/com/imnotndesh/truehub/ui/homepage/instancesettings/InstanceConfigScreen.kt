@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -108,7 +110,10 @@ fun InstanceConfigScreen(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(WindowInsets.systemBars.asPaddingValues())
                 .padding(horizontal = 16.dp)

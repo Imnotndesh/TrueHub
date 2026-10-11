@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.network
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -102,7 +104,10 @@ fun NetworkScreen(
                 ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = 840.dp)
+                        .fillMaxWidth()
+                        .fillMaxHeight()
                         .verticalScroll(scrollState)
                         .padding(start = 16.dp, end = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(24.dp)

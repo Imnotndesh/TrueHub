@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub
+import com.imnotndesh.truehub.data.models.LoginMethod
+import com.imnotndesh.truehub.data.helpers.MultiAccountPrefs
 
 import android.Manifest
 import android.app.Application
@@ -61,6 +63,8 @@ import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertSer
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertServiceDetailScreen
 import com.imnotndesh.truehub.ui.homepage.instancesettings.alertservice.AlertServicesListScreen
 import com.imnotndesh.truehub.ui.login.LoginScreen
+import com.imnotndesh.truehub.ui.setup.ServerSetupScreen
+import com.imnotndesh.truehub.ui.setup.WelcomeScreen
 import com.imnotndesh.truehub.ui.settings.SettingsEvent
 import com.imnotndesh.truehub.ui.settings.SettingsScreen
 import com.imnotndesh.truehub.ui.settings.SettingsScreenViewModel
@@ -203,7 +207,7 @@ fun MainActivityContent(
                     NoInternetScreen(
                         message = "No internet connection.",
                         onRetry = {
-                            viewModel.initializeApp(context)
+                            viewModel.initializeApp(context, force = true)
                         }
                     )
                 }
@@ -272,6 +276,32 @@ private fun AppNavigation(
             fadeOut(animationSpec = tween(300)) + slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
         }
     ) {
+        composable(Screen.Welcome.route) {
+            WelcomeScreen(
+                onGetStarted = {
+                    navController.navigate(Screen.ServerSetup.route) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(Screen.ServerSetup.route) {
+            ServerSetupScreen(
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Screen.Welcome.route)
+                    }
+                },
+                onConfigured = { _, _ ->
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.Login.route) {
             LoginScreen(
                 existingManager = manager,

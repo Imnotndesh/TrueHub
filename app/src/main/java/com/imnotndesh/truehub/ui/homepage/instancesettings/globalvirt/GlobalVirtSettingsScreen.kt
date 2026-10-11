@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.globalvirt
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -131,13 +132,8 @@ fun GlobalVirtSettingsScreen(
                         onRefresh = viewModel::refresh,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(24.dp)
-                        ) {
+                        InfoCardGrid(modifier = Modifier.fillMaxSize()) {
+                            item {
                             ExpressiveSection(title = "Storage", icon = Icons.Default.Storage) {
                                 ExpressiveInfoCard {
                                     InfoRow(label = "Default pool", value = config.pool ?: "None")
@@ -152,7 +148,9 @@ fun GlobalVirtSettingsScreen(
                                     InfoRow(label = "State", value = config.state ?: "Unknown")
                                 }
                             }
+                            }
 
+                            item {
                             ExpressiveSection(title = "Networking", icon = Icons.Default.Cloud) {
                                 ExpressiveInfoCard {
                                     InfoRow(label = "Bridge", value = config.bridge ?: "Automatic")
@@ -180,7 +178,9 @@ fun GlobalVirtSettingsScreen(
                                     }
                                 }
                             }
+                            }
 
+                            item {
                             ExpressiveSection(title = "About", icon = Icons.Default.Info) {
                                 ExpressiveInfoCard {
                                     Text(
@@ -192,8 +192,7 @@ fun GlobalVirtSettingsScreen(
                                     )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(8.dp))
+                            }
                         }
                     }
                 }

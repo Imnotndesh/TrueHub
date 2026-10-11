@@ -15,6 +15,7 @@ import com.imnotndesh.truehub.data.helpers.SessionCoordinator
 import com.imnotndesh.truehub.data.helpers.SessionProvider
 import com.imnotndesh.truehub.data.helpers.NetworkConnectivityObserver
 import com.imnotndesh.truehub.data.helpers.PersonalizationManager
+import com.imnotndesh.truehub.data.helpers.Prefs
 import com.imnotndesh.truehub.data.helpers.RecoveryTrigger
 import com.imnotndesh.truehub.data.models.Config.ClientConfig
 import com.imnotndesh.truehub.data.models.Auth
@@ -68,6 +69,7 @@ class MainViewModel @Inject constructor(
     private var connectivityRecoveryJob: Job? = null
     private var periodicPingJob: Job? = null
     private var pendingSessionGeneration: Long? = null
+    private var hasInitialized = false
     private val _pendingNavigation = MutableStateFlow<String?>(null)
     val pendingNavigation: StateFlow<String?> = _pendingNavigation.asStateFlow()
 
@@ -92,10 +94,12 @@ class MainViewModel @Inject constructor(
             }
         }
     }
-    fun initializeApp(context: Context) {
+    fun initializeApp(context: Context, force: Boolean = false) {
         val applicationContext = context.applicationContext
         startConnectivityRecovery(applicationContext)
         if (initializationJob?.isActive == true) return
+        if (hasInitialized && !force) return
+        hasInitialized = true
         initializationJob = viewModelScope.launch {
             try {
                 _appState.value = AppState.Initializing
@@ -171,7 +175,10 @@ class MainViewModel @Inject constructor(
                     _appState.value = AppState.Ready(Screen.AccountSwitcher.route)
 
                 } else {
-                    _appState.value = AppState.Ready(Screen.Login.route)
+                    val (savedUrl, _) = Prefs.load(applicationContext)
+                    _appState.value = AppState.Ready(
+                        if (savedUrl.isNullOrBlank()) Screen.Welcome.route else Screen.Login.route
+                    )
                 }
 
             } catch (error: CancellationException) {

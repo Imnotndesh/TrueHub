@@ -26,7 +26,8 @@ fun <T> ExpressiveFilterBar(
     selected: T,
     label: (T) -> String,
     onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     LazyRow(
         modifier = modifier.fillMaxWidth(),
@@ -46,6 +47,7 @@ fun <T> ExpressiveFilterBar(
             )
             FilterChip(
                 selected = isSelected,
+                enabled = enabled,
                 onClick = { onSelect(item) },
                 label = { Text(label(item)) },
                 leadingIcon = if (isSelected) {

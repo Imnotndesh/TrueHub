@@ -1,4 +1,10 @@
 package com.imnotndesh.truehub.ui.services.vm.details
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -104,8 +110,18 @@ fun VmInfoScreen(
     var showStopDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showCloneDialog by remember { mutableStateOf(false) }
+    var showPowerOffDialog by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
     var isDownloadingLog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.error) {
+        val message = state.error
+        if (message != null && state.vm != null) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -180,9 +196,33 @@ fun VmInfoScreen(
             }
         )
     }
+    if (showPowerOffDialog) {
+        AlertDialog(
+            onDismissRequest = { showPowerOffDialog = false },
+            title = { Text("Power off ${state.vm?.name ?: "VM"}?") },
+            text = {
+                Text("This immediately cuts power to the VM, like pulling the plug. Unsaved data may be lost.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPowerOffDialog = false
+                        viewModel.powerOff()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Power Off") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPowerOffDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background) { _ ->
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { _ ->
             val vm = state.vm
             when {
                 state.isLoading && vm == null -> LoadingScreen("Loading Virtual Machine")
@@ -224,7 +264,7 @@ fun VmInfoScreen(
                                     onRestart = viewModel::restart,
                                     onSuspend = viewModel::suspend,
                                     onResume = viewModel::resume,
-                                    onPowerOff = viewModel::powerOff
+                                    onPowerOff = { showPowerOffDialog = true }
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 ExpressiveEntryCard(
@@ -307,128 +347,90 @@ private fun VmHeroCard(
     onPowerOff: () -> Unit
 ) {
     val state = vm.status.state.lowercase()
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+    DetailHeroCard(
+        title = vm.name,
+        subtitle = vm.description,
+        leading = {
+            ExpressiveShapeBox(
+                shape = vmShape(),
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier.size(52.dp)
             ) {
-                ExpressiveShapeBox(
-                    shape = vmShape(),
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = vm.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    if (vm.description.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = vm.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ExpressiveStatusChip(
-                        label = vmStatusLabel(vm.status.state),
-                        tone = vmStatusTone(vm.status.state),
-                        icon = vmStatusIcon(vm.status.state)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.Computer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.size(28.dp)
+                )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                when (state) {
-                    "running" -> {
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.Stop,
-                            contentDescription = "Stop",
-                            isPrimary = true,
-                            enabled = !isBusy,
-                            onClick = onStop,
-                            modifier = Modifier.weight(1f)
-                        )
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.RestartAlt,
-                            contentDescription = "Restart",
-                            isPrimary = false,
-                            enabled = !isBusy,
-                            onClick = onRestart,
-                            modifier = Modifier.weight(1f)
-                        )
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.Pause,
-                            contentDescription = "Suspend",
-                            isPrimary = false,
-                            enabled = !isBusy,
-                            onClick = onSuspend,
-                            modifier = Modifier.weight(1f)
-                        )
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.PowerOff,
-                            contentDescription = "Power Off",
-                            isPrimary = false,
-                            isDanger = true,
-                            enabled = !isBusy,
-                            onClick = onPowerOff,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    "suspended" -> {
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.PlayArrow,
-                            contentDescription = "Resume",
-                            isPrimary = true,
-                            enabled = !isBusy,
-                            onClick = onResume,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    else -> {
-                        ExpressiveIconActionButton(
-                            icon = Icons.Default.PlayArrow,
-                            contentDescription = "Start",
-                            isPrimary = true,
-                            enabled = !isBusy,
-                            onClick = onStart,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+        },
+        badge = {
+            ExpressiveStatusChip(
+                label = vmStatusLabel(vm.status.state),
+                tone = vmStatusTone(vm.status.state),
+                icon = vmStatusIcon(vm.status.state)
+            )
+        },
+        actions = {
+            when (state) {
+                "running" -> {
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.Stop,
+                        contentDescription = "Stop",
+                        isPrimary = true,
+                        enabled = !isBusy,
+                        onClick = onStop,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.RestartAlt,
+                        contentDescription = "Restart",
+                        isPrimary = false,
+                        enabled = !isBusy,
+                        onClick = onRestart,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.Pause,
+                        contentDescription = "Suspend",
+                        isPrimary = false,
+                        enabled = !isBusy,
+                        onClick = onSuspend,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.PowerOff,
+                        contentDescription = "Power Off",
+                        isPrimary = false,
+                        isDanger = true,
+                        enabled = !isBusy,
+                        onClick = onPowerOff,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                "suspended" -> {
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.PlayArrow,
+                        contentDescription = "Resume",
+                        isPrimary = true,
+                        enabled = !isBusy,
+                        onClick = onResume,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                else -> {
+                    ExpressiveIconActionButton(
+                        icon = Icons.Default.PlayArrow,
+                        contentDescription = "Start",
+                        isPrimary = true,
+                        enabled = !isBusy,
+                        onClick = onStart,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -551,11 +553,12 @@ private fun ToggleLine(label: String, checked: Boolean, onCheckedChange: (Boolea
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp),
+            .padding(top = 12.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

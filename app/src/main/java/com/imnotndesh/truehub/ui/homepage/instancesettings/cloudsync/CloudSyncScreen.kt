@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -61,11 +64,15 @@ fun CloudSyncScreen(
     manager: TrueNASApiManager,
     onNavigateBack: () -> Unit = {},
     onNavigateToDetail: (Int) -> Unit = {},
-    onNavigateToCreate: () -> Unit = {}
+    onNavigateToCreate: () -> Unit = {},
+    onNavigateToEdit: (Int) -> Unit = {}
 ) {
     val viewModel: CloudSyncViewModel = hiltViewModel()
     val state by viewModel.uiState.collectAsState()
     var pendingDelete by remember { mutableStateOf<Cloudsync.Entry?>(null) }
+    var selectedTaskId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val window = LocalTrueHubWindow.current
+    val showDetail = window.isAtLeastExpanded && selectedTaskId != null
 
     LaunchedEffect(state.deleted) {
         if (state.deleted) {
@@ -76,72 +83,86 @@ fun CloudSyncScreen(
 
     LaunchedEffect(Unit) { viewModel.loadTasks() }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            UnifiedScreenHeader(
-                title = "Cloud Sync",
-                subtitle = "Backup and sync tasks",
-                isLoading = state.isLoading,
-                isRefreshing = false,
-                error = state.error,
-                onDismissError = { viewModel.dismissError() },
-                manager = manager,
-                onBackPressed = onNavigateBack
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNavigateToCreate,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("New Task") }
-            )
-        }
-    ) { innerPadding ->
-        PullToRefreshContent(
-            isRefreshing = state.isLoading,
-            onRefresh = { viewModel.loadTasks() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-        ) {
-            if (state.tasks.isEmpty() && !state.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Cloud,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = "No cloud sync tasks",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        UnifiedScreenHeader(
+            title = "Cloud Sync",
+            subtitle = "Backup and sync tasks",
+            isLoading = state.isLoading,
+            isRefreshing = false,
+            error = state.error,
+            onDismissError = { viewModel.dismissError() },
+            manager = manager,
+            onBackPressed = onNavigateBack
+        )
+
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    PullToRefreshContent(
+                        isRefreshing = state.isLoading,
+                        onRefresh = { viewModel.loadTasks() },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        if (state.tasks.isEmpty() && !state.isLoading) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.Cloud,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                    Text(
+                                        text = "No cloud sync tasks",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(state.tasks, key = { it.id ?: it.hashCode() }) { task ->
+                                    CloudSyncTaskRow(
+                                        task = task,
+                                        onClick = { task.id?.let { onNavigateToDetail(it) } },
+                                        onDelete = { pendingDelete = task }
+                                    )
+                                }
+                            }
+                        }
                     }
+                    ExtendedFloatingActionButton(
+                        onClick = onNavigateToCreate,
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        text = { Text("New Task") },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(state.tasks, key = { it.id ?: it.hashCode() }) { task ->
-                        CloudSyncTaskRow(
-                            task = task,
-                            onClick = { task.id?.let(onNavigateToDetail) },
-                            onDelete = { pendingDelete = task }
-                        )
-                    }
+            },
+            detail = {
+                selectedTaskId?.let { taskId ->
+                    CloudSyncDetailScreen(
+                        manager = manager,
+                        taskId = taskId,
+                        onNavigateBack = { selectedTaskId = null },
+                        onNavigateToEdit = onNavigateToEdit
+                    )
                 }
             }
-        }
+        )
     }
 
     pendingDelete?.let { task ->

@@ -88,7 +88,8 @@ class SettingsScreenViewModel(
                         )
 
                         val hasCredentials = when (account.loginMethod) {
-                            com.imnotndesh.truehub.data.models.LoginMethod.API_KEY -> cred1 != null
+                            com.imnotndesh.truehub.data.models.LoginMethod.API_KEY,
+                            com.imnotndesh.truehub.data.models.LoginMethod.PAIRED -> cred1 != null
                             com.imnotndesh.truehub.data.models.LoginMethod.PASSWORD,
                             com.imnotndesh.truehub.data.models.LoginMethod.TOTP -> cred1 != null && cred2 != null
                         }
@@ -101,7 +102,8 @@ class SettingsScreenViewModel(
                         } else {
                             // Prompt for credentials
                             val dialogType = when (account.loginMethod) {
-                                com.imnotndesh.truehub.data.models.LoginMethod.API_KEY -> AutoLoginDialogType.PROMPT_API_KEY
+                                com.imnotndesh.truehub.data.models.LoginMethod.API_KEY,
+                            com.imnotndesh.truehub.data.models.LoginMethod.PAIRED -> AutoLoginDialogType.PROMPT_API_KEY
                                 com.imnotndesh.truehub.data.models.LoginMethod.PASSWORD,
                                 com.imnotndesh.truehub.data.models.LoginMethod.TOTP -> AutoLoginDialogType.PROMPT_PASSWORD
                             }

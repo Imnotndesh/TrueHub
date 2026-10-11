@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
+import androidx.compose.runtime.saveable.rememberSaveable
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,6 +82,9 @@ fun BootEnvironmentsScreen(
 
     var cloneSourceId by remember { mutableStateOf<String?>(null) }
     var destroyTargetId by remember { mutableStateOf<String?>(null) }
+    val window = LocalTrueHubWindow.current
+    var selectedEnvId by rememberSaveable { mutableStateOf<String?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedEnvId != null
 
     LaunchedEffect(Unit) { vm.loadEnvironments() }
 
@@ -104,17 +110,12 @@ fun BootEnvironmentsScreen(
                 onBackPressed = onNavigateBack
             )
         },
-        floatingActionButton = {
-            ExpressiveFAB(
-                onClick = { cloneSourceId = uiState.environments.firstOrNull()?.id },
-                icon = Icons.Default.Add,
-                text = "Clone",
-                visible = uiState.environments.isNotEmpty(),
-                initiallyExpanded = true,
-                expandedDurationMillis = 2500
-            )
-        }
     ) { innerPadding ->
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            list = {
+                Box(modifier = Modifier.fillMaxSize()) {
         when {
             uiState.isLoading && uiState.environments.isEmpty() ->
                 LoadingScreen("Loading boot environments...")
@@ -176,6 +177,27 @@ fun BootEnvironmentsScreen(
                 }
                     }
         }
+                    ExpressiveFAB(
+                        onClick = { cloneSourceId = uiState.environments.firstOrNull()?.id },
+                        icon = Icons.Default.Add,
+                        text = "Clone",
+                        visible = uiState.environments.isNotEmpty(),
+                        initiallyExpanded = true,
+                        expandedDurationMillis = 2500,
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                    )
+                }
+            },
+            detail = {
+                selectedEnvId?.let { envId ->
+                    BootEnvironmentDetailScreen(
+                        manager = manager,
+                        environmentId = envId,
+                        onNavigateBack = { selectedEnvId = null }
+                    )
+                }
+            }
+        )
     }
 
     cloneSourceId?.let { source ->

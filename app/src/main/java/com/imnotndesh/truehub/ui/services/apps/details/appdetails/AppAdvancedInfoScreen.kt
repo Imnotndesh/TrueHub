@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.imnotndesh.truehub.ui.components.ErrorState
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -106,10 +108,15 @@ fun AppAdvancedInfoScreen(
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var activeScreenshotIndex by remember { mutableStateOf<Int?>(null) }
+    var reloadKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(appId) {
+    LaunchedEffect(appId, reloadKey) {
+        isLoading = true
         when (val result = manager.apps.getAppInstanceWithResult(appId)) {
-            is ApiResult.Success -> instance = result.data
+            is ApiResult.Success -> {
+                instance = result.data
+                error = null
+            }
             is ApiResult.Error -> error = result.message ?: "Failed to load instance"
             is ApiResult.Loading -> {}
         }
@@ -128,7 +135,13 @@ fun AppAdvancedInfoScreen(
     ) {
         when {
             isLoading -> LoadingScreen("Loading application details…")
-            error != null && instance == null -> NullContent()
+            error != null && instance == null -> ErrorState(
+                message = error ?: "Failed to load instance",
+                onRetry = {
+                    error = null
+                    reloadKey++
+                }
+            )
             instance != null -> AdvancedInstanceContent(
                 instance = instance!!,
                 serverBaseHttpUrl = manager.serverBaseHttpUrl,
@@ -202,7 +215,8 @@ private fun AdvancedInstanceContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 96.dp, bottom = 32.dp)
+            .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         // Workloads overview — top-level get_instance summary (exhausts active_workloads).

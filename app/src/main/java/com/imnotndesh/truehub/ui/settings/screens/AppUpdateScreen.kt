@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.settings.screens
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 import android.app.Application
 import android.content.Context
@@ -80,6 +81,7 @@ fun AppUpdateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {

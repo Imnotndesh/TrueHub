@@ -229,7 +229,7 @@ fun ContainerDevicesScreen(
             isUploading = state.isUploading,
             uploadBytes = state.uploadBytes,
             uploadTotal = state.uploadTotal,
-            onDismiss = { if (!state.isUploading) showUploadSheet = false },
+            onDismiss = { showUploadSheet = false },
             onUpload = { dir, fileName, length, openStream, cleanup ->
                 viewModel.uploadIso(dir, fileName, length, openStream, cleanup)
             }
@@ -315,7 +315,7 @@ private fun DeviceRow(
             IconButton(onClick = onDelete, enabled = !isDeleting) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Remove device",
+                    contentDescription = "Remove ${device["name"]?.toString()?.ifBlank { "device" } ?: "device"}",
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -341,6 +341,7 @@ private fun UploadIsoSheet(
     var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var fileSize by remember { mutableStateOf(-1L) }
     var isPreparing by remember { mutableStateOf(false) }
+    var prepareError by remember { mutableStateOf<String?>(null) }
     var showDirPicker by remember { mutableStateOf(false) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -360,7 +361,7 @@ private fun UploadIsoSheet(
     }
 
     ModalBottomSheet(
-        onDismissRequest = { if (!isUploading) onDismiss() },
+        onDismissRequest = { onDismiss() },
         sheetState = sheetState
     ) {
         Column(
@@ -430,13 +431,19 @@ private fun UploadIsoSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (prepareError != null) {
+                Text(
+                    text = prepareError!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    enabled = !isUploading,
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),
@@ -475,6 +482,8 @@ private fun UploadIsoSheet(
                                             { FileInputStream(prepared) },
                                             { prepared.delete() }
                                         )
+                                    } else {
+                                        prepareError = "Couldn't read the selected file. Try another file."
                                     }
                                 }
                             }

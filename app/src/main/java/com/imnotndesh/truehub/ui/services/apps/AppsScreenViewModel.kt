@@ -282,6 +282,18 @@ class AppsScreenViewModel @Inject constructor(
             it.copy(error = null, saveFailed = false, saveError = null, saveJobId = null, saveSuccess = false)
         }
     }
+
+    fun reportConfigSaveFailure(message: String) {
+        _appConfigState.update {
+            it.copy(
+                isSaving = false,
+                saveJobId = null,
+                saveSuccess = false,
+                saveFailed = true,
+                saveError = message
+            )
+        }
+    }
     fun installMarketplaceApp(
         context: Context,
         appName: String,

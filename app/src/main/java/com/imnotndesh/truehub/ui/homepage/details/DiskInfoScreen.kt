@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.details
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -217,70 +218,44 @@ private fun DiskSelectorRow(
 
 @Composable
 private fun DiskHeroCard(disk: System.DiskDetails) {
-    Card(
-        shape = RoundedCornerShape(28.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
+    DetailHeroCard(
+        title = disk.model ?: "Generic Drive",
+        subtitle = disk.serial,
+        leading = {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(52.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = ic_drive),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = disk.model ?: "Generic Drive",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = disk.serial,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DiskBadge(
-                        label = disk.type,
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    DiskBadge(
-                        label = "${disk.size / (1024 * 1024 * 1024)} GB",
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    DiskBadge(
-                        label = disk.bus,
-                        containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(id = ic_drive),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
+        },
+        badge = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DiskBadge(
+                    label = disk.type,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                DiskBadge(
+                    label = "${disk.size / (1024 * 1024 * 1024)} GB",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                DiskBadge(
+                    label = disk.bus,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
         }
-    }
+    )
 }
 
 @Composable

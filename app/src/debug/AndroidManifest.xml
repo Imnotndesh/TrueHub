@@ -5,5 +5,14 @@
             android:name=".ui.BottomBarPreviewActivity"
             android:exported="true"
             android:label="Bottom Bar Preview" />
+        <activity
+            android:name=".ui.MockDataPreviewActivity"
+            android:exported="true"
+            android:label="Mock Data Preview">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

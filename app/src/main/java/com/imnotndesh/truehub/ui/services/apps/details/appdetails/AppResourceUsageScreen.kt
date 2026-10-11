@@ -1,4 +1,8 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.ui.components.expressive.StatusTone
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusChip
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 
 import android.graphics.drawable.GradientDrawable
 import androidx.compose.animation.AnimatedVisibility
@@ -158,7 +162,7 @@ fun AppResourceUsageScreen(
                 title = "App Resource Usage",
                 subtitle = appId,
                 isLoading = false,
-                isRefreshing = false,
+                isRefreshing = state.isLoading,
                 error = state.error,
                 onDismissError = { viewModel.dismissError() },
                 onBackPressed = onNavigateBack
@@ -366,7 +370,9 @@ private fun UsageChartCard(
 ) {
     val colors = MaterialTheme.colorScheme
     Card(
-        modifier = modifier,
+        modifier = modifier.semantics {
+            contentDescription = "$title chart. Current value $currentLabel"
+        },
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerHigh)
     ) {
@@ -418,7 +424,7 @@ private fun StatsLineChart(
     axisFormatter: (Float) -> String,
     modifier: Modifier = Modifier
 ) {
-    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f).toArgb()
+    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     val gridColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f).toArgb()
 
     AndroidView(

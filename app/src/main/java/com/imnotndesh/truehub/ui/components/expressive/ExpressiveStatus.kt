@@ -19,6 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -85,7 +88,8 @@ fun ExpressiveStatusChip(
 fun ExpressiveStatusDot(
     tone: StatusTone,
     modifier: Modifier = Modifier,
-    size: Dp = 12.dp
+    size: Dp = 12.dp,
+    label: String? = null
 ) {
     val color by animateColorAsState(
         targetValue = tone.color(),
@@ -95,6 +99,17 @@ fun ExpressiveStatusDot(
     Surface(
         color = color,
         shape = CircleShape,
-        modifier = modifier.size(size)
+        modifier = modifier
+            .size(size)
+            .then(
+                if (label != null) {
+                    Modifier.semantics {
+                        contentDescription = label
+                        stateDescription = label
+                    }
+                } else {
+                    Modifier
+                }
+            )
     ) {}
 }

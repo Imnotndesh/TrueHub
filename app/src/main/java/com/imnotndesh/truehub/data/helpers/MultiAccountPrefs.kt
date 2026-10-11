@@ -153,7 +153,7 @@ object MultiAccountPrefs {
     ) {
         context.dataStore.edit { prefs ->
             when (loginMethod) {
-                LoginMethod.API_KEY -> {
+                LoginMethod.API_KEY, LoginMethod.PAIRED -> {
                     apiKey?.let { prefs[getCredentialKey(accountId, "api_key")] = it }
                 }
                 LoginMethod.PASSWORD, LoginMethod.TOTP -> {
@@ -172,7 +172,7 @@ object MultiAccountPrefs {
         val prefs = context.dataStore.data.first()
 
         return when (loginMethod) {
-            LoginMethod.API_KEY -> {
+            LoginMethod.API_KEY, LoginMethod.PAIRED -> {
                 val apiKey = prefs[getCredentialKey(accountId, "api_key")]
                 apiKey to null
             }
@@ -189,7 +189,7 @@ object MultiAccountPrefs {
         val account = getAccount(context, current.second) ?: return null
         val (first, second) = getAccountCredentials(context, account.id, account.loginMethod)
         return when (account.loginMethod) {
-            LoginMethod.API_KEY -> first?.let { "Bearer $it" }
+            LoginMethod.API_KEY, LoginMethod.PAIRED -> first?.let { "Bearer $it" }
             LoginMethod.PASSWORD, LoginMethod.TOTP ->
                 if (first != null && second != null) Credentials.basic(first, second) else null
         }

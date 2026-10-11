@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.services.vm.devices
+import com.imnotndesh.truehub.ui.components.expressive.JobProgressView
+import androidx.lifecycle.compose.LifecycleResumeEffect
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,6 +70,11 @@ fun VmDevicesScreen(
     var showImportSheet by remember { mutableStateOf(false) }
     var showConvertSheet by remember { mutableStateOf(false) }
 
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
+
     Scaffold(
         topBar = {
             UnifiedScreenHeader(
@@ -96,7 +103,7 @@ fun VmDevicesScreen(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         item(key = "import") {
@@ -157,12 +164,21 @@ fun VmDevicesScreen(
             ExpressiveActionFab(
                 icon = Icons.Default.Add,
                 label = "Add device",
-                onClick = onAddDevice,
+                onClick = { if (!state.isImporting) onAddDevice() },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(innerPadding)
                     .padding(16.dp)
             )
+            if (state.isImporting) {
+                JobProgressView(
+                    title = "Importing disk image",
+                    description = "Preparing the import",
+                    progress = 0,
+                    indeterminate = true,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
     }
 

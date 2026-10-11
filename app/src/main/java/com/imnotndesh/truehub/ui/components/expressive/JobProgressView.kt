@@ -1,9 +1,7 @@
 package com.imnotndesh.truehub.ui.components.expressive
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +22,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -43,14 +47,18 @@ fun JobProgressView(
 ) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0, 100).toFloat() / 100f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = MaterialTheme.motionScheme.slowEffectsSpec<Float>(),
         label = "jobProgress"
     )
 
-    Box(modifier = modifier.padding(16.dp)) {
+    Box(
+        modifier = modifier
+            .padding(16.dp)
+            .semantics {
+                liveRegion = if (isFailed) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                paneTitle = title
+            }
+    ) {
         ServerRackAnimation(
             size = rackSize,
             modifier = Modifier.align(Alignment.Center)
@@ -78,6 +86,9 @@ fun JobProgressView(
                             MaterialTheme.colorScheme.error
                         } else {
                             MaterialTheme.colorScheme.onSurface
+                        },
+                        modifier = Modifier.semantics {
+                            liveRegion = if (isFailed) LiveRegionMode.Assertive else LiveRegionMode.Polite
                         }
                     )
                     if (!description.isNullOrBlank()) {
@@ -99,7 +110,8 @@ fun JobProgressView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(8.dp))
+                        .semantics { progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate },
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primaryContainer
                 )
@@ -109,7 +121,13 @@ fun JobProgressView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(8.dp))
+                        .semantics {
+                            progressBarRangeInfo = ProgressBarRangeInfo(
+                                current = animatedProgress,
+                                range = 0f..1f
+                            )
+                        },
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.primaryContainer
                 )

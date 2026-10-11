@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -75,12 +76,7 @@ fun HardwareInformationScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
+            InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                 val info = uiState.systemInfo
 
                 if (info != null) {

@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.users
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -101,20 +103,16 @@ fun UserListScreen(
     ) {
     val viewModel: UserSettingsViewModel = hiltViewModel()
     val uiState by viewModel.listState.collectAsState()
+    val window = LocalTrueHubWindow.current
+    var selectedUserId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedUserId != null
 
     LaunchedEffect(Unit) { viewModel.loadUsers() }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         UnifiedScreenHeader(
             title = "Users",
@@ -127,6 +125,10 @@ fun UserListScreen(
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -313,6 +315,17 @@ fun UserListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedUserId?.let { userId ->
+                    UserDetailScreen(
+                        userId = userId,
+                        manager = manager,
+                        onNavigateBack = { selectedUserId = null }
+                    )
+                }
+            }
+        )
     }
 }
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

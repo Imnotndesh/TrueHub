@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.cloudsync
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.components.expressive.AdaptiveDetailScreen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -60,9 +63,8 @@ fun CloudSyncDetailScreen(
 
     LaunchedEffect(taskId) { reload() }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
+    AdaptiveDetailScreen(
+        header = {
             UnifiedScreenHeader(
                 title = task?.description?.ifBlank { null } ?: "Task $taskId",
                 subtitle = "Cloud Sync Task",
@@ -83,34 +85,32 @@ fun CloudSyncDetailScreen(
                 }
             )
         }
-    ) { innerPadding ->
-        PullToRefreshContent(
-            isRefreshing = isLoading,
-            onRefresh = { reload() },
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-            ExpressiveSection(title = "Task", icon = Icons.Default.Cloud) {
-                ExpressiveInfoCard {
-                    InfoRow(label = "Description", value = task?.description?.ifBlank { null } ?: "—")
-                    TaskDivider()
-                    InfoRow(label = "Path", value = task?.path ?: "—")
-                    TaskDivider()
-                    InfoRow(label = "Direction", value = task?.direction ?: "—")
-                    TaskDivider()
-                    InfoRow(label = "Transfer Mode", value = task?.transferMode ?: "—")
-                    TaskDivider()
-                    InfoRow(label = "Enabled", value = if (task?.enabled == true) "Yes" else "No")
+    ) {
+        DetailHeroCard(
+            title = task?.description?.ifBlank { null } ?: "Task $taskId",
+            subtitle = task?.path ?: "Cloud Sync Task",
+            leading = { DetailHeroIcon(icon = Icons.Default.Cloud) },
+            trailing = {
+                if (task != null) {
+                    ExpressiveIconButton(
+                        onClick = { onNavigateToEdit(taskId) },
+                        icon = Icons.Default.Edit,
+                        contentDescription = "Edit task"
+                    )
                 }
             }
+        )
+        ExpressiveSection(title = "Task", icon = Icons.Default.Cloud) {
+            ExpressiveInfoCard {
+                InfoRow(label = "Description", value = task?.description?.ifBlank { null } ?: "—")
+                TaskDivider()
+                InfoRow(label = "Path", value = task?.path ?: "—")
+                TaskDivider()
+                InfoRow(label = "Direction", value = task?.direction ?: "—")
+                TaskDivider()
+                InfoRow(label = "Transfer Mode", value = task?.transferMode ?: "—")
+                TaskDivider()
+                InfoRow(label = "Enabled", value = if (task?.enabled == true) "Yes" else "No")
             }
         }
     }

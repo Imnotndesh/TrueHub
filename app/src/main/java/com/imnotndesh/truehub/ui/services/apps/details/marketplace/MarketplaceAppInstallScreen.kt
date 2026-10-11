@@ -1,4 +1,12 @@
 package com.imnotndesh.truehub.ui.services.apps.details.marketplace
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveChoiceField
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -234,7 +242,7 @@ fun MarketplaceAppInstallScreen(
 
                 uiState.catalogAppDetails != null -> {
                     val details = uiState.catalogAppDetails!!
-                    var selectedVersionKey by remember(details) {
+                    var selectedVersionKey by rememberSaveable(details) {
                         mutableStateOf(details.versions?.keys?.firstOrNull() ?: "")
                     }
                     val versionData = details.versions?.get(selectedVersionKey)
@@ -297,7 +305,17 @@ private fun InstallOptionsContent(
         }
     }
 
-    var targetedAppNameInstance by remember(details) { mutableStateOf(details.name) }
+    var targetedAppNameInstance by rememberSaveable(details) { mutableStateOf(details.name) }
+
+    val requiredMissing = remember(schema, formState.toMap()) {
+        val questions = schema?.questions.orEmpty()
+        questions.filter { it.schema?.required == true }.any { q ->
+            val key = q.variable
+            val value = formState[key]
+                ?: formState.entries.firstOrNull { it.key == key || it.key.endsWith(".$key") }?.value
+            value == null || value.toString().isBlank()
+        }
+    }
 
     // Precompute questions-by-group ONCE per schema instead of filtering per group per recomposition
     val questionsByGroup = remember(schema) {
@@ -459,6 +477,7 @@ private fun InstallOptionsContent(
             Spacer(Modifier.height(8.dp))
             InstallBottomAction(
                 title = details.title ?: details.name,
+                enabled = targetedAppNameInstance.isNotBlank() && !requiredMissing,
                 onInstall = { onInstallAction(targetedAppNameInstance, formState.toMap()) }
             )
         }
@@ -730,21 +749,10 @@ private fun EnumPickerField(
         ?: schema.enum?.firstOrNull()?.value?.toString() ?: ""
     val displayText = schema.enum?.find { it.value?.toString() == currentVal }?.description ?: currentVal
 
-    OutlinedTextField(
+    ExpressiveChoiceField(
         value = displayText,
-        onValueChange = {},
-        readOnly = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { showSheet = true },
-        trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null) },
-        shape = RoundedCornerShape(12.dp),
-        enabled = false,
-        colors = OutlinedTextFieldDefaults.colors(
-            disabledTextColor = MaterialTheme.colorScheme.onSurface,
-            disabledBorderColor = MaterialTheme.colorScheme.outline,
-            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        placeholder = "Select option",
+        onClick = { showSheet = true }
     )
 
     if (showSheet) {
@@ -834,9 +842,15 @@ private fun BooleanField(schema: Apps.SchemaDefinition, path: String, formState:
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = { checked = it; formState[path] = it }
+            )
     ) {
-        Switch(checked = checked, onCheckedChange = { checked = it; formState[path] = it })
+        Switch(checked = checked, onCheckedChange = null)
         Text(if (checked) "Active" else "Inactive", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -899,7 +913,7 @@ private fun ListFieldInfo() {
         Icon(Icons.AutoMirrored.Filled.List, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
         Column {
             Text("Collection Parameters Configuration", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Appends natively via backend blocks", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+            Text("Appends natively via backend blocks", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -918,9 +932,10 @@ private fun DefaultField(type: String?, path: String, formState: MutableMap<Stri
 }
 
 @Composable
-private fun InstallBottomAction(title: String, onInstall: () -> Unit) {
+private fun InstallBottomAction(title: String, enabled: Boolean = true, onInstall: () -> Unit) {
     Button(
         onClick = onInstall,
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
@@ -1029,7 +1044,11 @@ private fun InstallProgressView(
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
+            .padding(24.dp)
+            .semantics {
+                liveRegion = if (isError) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                paneTitle = "Installing $appName"
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

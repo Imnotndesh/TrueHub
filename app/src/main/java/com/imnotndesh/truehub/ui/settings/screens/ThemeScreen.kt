@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.settings.screens
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -99,7 +101,10 @@ fun ThemeScreen(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.CenterHorizontally)
+                .widthIn(max = 840.dp)
+                .fillMaxWidth()
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)

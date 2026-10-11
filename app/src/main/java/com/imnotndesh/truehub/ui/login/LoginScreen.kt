@@ -1,4 +1,14 @@
 package com.imnotndesh.truehub.ui.login
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import com.imnotndesh.truehub.ui.setup.OnboardingScaffold
+import com.imnotndesh.truehub.ui.setup.OnboardingBrand
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.imePadding
+import com.imnotndesh.truehub.ui.Screen
 
 import android.app.Application
 import android.util.Log
@@ -83,9 +93,8 @@ import com.imnotndesh.truehub.data.api.TrueNASApiManager
 import com.imnotndesh.truehub.data.helpers.Prefs
 import com.imnotndesh.truehub.data.models.Auth.LoginMode
 import com.imnotndesh.truehub.data.models.Config
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
 import com.imnotndesh.truehub.ui.components.ToastManager
-import com.imnotndesh.truehub.ui.setup.ServerConfigBottomSheet
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -107,7 +116,6 @@ fun LoginScreen(
     var localManager by remember(existingManager) {
         mutableStateOf(existingManager)
     }
-    var showSetupSheet by remember { mutableStateOf( savedUrl == null) }
 
     val viewModel: LoginScreenViewModel = hiltViewModel<LoginScreenViewModel, LoginScreenViewModel.Factory> { factory ->
         factory.create(existingManager)
@@ -145,14 +153,13 @@ fun LoginScreen(
                         onManagerInitialized(newManager)
                         viewModel.updateManager(newManager)
                         ToastManager.showSuccess("Connected to server!")
-                        showSetupSheet = false
                     } else {
                         ToastManager.showError("Initial connection failed: Could not reach server.")
-                        showSetupSheet = true
+                        navController.navigate(Screen.ServerSetup.route)
                     }
                 } catch (e: Exception) {
                     ToastManager.showError("Connection failed: ${e.message}")
-                    showSetupSheet = true
+                    navController.navigate(Screen.ServerSetup.route)
                 }
             }
         }
@@ -176,7 +183,7 @@ fun LoginScreen(
                 OtpFullScreen(
                     viewModel = viewModel,
                     uiState = uiState,
-                    onChangeServerConfig = { showSetupSheet = true }
+                    onChangeServerConfig = { navController.navigate(Screen.ServerSetup.route) }
                 )
             }
             localManager != null -> {
@@ -184,7 +191,7 @@ fun LoginScreen(
                     manager = localManager!!,
                     viewModel = viewModel,
                     uiState = uiState,
-                    onChangeServerConfig = { showSetupSheet = true },
+                    onChangeServerConfig = { navController.navigate(Screen.ServerSetup.route) },
                     apiKey = uiState.apiKey,
                     onApiKeyChange = { newApikey -> viewModel.handleEvent(LoginEvent.UpdateApiKey(newApikey)) },
                     isApiKeyVisible = uiState.isApiKeyVisible,
@@ -204,65 +211,18 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Connecting to server...")
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { showSetupSheet = true }) {
+                    Button(onClick = { navController.navigate(Screen.ServerSetup.route) }) {
                         Text("Configure Server")
                     }
                 }
             }
             else -> {
                 ServerConfigurationPrompt(
-                    onConfigureClick = { showSetupSheet = true }
+                    onConfigureClick = { navController.navigate(Screen.ServerSetup.route) }
                 )
             }
         }
     }
-        if (showSetupSheet) {
-            ServerConfigBottomSheet(
-                onDismiss = {
-                    showSetupSheet = false
-                },
-                onConfigured = { url, insecure ->
-                    lifecycleOwner.lifecycleScope.launch {
-                        try {
-                            ToastManager.showInfo("Connecting to server...")
-
-                            val config = Config.ClientConfig(
-                                serverUrl = url,
-                                insecure = insecure,
-                                connectionTimeoutMs = 15000,
-                                enablePing = false,
-                                enableDebugLogging = false
-                            )
-
-                            val client = TrueNASClient(config)
-                            val newManager = TrueNASApiManager(client,context.applicationContext)
-                            val connected = newManager.connect()
-
-                            if (connected) {
-                                Prefs.save(context, url, insecure)
-
-
-                                localManager = newManager
-                                onManagerInitialized(newManager)
-                                viewModel.updateManager(newManager)
-
-                                showSetupSheet = false
-                                ToastManager.showSuccess("Connected successfully!")
-                            } else {
-                                ToastManager.showError("Failed to connect: Could not reach server with provided details.")
-                                showSetupSheet = true
-                            }
-
-                        } catch (e: Exception) {
-                            ToastManager.showError("Failed to connect: ${e.message}")
-                        }
-                    }
-                },
-                initialUrl = savedUrl,
-                initialInsecure = savedInsecure,
-                showChangeUrlOption = savedUrl != null
-            )
-        }
     }
 
 
@@ -281,307 +241,285 @@ private fun LoginContent(
     isLoading: Boolean
 ) {
     val context = LocalContext.current
+    val window = LocalTrueHubWindow.current
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
+    OnboardingScaffold(
+        brand = {
+            OnboardingBrand(
+                title = "Welcome back",
+                tagline = "Sign in to continue",
+                onContainer = window.isAtLeastMedium,
+                shapeSize = if (window.isAtLeastMedium) 144.dp else 112.dp,
+                titleStyle = if (window.isAtLeastMedium) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall
             )
+        }
     ) {
-        WavyGradientBackground {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.Start
-            ) {
-                // Header Section
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = buildAnnotatedString {
-                            append("Enter your\n")
-                            withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                                append("Credentials")
-                            }
-                        },
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 38.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Text(
-                        text = "Please sign in to continue",
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    )
-                }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Only surface the connection card when something needs attention; a healthy
+            // connection is already implied by a usable sign-in form.
+            if (uiState.connectionStatus !is ConnectionStatus.Connected) {
                 ConnectionStatusCard(uiState.connectionStatus) {
                     viewModel.handleEvent(LoginEvent.CheckConnection)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
-                    horizontalArrangement = Arrangement.Start
-                ) {
-                    LoginMethodTab(
-                        text = "Password",
-                        isSelected = uiState.loginMode == LoginMode.PASSWORD,
-                        onClick = {
-                            viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.PASSWORD))
-                        }
-                    )
+            }
 
-                    Spacer(modifier = Modifier.width(24.dp))
-
-                    LoginMethodTab(
-                        text = "API Key",
-                        isSelected = uiState.loginMode == LoginMode.API_KEY,
-                        onClick = {
-                            viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.API_KEY))
-                        }
-                    )
-                }
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    shape = RoundedCornerShape(16.dp)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        when (uiState.loginMode) {
-                            LoginMode.PASSWORD -> {
-                                OutlinedTextField(
-                                    value = uiState.username,
-                                    onValueChange = {
-                                        viewModel.handleEvent(LoginEvent.UpdateUsername(it))
-                                    },
-                                    label = { Text("Username") },
-                                    leadingIcon = {
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = uiState.loginMode == LoginMode.PASSWORD,
+                            onClick = {
+                                viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.PASSWORD))
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            colors = loginSegmentColors()
+                        ) {
+                            Text("Password")
+                        }
+                        SegmentedButton(
+                            selected = uiState.loginMode == LoginMode.API_KEY,
+                            onClick = {
+                                viewModel.handleEvent(LoginEvent.UpdateLoginMode(LoginMode.API_KEY))
+                            },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            colors = loginSegmentColors()
+                        ) {
+                            Text("API Key")
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    when (uiState.loginMode) {
+                        LoginMode.PASSWORD -> {
+                            OutlinedTextField(
+                                value = uiState.username,
+                                onValueChange = {
+                                    viewModel.handleEvent(LoginEvent.UpdateUsername(it))
+                                },
+                                label = { Text("Username") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Username"
+                                    )
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = loginFieldColors(),
+                                enabled = !uiState.isLoading
+                            )
+                            OutlinedTextField(
+                                value = uiState.password,
+                                onValueChange = {
+                                    viewModel.handleEvent(LoginEvent.UpdatePassword(it))
+                                },
+                                label = { Text("Password") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Password"
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.handleEvent(LoginEvent.TogglePasswordVisibility)
+                                        }
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Username"
-                                        )
-                                    },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    ),
-                                    enabled = !uiState.isLoading
-                                )
-                                OutlinedTextField(
-                                    value = uiState.password,
-                                    onValueChange = {
-                                        viewModel.handleEvent(LoginEvent.UpdatePassword(it))
-                                    },
-                                    label = { Text("Password") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Lock,
-                                            contentDescription = "Password"
-                                        )
-                                    },
-                                    trailingIcon = {
-                                        IconButton(
-                                            onClick = {
-                                                viewModel.handleEvent(LoginEvent.TogglePasswordVisibility)
+                                            imageVector = if (uiState.isPasswordVisible) {
+                                                Icons.Default.VisibilityOff
+                                            } else {
+                                                Icons.Default.Visibility
+                                            },
+                                            contentDescription = if (uiState.isPasswordVisible) {
+                                                "Hide password"
+                                            } else {
+                                                "Show password"
                                             }
-                                        ) {
-                                            Icon(
-                                                imageVector = if (uiState.isPasswordVisible) {
-                                                    Icons.Default.VisibilityOff
-                                                } else {
-                                                    Icons.Default.Visibility
-                                                },
-                                                contentDescription = if (uiState.isPasswordVisible) {
-                                                    "Hide password"
-                                                } else {
-                                                    "Show password"
-                                                }
-                                            )
-                                        }
-                                    },
-                                    visualTransformation = if (uiState.isPasswordVisible) {
-                                        VisualTransformation.None
-                                    } else {
-                                        PasswordVisualTransformation()
-                                    },
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Password,
-                                        imeAction = ImeAction.Done
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            viewModel.handleEvent(LoginEvent.Login(context))
-                                        }
-                                    ),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    ),
-                                    enabled = !uiState.isLoading
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Save details for autologin?",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Switch(
-                                        checked = saveForAutoLogin,
-                                        onCheckedChange = onSaveForAutoLoginChange,
-                                        enabled = !isLoading
-                                    )
-                                }
-                            }
-
-                            LoginMode.API_KEY -> {
-                                OutlinedTextField(
-                                    value = apiKey,
-                                    onValueChange = onApiKeyChange,
-                                    label = { Text("Paste your TrueNAS API key here") },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Key,
-                                            contentDescription = "API Key"
                                         )
-                                    },
-                                    trailingIcon = {
-                                        IconButton(onClick = onToggleVisibilityClick) {
-                                            Icon(
-                                                imageVector = if (isApiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                                contentDescription = if (isApiKeyVisible) "Hide API Key" else "Show API Key"
-                                            )
-                                        }
-                                    },
-                                    visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                    ),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Password,
-                                        imeAction = ImeAction.Done
-                                    ),
-                                    keyboardActions = KeyboardActions(
-                                        onDone = {
-                                            viewModel.handleEvent(LoginEvent.Login(context))
-                                        }
-                                    ),
+                                    }
+                                },
+                                visualTransformation = if (uiState.isPasswordVisible) {
+                                    VisualTransformation.None
+                                } else {
+                                    PasswordVisualTransformation()
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        viewModel.handleEvent(LoginEvent.Login(context))
+                                    }
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = loginFieldColors(),
+                                enabled = !uiState.isLoading
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Save details for autologin?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Switch(
+                                    checked = saveForAutoLogin,
+                                    onCheckedChange = onSaveForAutoLoginChange,
                                     enabled = !isLoading
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Save key for autologin?",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.weight(1f)
+                            }
+                        }
+
+                        LoginMode.API_KEY -> {
+                            OutlinedTextField(
+                                value = apiKey,
+                                onValueChange = onApiKeyChange,
+                                label = { Text("Paste your TrueNAS API key here") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Key,
+                                        contentDescription = "API Key"
                                     )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Switch(
-                                        checked = saveForAutoLogin,
-                                        onCheckedChange = onSaveForAutoLoginChange,
-                                        enabled = !isLoading
-                                    )
-                                }
+                                },
+                                trailingIcon = {
+                                    IconButton(onClick = onToggleVisibilityClick) {
+                                        Icon(
+                                            imageVector = if (isApiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                            contentDescription = if (isApiKeyVisible) "Hide API Key" else "Show API Key"
+                                        )
+                                    }
+                                },
+                                visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = loginFieldColors(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        viewModel.handleEvent(LoginEvent.Login(context))
+                                    }
+                                ),
+                                enabled = !isLoading
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Save key for autologin?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Switch(
+                                    checked = saveForAutoLogin,
+                                    onCheckedChange = onSaveForAutoLoginChange,
+                                    enabled = !isLoading
+                                )
                             }
                         }
                     }
                 }
-
-                // ── Only shown when OTP is NOT active ──
-                Spacer(modifier = Modifier.height(32.dp))
-                Button(
-                    onClick = {
-                        viewModel.handleEvent(LoginEvent.Login(context))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = !uiState.isLoading && uiState.connectionStatus is ConnectionStatus.Connected
-                ) {
-                    if (uiState.isLoading) {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Signing in...")
-                        }
-                    } else {
-                        Text(
-                            "Sign In",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Need help accessing your ${if (uiState.loginMode == LoginMode.PASSWORD) "account" else "API key"}?",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            ToastManager.showInfo("Contact your administrator for assistance")
-                        }
-                )
-
-                Spacer(modifier = Modifier.height(30.dp))
-                ServerInfoSection(
-                    onChangeServerClick = onChangeServerConfig
-                )
             }
+
+            Button(
+                onClick = {
+                    viewModel.handleEvent(LoginEvent.Login(context))
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(20.dp),
+                enabled = !uiState.isLoading && uiState.connectionStatus is ConnectionStatus.Connected
+            ) {
+                if (uiState.isLoading) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Signing in...")
+                    }
+                } else {
+                    Text(
+                        "Sign In",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Text(
+                text = "Need help accessing your ${if (uiState.loginMode == LoginMode.PASSWORD) "account" else "API key"}?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        ToastManager.showInfo("Contact your administrator for assistance")
+                    }
+            )
+
+            ServerInfoSection(
+                onChangeServerClick = onChangeServerConfig
+            )
         }
     }
 }
 
+@Composable
+private fun loginFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surface,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+)
+
+@Composable
+private fun loginSegmentColors() = SegmentedButtonDefaults.colors(
+    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    activeBorderColor = MaterialTheme.colorScheme.primaryContainer,
+    inactiveContainerColor = Color.Transparent,
+    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
+)
 
 @Composable
 private fun OtpFullScreen(
@@ -589,89 +527,62 @@ private fun OtpFullScreen(
     uiState: LoginUiState,
     onChangeServerConfig: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-            )
-    ) {
-        WavyGradientBackground {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(32.dp))
+    TotpScreen(
+        username = uiState.otpUsername,
+        otpToken = uiState.otpToken,
+        onOtpChange = { viewModel.handleEvent(LoginEvent.UpdateOtpToken(it)) },
+        onSubmit = { viewModel.handleEvent(LoginEvent.SubmitOtp) },
+        onBackToLogin = { viewModel.handleEvent(LoginEvent.ResetLoginState) },
+        onChangeServer = onChangeServerConfig,
+        isLoading = uiState.isLoading
+    )
+}
 
-        // Animated shield icon
-        Box(
-            modifier = Modifier
-                .size(88.dp)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.02f)
-                        )
-                    ),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Security,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(42.dp)
+/**
+ * Stateless two-factor screen. Public so it can be previewed in the debug mock harness and reused
+ * for a future device-pairing / continuity flow.
+ */
+@Composable
+fun TotpScreen(
+    username: String,
+    otpToken: String,
+    onOtpChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onBackToLogin: () -> Unit,
+    onChangeServer: () -> Unit,
+    isLoading: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    val otpFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { otpFocusRequester.requestFocus() }
+    val window = LocalTrueHubWindow.current
+
+    OnboardingScaffold(
+        modifier = modifier,
+        brand = {
+            OnboardingBrand(
+                title = "Two-factor\nauthentication",
+                tagline = "A 6-digit code has been requested for ${username.ifBlank { "your account" }}",
+                icon = Icons.Default.Security,
+                onContainer = window.isAtLeastMedium,
+                shapeSize = if (window.isAtLeastMedium) 144.dp else 112.dp,
+                titleStyle = if (window.isAtLeastMedium) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall
             )
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Text(
-            text = "Two-Factor\nAuthentication",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            lineHeight = 34.sp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "A 6-digit code has been requested for\n${uiState.otpUsername.ifBlank { "your account" }}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // OTP input card
+    ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Enter Verification Code",
+                    text = "Enter verification code",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -679,14 +590,16 @@ private fun OtpFullScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
-                    value = uiState.otpToken,
+                    value = otpToken,
                     onValueChange = {
                         // Only allow digits, max 6 chars
                         val filtered = it.filter { c -> c.isDigit() }.take(6)
-                        viewModel.handleEvent(LoginEvent.UpdateOtpToken(filtered))
+                        onOtpChange(filtered)
                     },
                     placeholder = { Text("000000") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(otpFocusRequester),
                     shape = RoundedCornerShape(14.dp),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.headlineSmall.copy(
@@ -698,23 +611,22 @@ private fun OtpFullScreen(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Done
                     ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { viewModel.handleEvent(LoginEvent.SubmitOtp) }
-                    ),
-                    enabled = !uiState.isLoading
+                    keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+                    colors = loginFieldColors(),
+                    enabled = !isLoading
                 )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Button(
-                    onClick = { viewModel.handleEvent(LoginEvent.SubmitOtp) },
+                    onClick = onSubmit,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    enabled = !uiState.isLoading && uiState.otpToken.length >= 6
+                    shape = RoundedCornerShape(20.dp),
+                    enabled = !isLoading && otpToken.length >= 6
                 ) {
-                    if (uiState.isLoading) {
+                    if (isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
@@ -729,16 +641,11 @@ private fun OtpFullScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Cancel / Back to credentials
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            TextButton(onClick = {
-                viewModel.handleEvent(LoginEvent.ResetLoginState)
-            }) {
+            TextButton(onClick = onBackToLogin) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
@@ -748,7 +655,7 @@ private fun OtpFullScreen(
                 Text("Back to login", fontWeight = FontWeight.Medium)
             }
 
-            TextButton(onClick = onChangeServerConfig) {
+            TextButton(onClick = onChangeServer) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = null,
@@ -759,17 +666,14 @@ private fun OtpFullScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
         Text(
-            text = if (uiState.otpToken.isNotEmpty() && uiState.otpToken.length < 6) "Enter all 6 digits"
+            text = if (otpToken.isNotEmpty() && otpToken.length < 6) "Enter all 6 digits"
             else "Code from your authenticator app",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
-            }
-        }
     }
 }
 
@@ -830,40 +734,6 @@ private fun ConnectionStatusCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun LoginMethodTab(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-    } else {
-        Color.Transparent
-    }
-
-    val textColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(backgroundColor)
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-            color = textColor
-        )
     }
 }
 

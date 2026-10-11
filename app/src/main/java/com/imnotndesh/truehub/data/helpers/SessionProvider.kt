@@ -162,7 +162,7 @@ object SessionProvider {
             account.loginMethod
         )
         return when (account.loginMethod) {
-            LoginMethod.API_KEY -> {
+            LoginMethod.API_KEY, LoginMethod.PAIRED -> {
                 if (primary.isNullOrBlank()) return AuthOutcome.Unauthenticated
                 when (val result = manager.auth.loginWithApiKeyWithResult(primary)) {
                     is ApiResult.Success -> if (isSuccessfulBooleanResult(result)) {

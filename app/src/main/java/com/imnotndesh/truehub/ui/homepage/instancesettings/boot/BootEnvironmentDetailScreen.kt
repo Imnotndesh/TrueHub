@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.boot
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -107,39 +110,22 @@ fun BootEnvironmentDetailScreen(
                         .fillMaxSize()
                         .padding(top = innerPadding.calculateTopPadding())
                 ) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
+                    InfoCardGrid(modifier = Modifier.fillMaxSize()) {
                     item {
                         val isActive = environment.active == true
-                        androidx.compose.material3.Card(
-                            shape = RoundedCornerShape(24.dp),
-                            colors = androidx.compose.material3.CardDefaults.cardColors(
-                                containerColor = if (isActive)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                                else MaterialTheme.colorScheme.surfaceContainerLow
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(20.dp)) {
-                                Text(
-                                    text = environment.id ?: "",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = if (isActive) "Currently running" else "Inactive",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isActive) MaterialTheme.colorScheme.primary
+                        DetailHeroCard(
+                            title = environment.id ?: "",
+                            subtitle = if (isActive) "Currently running" else "Inactive",
+                            leading = {
+                                DetailHeroIcon(
+                                    icon = Icons.Default.PowerSettingsNew,
+                                    containerColor = if (isActive) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    contentColor = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
                                     else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
+                        )
                     }
 
                     item {

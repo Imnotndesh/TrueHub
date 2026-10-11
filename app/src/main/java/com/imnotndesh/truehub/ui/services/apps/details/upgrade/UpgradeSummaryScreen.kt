@@ -1,4 +1,11 @@
 package com.imnotndesh.truehub.ui.services.apps.details.upgrade
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -111,13 +118,6 @@ fun UpgradeSummaryScreen(
         }
     }
 
-    LaunchedEffect(isDone) {
-        if (isDone) {
-            kotlinx.coroutines.delay(1800.milliseconds)
-            onNavigateBack()
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -141,6 +141,7 @@ fun UpgradeSummaryScreen(
                     isFailed = isFailed,
                     jobId = liveJob?.jobId,
                     manager = manager,
+                    onNavigateBack = onNavigateBack,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
@@ -162,6 +163,7 @@ fun UpgradeSummaryScreen(
             onBackPressed = onNavigateBack,
             modifier = Modifier
                 .align(Alignment.TopStart)
+                .statusBarsPadding()
                 .padding(16.dp)
         )
     }
@@ -177,6 +179,7 @@ private fun UpgradingView(
     isFailed: Boolean,
     jobId: Int?,
     manager: TrueNASApiManager,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -194,7 +197,9 @@ private fun UpgradingView(
     val secondaryColor = MaterialTheme.colorScheme.secondary
 
     Box(
-        modifier = modifier.padding(16.dp)
+        modifier = modifier
+            .padding(16.dp)
+            .navigationBarsPadding()
     ) {
         ServerRackAnimation(
             size = 400f,
@@ -219,7 +224,12 @@ private fun UpgradingView(
                 },
                 label = "status_text"
             ) { state ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.semantics {
+                        liveRegion = if (isFailed) LiveRegionMode.Assertive else LiveRegionMode.Polite
+                    }
+                ) {
                     Text(
                         text = when (state) {
                             "done" -> "Upgrade Complete"
@@ -237,7 +247,7 @@ private fun UpgradingView(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = when (state) {
-                            "done" -> "All done! Taking you back..."
+                            "done" -> "All done!"
                             "failed" -> "Something went wrong during the upgrade"
                             else -> description ?: "Please wait, this may take a moment"
                         },
@@ -307,6 +317,20 @@ private fun UpgradingView(
                     }
                 }
             }
+
+            AnimatedVisibility(
+                visible = isDone || isFailed,
+                enter = fadeIn(tween(400)),
+                exit = fadeOut(tween(300))
+            ) {
+                Column {
+                    Spacer(modifier = Modifier.height(40.dp))
+                    Button(
+                        onClick = onNavigateBack,
+                        shape = RoundedCornerShape(16.dp)
+                    ) { Text(if (isDone) "Done" else "Go Back") }
+                }
+            }
         }
     }
 }
@@ -335,12 +359,16 @@ private fun ReviewView(
 
 
     val selectedHumanVersion = remember(selectedVersion) {
-        availableVersions.find { it.version == selectedVersion }?.version
+        availableVersions.find { it.version == selectedVersion }?.human_version
+            ?: summary.upgrade_human_version
+            ?: summary.latest_human_version
             ?: summary.latest_version
     }
 
     Column(
-        modifier = modifier.padding(16.dp)
+        modifier = modifier
+            .padding(16.dp)
+            .navigationBarsPadding()
     ) {
         Spacer(modifier = Modifier.height(72.dp))
 
@@ -465,12 +493,17 @@ private fun ReviewView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(16.dp)
+                        .toggleable(
+                            value = takeBackup,
+                            role = Role.Checkbox,
+                            onValueChange = { takeBackup = it }
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = takeBackup,
-                        onCheckedChange = { takeBackup = it }
+                        onCheckedChange = null
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Column {

@@ -69,6 +69,20 @@ class VmConsoleViewModel @Inject constructor(
         }
     }
 
+    fun startVm() {
+        if (vmId < 0) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, notReadyReason = null) }
+            when (val result = manager.vmService.startVmInstanceWithResult(vmId)) {
+                is ApiResult.Success -> load()
+                is ApiResult.Error -> _uiState.update {
+                    it.copy(isLoading = false, error = result.message)
+                }
+                ApiResult.Loading -> Unit
+            }
+        }
+    }
+
     private suspend fun loadUri(vm: Vm.VmQueryResponse) {
         when (val result = manager.vmService.getVmDisplayWithResult(vmId)) {
             is ApiResult.Success -> _uiState.update {

@@ -1,4 +1,8 @@
 package com.imnotndesh.truehub.ui.services.system.services
+import com.imnotndesh.truehub.ui.components.expressive.ExpressiveStatusChip
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import com.imnotndesh.truehub.ui.components.expressive.AdaptiveDetailScreen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -117,60 +121,32 @@ fun ServiceDetailScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+        AdaptiveDetailScreen(
+            header = {},
+            modifier = Modifier.padding(innerPadding)
         ) {
-            // Status header card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(CircleShape)
-                            .background(statusColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = getServiceStatusIcon(current.state),
-                            contentDescription = null,
-                            tint = statusColor,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = current.state.lowercase().replaceFirstChar { it.uppercase() },
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        if (current.pids.isNotEmpty()) {
-                            Text(
-                                text = "PID${if (current.pids.size > 1) "s" else ""}: ${current.pids.joinToString(", ")}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+            DetailHeroCard(
+                title = current.service,
+                subtitle = if (current.pids.isNotEmpty()) {
+                    "PID${if (current.pids.size > 1) "s" else ""}: ${current.pids.joinToString(", ")}"
+                } else {
+                    "Service Details"
+                },
+                leading = {
+                    DetailHeroIcon(
+                        icon = getServiceStatusIcon(current.state),
+                        containerColor = statusColor.copy(alpha = 0.15f),
+                        contentColor = statusColor
+                    )
+                },
+                badge = {
+                    ExpressiveStatusChip(
+                        label = current.state.lowercase().replaceFirstChar { it.uppercase() },
+                        tone = if (isRunning) StatusTone.POSITIVE else StatusTone.NEUTRAL,
+                        icon = getServiceStatusIcon(current.state)
+                    )
                 }
-            }
+            )
 
             // Start on boot toggle
             Card(

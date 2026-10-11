@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.imnotndesh.truehub.data.models.Virt.ContainerResponse
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveBadge
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveDivider
 import com.imnotndesh.truehub.ui.components.expressive.ExpressiveInfoCard
@@ -204,56 +203,47 @@ private fun ContainerPaneHeader(
     container: ContainerResponse,
     onClose: () -> Unit
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .padding(start = 24.dp, end = 8.dp, top = 24.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        WavyGradientBackground {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                ExpressiveShapeBox(
-                    shape = containerShape(container.type),
-                    containerColor = containerTypeContainerColor(container.type),
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        imageVector = containerTypeIcon(container.type),
-                        contentDescription = null,
-                        tint = containerTypeContentColor(container.type),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-                Text(
-                    text = container.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                ExpressiveBadge(
-                    label = containerStatusLabel(container.status),
-                    containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+        ExpressiveShapeBox(
+            shape = containerShape(container.type),
+            containerColor = containerTypeContainerColor(container.type),
+            modifier = Modifier.size(56.dp)
+        ) {
+            Icon(
+                imageVector = containerTypeIcon(container.type),
+                contentDescription = null,
+                tint = containerTypeContentColor(container.type),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(Modifier.size(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = container.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(6.dp))
+            ExpressiveStatusChip(
+                label = containerStatusLabel(container.status),
+                tone = containerStatusTone(container.status),
+                icon = containerStatusIcon(container.status)
+            )
+        }
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

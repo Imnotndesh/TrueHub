@@ -378,7 +378,7 @@ internal fun FloatingBottomBar(
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
-                    shadowElevation = 8.dp,
+                    shadowElevation = 3.dp,
                     modifier = Modifier.fillMaxWidth().height(FloatingNavMetrics.barHeight)
                 ) {
                     Row(
@@ -407,7 +407,7 @@ internal fun FloatingBottomBar(
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = RoundedCornerShape(FloatingNavMetrics.barHeight / 2),
-                        shadowElevation = 8.dp,
+                        shadowElevation = 3.dp,
                         modifier = Modifier
                             .height(FloatingNavMetrics.barHeight)
                             .widthIn(max = maxPillWidth)
@@ -441,7 +441,7 @@ internal fun FloatingBottomBar(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         shape = CircleShape,
-                        shadowElevation = 8.dp,
+                        shadowElevation = 3.dp,
                         modifier = Modifier.size(FloatingNavMetrics.searchButtonSize)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -659,6 +659,9 @@ private fun TrueHubNavGraph(
                 },
                 onNavigateToCreate = {
                     navController.navigate(Screen.CloudSyncForm.createRoute())
+                },
+                onNavigateToEdit = { taskId ->
+                    navController.navigate(Screen.CloudSyncForm.createRoute(taskId))
                 }
             )
         }
@@ -1033,6 +1036,16 @@ private fun TrueHubNavGraph(
                     navController.navigate(Screen.AppUpgrade.createRoute(appName)) },
                 onNavigateToRollback = { navController.navigate(Screen.RollbackVersion.createRoute(it)) },
                 onNavigateToMarketplace = { navController.navigate(Screen.Marketplace.route) },
+                onEditAppConfig = { appName, appTrain ->
+                    AppDataHolder.selectedAppValues = AppConfigPageValues(appName, appTrain)
+                    navController.navigate(Screen.AppConfigScreen.route)
+                },
+                onOpenResourceUsage = { appId ->
+                    navController.navigate(Screen.AppResourceUsage.createRoute(appId))
+                },
+                onNavigateToMarketplaceAppDetails = { _ ->
+                    navController.navigate(Screen.Marketplace.route)
+                },
             )
         }
 
@@ -1101,6 +1114,9 @@ private fun TrueHubNavGraph(
                 },
                 onOpenResourceUsage = { appId ->
                     navController.navigate(Screen.AppResourceUsage.createRoute(appId))
+                },
+                onRollbackClick = { appName ->
+                    navController.navigate(Screen.RollbackVersion.createRoute(appName))
                 }
             )
         }

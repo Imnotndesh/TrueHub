@@ -1,4 +1,7 @@
 package com.imnotndesh.truehub.ui.services.apps.details.appdetails
+import com.imnotndesh.truehub.ui.components.ErrorState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -95,6 +98,9 @@ fun AppConfigScreen(
     val context = LocalContext.current
     val activeJobsMap by JobRepository.activeJobs.collectAsState()
     val trackedJob = configState.saveJobId?.let { gid -> activeJobsMap[gid] }
+    val editCacheKey = remember(appValues.appName, manager) {
+        "${manager.boundProfileKey() ?: "unknown"}|${appValues.appName}"
+    }
 
     LaunchedEffect(appValues.appName) {
         formReady = false
@@ -107,19 +113,22 @@ fun AppConfigScreen(
         snapshotFlow { formState.toMap() }
             .debounce(500)
             .collect { snapshot ->
-                AppConfigEditCache.save(appValues.appName, snapshot)
+                AppConfigEditCache.save(editCacheKey, snapshot)
             }
     }
     LaunchedEffect(trackedJob) {
         if (trackedJob != null) {
             when (trackedJob.state.uppercase()) {
                 "SUCCESS" -> {
-                    AppConfigEditCache.clear(appValues.appName)
+                    AppConfigEditCache.clear(editCacheKey)
                     viewModel.clearAppConfigError()
                     onNavigateBack()
                 }
                 "FAILED", "ABORTED" -> {
-
+                    viewModel.reportConfigSaveFailure(
+                        trackedJob.description?.takeIf { it.isNotBlank() }
+                            ?: "The update job failed."
+                    )
                 }
             }
         }
@@ -134,7 +143,7 @@ fun AppConfigScreen(
         formState.clear()
         flattenDefaults(versionData?.values ?: emptyMap(), formState)
         flattenDefaults(liveConfig, formState)
-        AppConfigEditCache.load(appValues.appName)?.forEach { (k, v) ->
+        AppConfigEditCache.load(editCacheKey)?.forEach { (k, v) ->
             formState[k] = v
         }
         formReady = true
@@ -160,7 +169,7 @@ fun AppConfigScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                AppConfigEditCache.clear(appValues.appName)
+                                AppConfigEditCache.clear(editCacheKey)
                                 val details = uiState.catalogAppDetails
                                 val versionKey = details?.versions?.keys?.firstOrNull()
                                 val versionData = details?.versions?.get(versionKey)
@@ -194,7 +203,7 @@ fun AppConfigScreen(
                                 .weight(1f)
                                 .height(56.dp),
                             shape = RoundedCornerShape(20.dp),
-                            enabled = !configState.isSaving,
+                            enabled = !configState.isSaving && configState.config != null && configState.error == null,
                             colors = when {
                                 configState.saveSuccess -> ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary
@@ -296,6 +305,16 @@ fun AppConfigScreen(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("No configuration available")
                     }
+                }
+
+                configState.config == null && configState.error != null -> {
+                    ErrorState(
+                        message = configState.error ?: "Failed to load configuration",
+                        onRetry = {
+                            viewModel.clearAppConfigError()
+                            viewModel.loadAppConfig(appValues.appName)
+                        }
+                    )
                 }
 
                 else -> {
@@ -491,14 +510,16 @@ private fun ConfigEditorRow(
                 }
                 is Boolean -> {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = value, role = Role.Switch, onValueChange = onValueChange),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Enabled", style = MaterialTheme.typography.bodyMedium)
                         Switch(
                             checked = value,
-                            onCheckedChange = onValueChange
+                            onCheckedChange = null
                         )
                     }
                 }

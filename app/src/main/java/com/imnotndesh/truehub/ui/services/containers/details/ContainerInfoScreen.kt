@@ -1,4 +1,9 @@
 package com.imnotndesh.truehub.ui.services.containers.details
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -95,9 +100,23 @@ fun ContainerInfoScreen(
     val operation = operations[containerId]
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
+    var isActive by remember { mutableStateOf(true) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    DisposableEffect(Unit) {
+        onDispose { isActive = false }
+    }
 
     LaunchedEffect(containerId) {
         viewModel.load()
+    }
+
+    LaunchedEffect(state.error) {
+        val message = state.error
+        if (message != null && state.container != null) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
     }
 
     if (showDeleteDialog) {
@@ -109,7 +128,7 @@ fun ContainerInfoScreen(
                 TextButton(
                     onClick = {
                         showDeleteDialog = false
-                        viewModel.delete { onNavigateBack() }
+                        viewModel.delete { if (isActive) onNavigateBack() }
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text("Delete") }
@@ -134,7 +153,10 @@ fun ContainerInfoScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(containerColor = MaterialTheme.colorScheme.background) { _ ->
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { _ ->
             val container = state.container
             when {
                 state.isLoading && container == null -> LoadingScreen("Loading Container")
@@ -243,86 +265,9 @@ private fun ContainerHeroCard(
     val isRunning = container.status == Virt.Status.RUNNING
     val isBusy = operationLabel != null
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ExpressiveShapeBox(
-                    shape = containerShape(container.type),
-                    containerColor = containerTypeContainerColor(container.type),
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        imageVector = containerTypeIcon(container.type),
-                        contentDescription = null,
-                        tint = containerTypeContentColor(container.type),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = container.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "ID: ${container.id.take(12)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    ExpressiveStatusChip(
-                        label = containerStatusLabel(container.status),
-                        tone = containerStatusTone(container.status),
-                        icon = containerStatusIcon(container.status)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                ExpressiveIconActionButton(
-                    icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = if (isRunning) "Stop container" else "Start container",
-                    isPrimary = !isRunning,
-                    enabled = !isBusy,
-                    onClick = { if (isRunning) onStop() else onStart() },
-                    modifier = Modifier.size(52.dp)
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                ExpressiveIconActionButton(
-                    icon = Icons.Default.Edit,
-                    contentDescription = "Edit configuration",
-                    isPrimary = false,
-                    enabled = !isBusy,
-                    onClick = onEdit,
-                    modifier = Modifier.size(52.dp)
-                )
-            }
-
-            if (isBusy) {
-                Spacer(modifier = Modifier.height(16.dp))
+    val progressActions: (@Composable RowScope.() -> Unit)? = if (isBusy) {
+        {
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -355,7 +300,55 @@ private fun ContainerHeroCard(
                 )
             }
         }
+    } else {
+        null
     }
+
+    DetailHeroCard(
+        title = container.name,
+        subtitle = "ID: ${container.id.take(12)}",
+        leading = {
+            ExpressiveShapeBox(
+                shape = containerShape(container.type),
+                containerColor = containerTypeContainerColor(container.type),
+                modifier = Modifier.size(52.dp)
+            ) {
+                Icon(
+                    imageVector = containerTypeIcon(container.type),
+                    contentDescription = null,
+                    tint = containerTypeContentColor(container.type),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
+        badge = {
+            ExpressiveStatusChip(
+                label = containerStatusLabel(container.status),
+                tone = containerStatusTone(container.status),
+                icon = containerStatusIcon(container.status)
+            )
+        },
+        trailing = {
+            ExpressiveIconActionButton(
+                icon = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                contentDescription = if (isRunning) "Stop container" else "Start container",
+                isPrimary = !isRunning,
+                enabled = !isBusy,
+                onClick = { if (isRunning) onStop() else onStart() },
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            ExpressiveIconActionButton(
+                icon = Icons.Default.Edit,
+                contentDescription = "Edit configuration",
+                isPrimary = false,
+                enabled = !isBusy,
+                onClick = onEdit,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        actions = progressActions
+    )
 }
 
 @Composable

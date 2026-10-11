@@ -1,6 +1,10 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.imnotndesh.truehub.ui.services.containers.create
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.imePadding
+import androidx.activity.compose.BackHandler
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +76,17 @@ fun ContainerCreateScreen(
     var showImagePicker by remember { mutableStateOf(false) }
     var showPoolPicker by remember { mutableStateOf(false) }
     var showIoBusPicker by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+
+    val isDirty = name.isNotBlank() || selectedImage != null || selectedPool.isNotBlank() ||
+        cpu.isNotBlank() || memory.isNotBlank() || rootDiskSize != "10" ||
+        !autostart || privileged
+
+    fun requestExit() {
+        if (isDirty) showDiscardDialog = true else onNavigateBack()
+    }
+
+    BackHandler(enabled = isDirty) { showDiscardDialog = true }
 
     LaunchedEffect(state.creationCompleted) {
         if (state.creationCompleted) onCreated()
@@ -101,9 +116,9 @@ fun ContainerCreateScreen(
                 isLoading = state.isLoadingChoices || state.isSaving,
                 isRefreshing = state.isRefreshing,
                 error = state.error,
-                onDismissError = { viewModel.loadChoices() },
+                onDismissError = viewModel::dismissError,
                 manager = manager,
-                onBackPressed = onNavigateBack
+                onBackPressed = { requestExit() }
             )
         },
         bottomBar = {
@@ -115,7 +130,7 @@ fun ContainerCreateScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = onNavigateBack,
+                        onClick = { requestExit() },
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
@@ -142,6 +157,7 @@ fun ContainerCreateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             when {
                 state.isSaving -> {
@@ -309,6 +325,25 @@ fun ContainerCreateScreen(
             onSelect = {
                 rootDiskIoBus = Virt.RootDiskIOBus.entries.firstOrNull { bus -> bus.name == it }
                 showIoBusPicker = false
+            }
+        )
+    }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Discard this container?") },
+            text = { Text("Your unsaved changes will be lost.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        onNavigateBack()
+                    }
+                ) { Text("Discard") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep editing") }
             }
         )
     }

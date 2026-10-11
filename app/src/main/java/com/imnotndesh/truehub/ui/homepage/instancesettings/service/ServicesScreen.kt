@@ -1,4 +1,10 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.service
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import com.imnotndesh.truehub.ui.services.system.services.ServiceDetailScreen
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +82,10 @@ fun ServicesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val refreshState = rememberPullToRefreshState()
 
+    val window = LocalTrueHubWindow.current
+    var selectedService by remember { mutableStateOf<System.ServiceQueryResponse?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedService != null
+
     Column(modifier = Modifier.fillMaxSize()) {
         UnifiedScreenHeader(
             title = "Services",
@@ -88,11 +98,15 @@ fun ServicesScreen(
             onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         PullToRefreshBox(
             isRefreshing = uiState.isRefreshing,
             onRefresh = { viewModel.refresh() },
             state = refreshState,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.fillMaxSize()
         ) {
             when {
                 uiState.services.isEmpty() && uiState.isLoading && !uiState.isRefreshing -> {
@@ -120,6 +134,17 @@ fun ServicesScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedService?.let { service ->
+                    ServiceDetailScreen(
+                        service = service,
+                        manager = manager,
+                        onNavigateBack = { selectedService = null }
+                    )
+                }
+            }
+        )
     }
 }
 

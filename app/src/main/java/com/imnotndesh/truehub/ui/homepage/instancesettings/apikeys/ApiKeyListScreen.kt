@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.apikeys
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
+import com.imnotndesh.truehub.ui.adaptive.ListDetailLayout
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
@@ -87,12 +89,13 @@ fun ApiKeyListScreen(
 ) {
     val vm: ApiKeyViewModel = hiltViewModel()
     val uiState by vm.listState.collectAsState()
+    val window = LocalTrueHubWindow.current
+    var selectedKeyId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val showDetail = window.isAtLeastExpanded && selectedKeyId != null
 
     LaunchedEffect(Unit) { vm.loadKeys() }
 
-    Column(modifier = Modifier.fillMaxSize().background(
-        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer))
-    )) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UnifiedScreenHeader(
             title = "API Keys",
             subtitle = "${uiState.filteredKeys.size} / ${uiState.keys.size} key(s)",
@@ -101,6 +104,10 @@ fun ApiKeyListScreen(
             manager = manager, onBackPressed = onNavigateBack
         )
 
+        ListDetailLayout(
+            showDetail = showDetail,
+            modifier = Modifier.weight(1f),
+            list = {
         Scaffold(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -190,6 +197,17 @@ fun ApiKeyListScreen(
                 }
             }
         }
+            },
+            detail = {
+                selectedKeyId?.let { keyId ->
+                    ApiKeyDetailScreen(
+                        keyId = keyId,
+                        manager = manager,
+                        onNavigateBack = { selectedKeyId = null }
+                    )
+                }
+            }
+        )
     }
 }
 

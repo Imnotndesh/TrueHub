@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.audit
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -207,7 +209,11 @@ fun AuditLogsScreen(
                 }
                 else -> {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .widthIn(max = 840.dp)
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,

@@ -1,4 +1,13 @@
 package com.imnotndesh.truehub.ui.setup
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Scaffold
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxHeight
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +64,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.imnotndesh.truehub.ui.background.WavyGradientBackground
+import com.imnotndesh.truehub.ui.background.ExpressiveScreenBackground
+import com.imnotndesh.truehub.ui.adaptive.LocalTrueHubWindow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,7 +105,7 @@ fun ServerConfigBottomSheet(
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = null
     ) {
-        WavyGradientBackground {
+        ExpressiveScreenBackground {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -237,6 +247,116 @@ fun ServerConfigBottomSheet(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ServerSetupScreen(
+    onBack: () -> Unit,
+    onConfigured: (String, Boolean) -> Unit,
+    initialUrl: String? = null,
+    initialInsecure: Boolean = false
+) {
+    val viewModel: SetupScreenViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val window = LocalTrueHubWindow.current
+
+    LaunchedEffect(Unit) {
+        initialUrl?.let {
+            viewModel.handleEvent(SetupEvent.UpdateServerUrl(it.replace("/api/current", "")))
+        }
+        viewModel.handleEvent(SetupEvent.UpdateInsecure(initialInsecure))
+    }
+
+    LaunchedEffect(uiState.setupComplete) {
+        if (uiState.setupComplete) {
+            onConfigured(viewModel.formatUrl(uiState.serverUrl), uiState.insecure)
+            viewModel.handleEvent(SetupEvent.ResetSetupComplete)
+        }
+    }
+
+    OnboardingScaffold(
+        brandLeading = {
+            IconButton(
+                onClick = { if (!uiState.isConfiguring) onBack() },
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+        },
+        compactLeading = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { if (!uiState.isConfiguring) onBack() }) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Server setup",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        brand = {
+            OnboardingBrand(
+                title = "Server setup",
+                tagline = "Connect to your TrueNAS instance to get started.",
+                onContainer = window.isAtLeastMedium,
+                shapeSize = if (window.isAtLeastMedium) 144.dp else 112.dp,
+                titleStyle = if (window.isAtLeastMedium) MaterialTheme.typography.displayMedium else MaterialTheme.typography.displaySmall
+            )
+        },
+        actions = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shadowElevation = 3.dp
+            ) {
+                ActionButtons(
+                    isConfiguring = uiState.isConfiguring,
+                    isValid = uiState.urlValidation.isValid && uiState.serverUrl.isNotEmpty(),
+                    showChangeUrlOption = false,
+                    onDismiss = onBack,
+                    onConfigure = { viewModel.handleEvent(SetupEvent.Configure(context)) },
+                    modifier = Modifier.padding(24.dp)
+                )
+            }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            ServerUrlCard(
+                serverUrl = uiState.serverUrl,
+                urlValidation = uiState.urlValidation,
+                isConfiguring = uiState.isConfiguring,
+                onUrlChange = { viewModel.handleEvent(SetupEvent.UpdateServerUrl(it)) }
+            )
+
+            uiState.connectionError?.let { error ->
+                ErrorCard(error = error)
+            }
+
+            SecurityCard(
+                insecure = uiState.insecure,
+                isConfiguring = uiState.isConfiguring,
+                onInsecureChange = {
+                    viewModel.handleEvent(SetupEvent.UpdateInsecure(it))
+                }
+            )
+
+            InfoCard()
         }
     }
 }

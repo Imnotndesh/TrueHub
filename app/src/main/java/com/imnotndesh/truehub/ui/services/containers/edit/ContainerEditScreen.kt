@@ -1,6 +1,15 @@
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package com.imnotndesh.truehub.ui.services.containers.edit
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,6 +83,14 @@ fun ContainerEditScreen(
     var rootDiskSize by rememberSaveable { mutableStateOf("") }
     var rootDiskIoBus by remember { mutableStateOf<Virt.RootDiskIOBus?>(null) }
     var showIoBusPicker by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
+
+    val vncPortValue = vncPort.trim().toIntOrNull()
+    val vncPortError = if (vncEnabled && vncPort.isNotBlank() && (vncPortValue == null || vncPortValue !in 5900..65535)) {
+        "Port must be between 5900 and 65535"
+    } else {
+        null
+    }
 
     LaunchedEffect(state.container?.id) {
         state.container?.let { container ->
@@ -139,7 +156,7 @@ fun ContainerEditScreen(
                     }
                     Button(
                         onClick = { submit() },
-                        enabled = !state.isSaving,
+                        enabled = !state.isSaving && vncPortError == null,
                         modifier = Modifier
                             .weight(1f)
                             .height(52.dp),
@@ -156,6 +173,7 @@ fun ContainerEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             when {
                 state.isSaving -> {
@@ -258,12 +276,33 @@ fun ContainerEditScreen(
                                                     value = vncPort,
                                                     onValueChange = { vncPort = it },
                                                     label = "VNC port",
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                    supportingText = vncPortError?.let { message ->
+                                                        { Text(message) }
+                                                    },
                                                     modifier = Modifier.weight(1f)
                                                 )
                                                 ExpressiveTextField(
                                                     value = vncPassword,
                                                     onValueChange = { vncPassword = it },
                                                     label = "VNC password",
+                                                    visualTransformation = if (passwordVisible) {
+                                                        VisualTransformation.None
+                                                    } else {
+                                                        PasswordVisualTransformation()
+                                                    },
+                                                    trailingIcon = {
+                                                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                                            Icon(
+                                                                imageVector = if (passwordVisible) {
+                                                                    Icons.Default.VisibilityOff
+                                                                } else {
+                                                                    Icons.Default.Visibility
+                                                                },
+                                                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                                            )
+                                                        }
+                                                    },
                                                     modifier = Modifier.weight(1f)
                                                 )
                                             }

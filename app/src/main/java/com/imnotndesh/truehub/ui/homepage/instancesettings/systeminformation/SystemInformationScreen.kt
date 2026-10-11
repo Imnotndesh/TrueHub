@@ -1,4 +1,5 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.systeminformation
+import com.imnotndesh.truehub.ui.adaptive.InfoCardGrid
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,27 +63,27 @@ fun SystemInformationScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        InfoCardGrid(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            InfoEntryCard(
-                icon = Icons.Default.Build,
-                title = "Software Information",
-                subtitle = "Version, features, product type and release notes",
-                onClick = onNavigateToSoftwareInformation
-            )
-            InfoEntryCard(
-                icon = Icons.Default.Hardware,
-                title = "Hardware Information",
-                subtitle = "CPU, memory, storage, chassis and identifiers",
-                onClick = onNavigateToHardwareInformation
-            )
-            Spacer(Modifier.height(8.dp))
+            item {
+                InfoEntryCard(
+                    icon = Icons.Default.Build,
+                    title = "Software Information",
+                    subtitle = "Version, features, product type and release notes",
+                    onClick = onNavigateToSoftwareInformation
+                )
+            }
+            item {
+                InfoEntryCard(
+                    icon = Icons.Default.Hardware,
+                    title = "Hardware Information",
+                    subtitle = "CPU, memory, storage, chassis and identifiers",
+                    onClick = onNavigateToHardwareInformation
+                )
+            }
         }
     }
 }

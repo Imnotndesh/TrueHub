@@ -1,4 +1,10 @@
 package com.imnotndesh.truehub.ui.services.vm.form
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
+import androidx.activity.compose.BackHandler
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,6 +75,14 @@ fun VmFormScreen(
     }
 
     var picker by remember { mutableStateOf<VmFormPicker?>(null) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    val isDirty = !state.isLoading && form != state.form
+
+    fun requestExit() {
+        if (isDirty) showDiscardDialog = true else onNavigateBack()
+    }
+
+    BackHandler(enabled = isDirty) { showDiscardDialog = true }
 
     Scaffold(
         topBar = {
@@ -80,7 +94,7 @@ fun VmFormScreen(
                 error = state.error,
                 onDismissError = viewModel::clearError,
                 manager = manager,
-                onBackPressed = onNavigateBack
+                onBackPressed = { requestExit() }
             )
         },
         bottomBar = {
@@ -92,7 +106,7 @@ fun VmFormScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     OutlinedButton(
-                        onClick = onNavigateBack,
+                        onClick = { requestExit() },
                         enabled = !state.isSaving,
                         modifier = Modifier
                             .weight(1f)
@@ -126,6 +140,7 @@ fun VmFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
         ) {
             if (state.isLoading) {
                 LoadingScreen("Loading VM options")
@@ -162,6 +177,7 @@ fun VmFormScreen(
                                     value = form.memory,
                                     onValueChange = { form = form.copy(memory = it) },
                                     label = "Memory (MB)",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     supportingText = state.availableMemoryMb?.let {
                                         { Text("Up to ${it / 1024} GB available") }
                                     }
@@ -170,6 +186,7 @@ fun VmFormScreen(
                                     value = form.minMemory,
                                     onValueChange = { form = form.copy(minMemory = it) },
                                     label = "Minimum memory (MB)",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     placeholder = "Optional (ballooning)"
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -177,6 +194,7 @@ fun VmFormScreen(
                                         value = form.vcpus,
                                         onValueChange = { form = form.copy(vcpus = it) },
                                         label = "vCPUs",
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         supportingText = state.maxVcpus?.let { { Text("Max $it") } },
                                         modifier = Modifier.weight(1f)
                                     )
@@ -184,12 +202,14 @@ fun VmFormScreen(
                                         value = form.cores,
                                         onValueChange = { form = form.copy(cores = it) },
                                         label = "Cores",
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f)
                                     )
                                     ExpressiveTextField(
                                         value = form.threads,
                                         onValueChange = { form = form.copy(threads = it) },
                                         label = "Threads",
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -296,7 +316,8 @@ fun VmFormScreen(
                                 ExpressiveTextField(
                                     value = form.shutdownTimeout,
                                     onValueChange = { form = form.copy(shutdownTimeout = it) },
-                                    label = "Shutdown timeout (s)"
+                                    label = "Shutdown timeout (s)",
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                 )
                                 ExpressiveToggleRow(
                                     title = "Hyper-V enlightenments",
@@ -336,6 +357,25 @@ fun VmFormScreen(
                 }
             }
         }
+    }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Discard changes?") },
+            text = { Text("Your unsaved VM configuration will be lost.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDiscardDialog = false
+                        onNavigateBack()
+                    }
+                ) { Text("Discard") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep editing") }
+            }
+        )
     }
 
     picker?.let { current ->

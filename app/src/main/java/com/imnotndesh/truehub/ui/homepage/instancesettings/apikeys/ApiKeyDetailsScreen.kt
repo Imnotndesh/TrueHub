@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.homepage.instancesettings.apikeys
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroIcon
+import com.imnotndesh.truehub.ui.components.expressive.DetailHeroCard
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -86,9 +88,7 @@ fun ApiKeyDetailScreen(
         if (current?.revoked == true) StatusTone.NEGATIVE.color() else StatusTone.POSITIVE.color(), label = ""
     )
 
-    Column(Modifier.fillMaxSize().background(
-        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceContainer))
-    )) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         UnifiedScreenHeader(
             title = current?.name ?: "API Key",
             subtitle = current?.username ?: "Key details",
@@ -101,30 +101,31 @@ fun ApiKeyDetailScreen(
                 uiState.isLoading -> LoadingScreen("Loading key details")
                 current != null -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Status card
-                    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(2.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(56.dp).clip(CircleShape).background(sc.value.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Key, null, tint = sc.value, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(current.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface)
-                                Text(current.username ?: "System key", style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                    DetailHeroCard(
+                        title = current.name,
+                        subtitle = current.username ?: "System key",
+                        leading = {
+                            DetailHeroIcon(
+                                icon = Icons.Default.Key,
+                                containerColor = sc.value.copy(alpha = 0.12f),
+                                contentColor = sc.value
+                            )
+                        },
+                        badge = {
                             Surface(color = sc.value.copy(alpha = 0.12f), shape = RoundedCornerShape(100.dp)) {
                                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Box(Modifier.size(8.dp).clip(CircleShape).background(sc.value))
                                     Spacer(Modifier.width(6.dp))
-                                    Text(if (current.revoked) "Revoked" else "Active",
-                                        style = MaterialTheme.typography.labelMedium, color = sc.value, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        if (current.revoked) "Revoked" else "Active",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = sc.value,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }
-                    }
+                    )
 
                     // Key Info section
                     SectionCard(title = "Key Info", icon = Icons.Default.VpnKey) {

@@ -281,14 +281,14 @@ private fun VolumeRow(
             IconButton(onClick = onEdit, enabled = volume.usedBy.isEmpty()) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit volume",
+                    contentDescription = "Edit ${volume.name}",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onDelete, enabled = volume.usedBy.isEmpty()) {
                 Icon(
                     imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete volume",
+                    contentDescription = "Delete ${volume.name}",
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -455,7 +455,7 @@ private fun ImportIsoSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var name by rememberSaveable { mutableStateOf("") }
     var isoLocation by rememberSaveable { mutableStateOf("") }
-    var pool by rememberSaveable { mutableStateOf("") }
+    var pool by rememberSaveable { mutableStateOf(poolChoices.keys.firstOrNull().orEmpty()) }
     var showPoolPicker by remember { mutableStateOf(false) }
     var showFilePicker by remember { mutableStateOf(false) }
 
@@ -506,7 +506,7 @@ private fun ImportIsoSheet(
                 ) { Text("Cancel") }
                 Button(
                     onClick = { onImport(name, isoLocation, pool) },
-                    enabled = name.isNotBlank() && isoLocation.isNotBlank(),
+                    enabled = name.isNotBlank() && isoLocation.isNotBlank() && pool.isNotBlank(),
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp),

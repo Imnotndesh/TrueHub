@@ -1,4 +1,6 @@
 package com.imnotndesh.truehub.ui.profile
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 
 import android.app.Application
 import androidx.compose.foundation.background
@@ -149,9 +151,15 @@ private fun ProfileContent(
     onRefreshProfile: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter
+    ) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .widthIn(max = 840.dp)
+            .fillMaxWidth()
+            .fillMaxHeight()
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -190,7 +198,7 @@ private fun ProfileContent(
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp, vertical = 8.dp)
             ) {
-                WavyGradientBackground {
+                ExpressiveScreenBackground {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -480,6 +488,7 @@ private fun ProfileContent(
 
         Spacer(modifier = Modifier.height(24.dp))
     }
+    }
 }
 
 @Composable
@@ -535,23 +544,13 @@ private fun SystemInfoCard(
 }
 
 @Composable
-private fun WavyGradientBackground(
+private fun ExpressiveScreenBackground(
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
-                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.1f)
-                    ),
-                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(1000f, 1000f)
-                )
-            )
+            .background(MaterialTheme.colorScheme.surface)
             .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {

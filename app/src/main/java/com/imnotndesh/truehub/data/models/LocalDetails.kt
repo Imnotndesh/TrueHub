@@ -25,13 +25,24 @@ data class SavedAccount(
     val username: String,
     val loginMethod: LoginMethod,
     val lastUsed: Long = java.lang.System.currentTimeMillis(),
-    val autoLoginEnabled: Boolean = false
+    val autoLoginEnabled: Boolean = false,
+    /**
+     * Friendly name for this device, generated at sign-in. Used to label the API key that was
+     * minted for a device paired over QR, so it can be identified and revoked later.
+     */
+    val deviceName: String? = null
 )
 
 enum class LoginMethod {
     PASSWORD,
     API_KEY,
-    TOTP
+    TOTP,
+
+    /**
+     * Signed in by scanning a QR code produced by another device that was already signed in.
+     * Devices using this method cannot themselves authorise new devices (see Easy Setup).
+     */
+    PAIRED
 }
 
 /**

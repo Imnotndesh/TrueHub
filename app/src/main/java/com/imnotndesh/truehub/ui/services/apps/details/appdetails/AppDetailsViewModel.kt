@@ -33,6 +33,9 @@ class AppDetailsViewModel @Inject constructor(
     private val _deletionJobId = MutableStateFlow<Int?>(null)
     val deletionJobId: StateFlow<Int?> = _deletionJobId
 
+    private val _deletionError = MutableStateFlow<String?>(null)
+    val deletionError: StateFlow<String?> = _deletionError
+
     fun loadSimilarApps(appName: String, train: String) {
         viewModelScope.launch {
             _isLoadingSimilar.value = true
@@ -81,6 +84,7 @@ class AppDetailsViewModel @Inject constructor(
         options: Apps.DeleteAppOptions = Apps.DeleteAppOptions()
     ) {
         viewModelScope.launch {
+            _deletionError.value = null
             val result = manager.apps.removeAppWithResult(appName, options)
             if (result is ApiResult.Success) {
                 val jobId = result.data
@@ -93,8 +97,20 @@ class AppDetailsViewModel @Inject constructor(
                     appName = appName,
                     showNotif = true
                 )
+            } else if (result is ApiResult.Error) {
+                _deletionJobId.value = null
+                _deletionError.value = result.message
             }
         }
+    }
+
+    fun clearDeletionError() {
+        _deletionError.value = null
+    }
+
+    fun reportDeletionFailure(message: String) {
+        _deletionJobId.value = null
+        _deletionError.value = message
     }
 
     companion object {
