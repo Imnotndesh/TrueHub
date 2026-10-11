@@ -107,8 +107,9 @@ class ContainerVolumesViewModel @Inject constructor(
     }
 
     fun beginEdit(volume: Virt.VolumeEntry) {
+        val id = volume.id ?: return
         viewModelScope.launch {
-            when (val result = manager.virtService.getVolumeWithResult(volume.id)) {
+            when (val result = manager.virtService.getVolumeWithResult(id)) {
                 is ApiResult.Success -> _uiState.value = _uiState.value.copy(editingVolume = result.data, error = null)
                 is ApiResult.Error -> _uiState.value = _uiState.value.copy(editingVolume = volume, error = result.message)
                 ApiResult.Loading -> _uiState.value = _uiState.value.copy(editingVolume = volume)
@@ -204,8 +205,9 @@ class ContainerVolumesViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(error = "Volume is in use by one or more instances")
             return
         }
+        val id = volume.id ?: return
         viewModelScope.launch {
-            when (val result = manager.virtService.deleteVolumeWithResult(volume.id)) {
+            when (val result = manager.virtService.deleteVolumeWithResult(id)) {
                 is ApiResult.Success -> _uiState.value = _uiState.value.copy(
                     volumes = _uiState.value.volumes.filterNot { it.id == volume.id }
                 )
