@@ -1108,3 +1108,6 @@ api-map.md
 .aider*
 .llm/
 
+
+# --- Local-only design docs (never commit/push) ---
+docs/
