@@ -30,6 +30,8 @@ jobs:
 
       - name: Cache Gradle + wrapper + build cache
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -232,6 +234,8 @@ jobs:
 
       - name: Cache Gradle + wrapper + build cache
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
 
       - name: Build unsigned release APKs
         run: ./gradlew --build-cache assembleGithubRelease --no-daemon
