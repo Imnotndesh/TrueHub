@@ -5,13 +5,16 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val abiSplits: Boolean = (findProperty("abiSplits") as String? ?: "false").toBoolean()
+
 fun versionCodeFrom(versionName: String): Int {
     val match = Regex("""[vV]?(\d+)\.(\d+)\.(\d+)(?:[-_ ]?([A-Za-z]+)\.?(\d+)?)?""").find(versionName) ?: return 0
     val (major, minor, patch) = match.destructured
     val stage = when (match.groupValues[4].lowercase()) {
-        "beta" -> 1
-        "rc" -> 2
-        else -> 3
+        "alpha", "a" -> 1
+        "beta", "b" -> 2
+        "rc" -> 3
+        else -> 4
     }
     val prereleaseNumber = match.groupValues[5].toIntOrNull() ?: 0
     return (major.toInt() * 100 + minor.toInt()) * 10_000 + patch.toInt() * 100 + stage * 10 + prereleaseNumber
@@ -75,10 +78,10 @@ android {
     }
     splits {
         abi {
-            isEnable = true
+            isEnable = abiSplits
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
     buildFeatures {
