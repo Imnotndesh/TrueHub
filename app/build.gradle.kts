@@ -7,23 +7,8 @@ plugins {
 
 val abiSplits: Boolean = (findProperty("abiSplits") as String? ?: "false").toBoolean()
 
-fun versionCodeFrom(versionName: String): Int {
-    val match = Regex("""[vV]?(\d+)\.(\d+)\.(\d+)(?:[-_ ]?([A-Za-z]+)\.?(\d+)?)?""").find(versionName) ?: return 0
-    val (major, minor, patch) = match.destructured
-    val stage = when (match.groupValues[4].lowercase()) {
-        "alpha", "a" -> 1
-        "beta", "b" -> 2
-        "rc" -> 3
-        else -> 4
-    }
-    val prereleaseNumber = match.groupValues[5].toIntOrNull() ?: 0
-    return (major.toInt() * 100 + minor.toInt()) * 10_000 + patch.toInt() * 100 + stage * 10 + prereleaseNumber
-}
-
-val appVersionName: String = (findProperty("appVersionName") as String?)?.takeIf { it.isNotBlank() } ?: "0.8.1-rc"
-val appVersionCode: Int = (findProperty("appVersionCode") as String?)?.toIntOrNull()
-    ?: versionCodeFrom(appVersionName).takeIf { it > 0 }
-    ?: 1
+val appVersionName = "0.8.2"
+val appVersionCode = 80240
 
 val versionPropertiesFile = layout.buildDirectory.file("version.properties")
 
@@ -45,9 +30,8 @@ android {
     defaultConfig {
         minSdk = 33
         targetSdk = 37
-        versionCode = appVersionCode
-        versionName = appVersionName
-
+        versionCode = 80240
+        versionName = "0.8.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     android.buildFeatures.buildConfig = true
