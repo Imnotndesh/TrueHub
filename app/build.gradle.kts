@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+val abiSplits: Boolean = (findProperty("abiSplits") as String? ?: "false").toBoolean()
+
 fun versionCodeFrom(versionName: String): Int {
     val match = Regex("""[vV]?(\d+)\.(\d+)\.(\d+)(?:[-_ ]?([A-Za-z]+)\.?(\d+)?)?""").find(versionName) ?: return 0
     val (major, minor, patch) = match.destructured
@@ -75,10 +77,10 @@ android {
     }
     splits {
         abi {
-            isEnable = true
+            isEnable = abiSplits
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
     buildFeatures {
